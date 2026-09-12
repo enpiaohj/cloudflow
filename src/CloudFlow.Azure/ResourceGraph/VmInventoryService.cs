@@ -81,8 +81,10 @@ public sealed class ResourceGraphVmInventoryService : IVmInventoryService
 
     public async Task<IReadOnlyList<VmSummary>> QueryAsync(ResourceScope scope, CancellationToken ct = default)
     {
-        var session = await _sessions.GetActiveSessionAsync(ct).ConfigureAwait(false)
-            ?? throw new NotConfiguredException("尚未登录 Azure 账户。");
+        var accountId = _scopeContext.ActiveAccount?.AccountId
+            ?? throw new NotConfiguredException("尚未选择 Azure 账户。");
+        var session = await _sessions.GetSessionAsync(accountId, ct).ConfigureAwait(false)
+            ?? throw new ReauthenticationRequiredException("登录会话已失效，请重新登录。");
 
         var token = await session.GetAccessTokenAsync(
             ["https://management.azure.com/.default"], ct).ConfigureAwait(false);

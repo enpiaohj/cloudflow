@@ -79,10 +79,23 @@ public partial class App : Application
         services.AddSingleton(authConfig);
         services.AddSingleton<ScopeContext>();
         services.AddSingleton<IAccountSessionManager, MsalAccountSessionManager>();
-        services.AddSingleton<IAzureClientFactory, MsalAzureClientFactory>();
+        services.AddSingleton<SubscriptionDiscoveryService>();
+        services.AddSingleton<ISubscriptionDiscoveryService>(sp => sp.GetRequiredService<SubscriptionDiscoveryService>());
+
+        // 统一身份 Provider（P0 Spike）：MSAL（企业）+ 嵌入式 Azure CLI（个人）
+        services.AddSingleton<CloudFlow.Azure.Identity.AzureCli.AzureCliProcessRunner>();
+        services.AddSingleton<CloudFlow.Azure.Identity.AzureCli.AzureCliProfileManager>();
+        services.AddSingleton<CloudFlow.Azure.Identity.AzureCli.AzureCliRuntimeManager>();
+        services.AddSingleton<ICloudIdentityProvider, CloudFlow.Azure.Identity.Msal.MsalIdentityProvider>();
+        services.AddSingleton<ICloudIdentityProvider>(sp => new CloudFlow.Azure.Identity.AzureCli.EmbeddedAzureCliIdentityProvider(
+            sp.GetRequiredService<CloudFlow.Azure.Identity.AzureCli.AzureCliProcessRunner>(),
+            sp.GetRequiredService<CloudFlow.Azure.Identity.AzureCli.AzureCliProfileManager>(),
+            sp.GetRequiredService<CloudFlow.Azure.Identity.AzureCli.AzureCliRuntimeManager>().ResolveAzCmd()));
+        services.AddSingleton<IAzureClientFactory, CloudArmClientFactory>();
 
         // ---- Data ----
         services.AddSingleton<SavedScopeStore>();
+        services.AddSingleton<ActiveAccountStore>();
         services.AddSingleton<IAuditLog, AuditFileLog>();
 
         // ---- Operations（Operation Engine + Handlers）----

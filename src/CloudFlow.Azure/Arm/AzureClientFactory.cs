@@ -1,28 +1,55 @@
+using Azure.ResourceManager;
 using CloudFlow.Core.Identity;
+using CloudFlow.Azure.Identity;
 
 namespace CloudFlow.Azure.Arm;
 
 /// <summary>
-/// Azure Client 工厂平台接口（设计文档 §71）。
-/// 任何 Module 不直接 new ArmClient(...)，统一经由工厂按 AccountSession + Tenant 创建，
-/// 保证跨 Account / Tenant 操作不会混用 Token。
+/// Azure Client 工厂平台接口（设计文档 §71；P0 Spike 规范 §十四）。
+/// 任何 Module 不得直接 new ArmClient(...)，统一经工厂按 CloudAccount + Tenant 创建，
+/// 保证跨 Account / Tenant 操作不混用 Token。
 /// </summary>
 public interface IAzureClientFactory
 {
-    /// <summary>为指定会话创建 ARM Client（Token 来自 MSAL，经 TokenCredential 桥接）。</summary>
-    object CreateArmClient(AccountSession session, string? tenantId = null);
+    /// <summary>按账户的 ProviderType 路由到对应身份 Provider，取 TokenCredential 后创建 ARM Client。</summary>
+    Task<ArmClient> CreateAsync(CloudAccount account, string tenantId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
-/// AzureClientFactory 的 MSAL 版本。
-/// P1 实现：MsalTokenCredential（TokenCredential 适配 MSAL AccountSession）+ ArmClient。
-/// 当前阶段仅保留接口与占位，等待 appsettings 配置真实 ClientId 后接入 Azure.ResourceManager。
+/// 统一 ARM Client 工厂：CloudAccount → CloudCredentialContext → ICloudIdentityProvider
+/// → TokenCredential → ArmClient（规范 §三/§十四）。不感知具体 Provider 实现。
 /// </summary>
-public sealed class MsalAzureClientFactory : IAzureClientFactory
+public sealed class CloudArmClientFactory : IAzureClientFactory
 {
-    public object CreateArmClient(AccountSession session, string? tenantId = null)
+    private readonly IReadOnlyDictionary<AuthenticationProviderType, ICloudIdentityProvider> _providers;
+
+    public CloudArmClientFactory(IEnumerable<ICloudIdentityProvider> providers)
     {
-        throw new NotImplementedException(
-            "ARM Client 将在 MSAL 登录验证（P0 Spike）通过后接入 Azure.ResourceManager。");
+        _providers = providers.ToDictionary(provider => provider.Type);
+    }
+
+    public async Task<ArmClient> CreateAsync(
+        CloudAccount account,
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_providers.TryGetValue(account.ProviderType, out var provider))
+        {
+            throw new NotSupportedException(
+                $"账户 {account.AccountId} 的身份 Provider 类型 {account.ProviderType} 未注册。");
+        }
+
+        var credential = await provider.GetCredentialAsync(new CloudCredentialContext
+        {
+            AccountId = account.AccountId,
+            TenantId = tenantId,
+            // ARM Bearer Token 以租户为作用域，与具体订阅无关；
+            // 业务操作仍在各自 ResourceScope/Job 中携带真实 SubscriptionId
+            SubscriptionId = "",
+            ProviderType = account.ProviderType,
+            ProviderProfileId = account.ProviderProfileId
+        }, cancellationToken).ConfigureAwait(false);
+
+        return new ArmClient(new CallbackTokenCredential(credential));
     }
 }
