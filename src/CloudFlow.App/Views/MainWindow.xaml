@@ -154,10 +154,13 @@
                                            Visibility="{Binding IsSeparator, Converter={StaticResource BoolToVisibility}}" />
 
                                 <!-- 导航内容（子项随父分组展开显示） -->
-                                <Grid Visibility="{Binding IsSeparator, Converter={StaticResource InverseBoolToVisibility}}">
+                                <Grid>
                                     <Grid.Style>
                                         <Style TargetType="Grid">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsChild}" Value="True">
                                                     <Setter Property="Visibility"
                                                             Value="{Binding Parent.IsExpanded, Converter={StaticResource BoolToVisibility}}" />
