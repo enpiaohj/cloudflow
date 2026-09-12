@@ -7,13 +7,13 @@ namespace CloudFlow.Modules.Network.Services;
 /// VM-WEB01 的数据与 UI 概念图 2 完全一致：共享 Subnet NSG nsg-web-prod + 6 条 Inbound Rules。
 /// 规则变更由 Operation Handler 调用本类的 Mutate 方法完成（数据面），审批面在 Engine。
 /// </summary>
-public sealed class MockVmNetworkService(MockCurrentIpProvider currentIp) : IVmNetworkService
+public sealed class MockVmNetworkService : IVmNetworkService
 {
     private readonly Dictionary<string, VmNetworkContext> _contexts = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly object _lock = new();
 
-    public MockVmNetworkService() : this(new MockCurrentIpProvider())
+    public MockVmNetworkService()
     {
         Seed();
     }

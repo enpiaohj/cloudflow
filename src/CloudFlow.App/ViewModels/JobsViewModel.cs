@@ -6,27 +6,30 @@ using CommunityToolkit.Mvvm.Input;
 namespace CloudFlow.App.ViewModels;
 
 /// <summary>
-/// Jobs Center（设计文档 §32）：整个产品统一的操作总线视图。
-/// 可按 Status 筛选；Account/Subscription/Operation 筛选在后续迭代补充。
+/// 任务中心（设计文档 §32）：整个产品统一的操作总线视图。
+/// 可按状态筛选；Account/Subscription/Operation 筛选在后续迭代补充。
 /// </summary>
 public partial class JobsViewModel : ObservableObject
 {
+    /// <summary>中文筛选选项 → JobStatus 键。</summary>
+    private static readonly Dictionary<string, string> StatusFilterMap = new()
+    {
+        ["等待审批"] = "WaitingApproval",
+        ["执行中"] = "Running",
+        ["成功"] = "Succeeded",
+        ["失败"] = "Failed"
+    };
+
     private readonly IJobStore _jobStore;
 
     [ObservableProperty]
     private ObservableCollection<OperationJob> _jobs = [];
 
     [ObservableProperty]
-    private string _statusFilter = "All";
+    private string _statusFilter = "全部";
 
     public IReadOnlyList<string> StatusOptions { get; } =
-    [
-        "All",
-        "WaitingApproval",
-        "Running",
-        "Succeeded",
-        "Failed"
-    ];
+        ["全部", .. StatusFilterMap.Keys];
 
     public JobsViewModel(IJobStore jobStore)
     {
@@ -47,9 +50,9 @@ public partial class JobsViewModel : ObservableObject
     {
         IEnumerable<OperationJob> query = _jobStore.GetAll();
 
-        if (StatusFilter != "All")
+        if (StatusFilter != "全部" && StatusFilterMap.TryGetValue(StatusFilter, out var key))
         {
-            query = query.Where(j => j.Status.ToString() == StatusFilter);
+            query = query.Where(j => j.Status.ToString() == key);
         }
 
         Jobs = [.. query];

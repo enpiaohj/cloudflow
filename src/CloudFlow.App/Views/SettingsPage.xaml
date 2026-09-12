@@ -5,8 +5,8 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="28,22,28,30" MaxWidth="860" HorizontalAlignment="Left">
-            <TextBlock Text="Settings" Style="{StaticResource Cf.PageTitle}" />
-            <TextBlock Text="Accounts, Azure configuration and application info."
+            <TextBlock Text="设置" Style="{StaticResource Cf.PageTitle}" />
+            <TextBlock Text="账户、Azure 配置与应用信息。"
                        Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
 
             <!-- ===== Accounts（设计文档 §6 Account Management） ===== -->
@@ -17,7 +17,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Accounts" Style="{StaticResource Cf.SectionTitle}" />
+                        <TextBlock Grid.Column="0" Text="账户" Style="{StaticResource Cf.SectionTitle}" />
                         <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Padding="12,6"
                                 Command="{Binding SignInCommand}"
                                 Content="{Binding SignInButtonText}" />
@@ -37,7 +37,7 @@
             <!-- ===== Azure Configuration ===== -->
             <Border Style="{StaticResource Cf.Card}" Margin="0,16,0,0">
                 <StackPanel>
-                    <TextBlock Text="Azure Configuration" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                    <TextBlock Text="Azure 配置" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="160" />
@@ -48,7 +48,7 @@
                             <RowDefinition Height="32" />
                             <RowDefinition Height="32" />
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" Style="{StaticResource Cf.Subtitle}" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="状态" Style="{StaticResource Cf.Subtitle}" />
                         <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Cf.Badge}">
                             <TextBlock Text="{Binding AuthStatusText}" Style="{StaticResource Cf.BadgeText}" />
                         </Border>
@@ -65,7 +65,7 @@
             <!-- ===== Saved Scopes ===== -->
             <Border Style="{StaticResource Cf.Card}" Margin="0,16,0,0">
                 <StackPanel>
-                    <TextBlock Text="Saved Scopes" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,8" />
+                    <TextBlock Text="已保存的 Scope" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,8" />
                     <ItemsControl ItemsSource="{Binding SavedScopeNames}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -83,7 +83,7 @@
             <!-- ===== About ===== -->
             <Border Style="{StaticResource Cf.Card}" Margin="0,16,0,0">
                 <StackPanel>
-                    <TextBlock Text="About" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,8" />
+                    <TextBlock Text="关于" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,8" />
                     <TextBlock Text="{Binding AppVersion}" FontSize="13" />
                     <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,6,0,0"
                                Text="产品设计基准：docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.0.md" />

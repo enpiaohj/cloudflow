@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Collections.ObjectModel;
+using CloudFlow.App.Converters;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
@@ -11,12 +12,19 @@ using CommunityToolkit.Mvvm.Input;
 namespace CloudFlow.App.ViewModels;
 
 /// <summary>
-/// Virtual Machines 列表页（概念图 1 右窗口）：
-/// 搜索 / 筛选 / 分页（10 per page）/ 行操作（Restart / Shut down / Deallocate）。
+/// 虚拟机列表页（概念图 1 右窗口）：
+/// 搜索 / 筛选 / 分页（10 条/页）/ 行操作（重启 / 关机 / 解除分配）。
 /// </summary>
 public partial class VirtualMachinesViewModel : ObservableObject
 {
-    private const int DefaultPageSize = 10;
+    /// <summary>中文筛选选项 → 状态键（颜色转换器仍用英文键）。</summary>
+    private static readonly Dictionary<string, string> StatusFilterMap = new()
+    {
+        ["运行中"] = "Running",
+        ["已停止"] = "Stopped",
+        ["已解除分配"] = "Deallocated",
+        ["警告"] = "Warning"
+    };
 
     private readonly IVmInventoryService _inventory;
     private readonly IVmPowerService _power;
@@ -26,24 +34,43 @@ public partial class VirtualMachinesViewModel : ObservableObject
     private List<VmSummary> _allVms = [];
     private List<VmSummary> _filtered = [];
 
+    /// <summary>每页条数（概念图分页下拉 10/25/50）。</summary>
+    private int _pageSize = 10;
+
+    public IReadOnlyList<string> PageSizeOptions { get; } = ["10 条/页", "25 条/页", "50 条/页"];
+
+    [ObservableProperty]
+    private string _selectedPageSize = "10 条/页";
+
+    partial void OnSelectedPageSizeChanged(string value)
+    {
+        var number = value.Split(' ')[0];
+        if (int.TryParse(number, out var size) && size > 0)
+        {
+            _pageSize = size;
+        }
+        CurrentPage = 1;
+        ApplyFilters();
+    }
+
     [ObservableProperty]
     private string _filterText = "";
 
     [ObservableProperty]
-    private string _statusFilter = "All statuses";
+    private string _statusFilter = "全部状态";
 
     [ObservableProperty]
-    private string _resourceGroupFilter = "All resource groups";
+    private string _resourceGroupFilter = "全部资源组";
 
     [ObservableProperty]
-    private string _regionFilter = "All regions";
+    private string _regionFilter = "全部区域";
 
     public IReadOnlyList<string> StatusOptions { get; } =
-        ["All statuses", "Running", "Stopped", "Deallocated", "Warning"];
+        ["全部状态", .. StatusFilterMap.Keys];
 
-    public IReadOnlyList<string> ResourceGroupOptions { get; private set; } = ["All resource groups"];
+    public IReadOnlyList<string> ResourceGroupOptions { get; private set; } = ["全部资源组"];
 
-    public IReadOnlyList<string> RegionOptions { get; private set; } = ["All regions"];
+    public IReadOnlyList<string> RegionOptions { get; private set; } = ["全部区域"];
 
     [ObservableProperty]
     private ObservableCollection<VmSummary> _pageItems = [];
@@ -97,8 +124,8 @@ public partial class VirtualMachinesViewModel : ObservableObject
         try
         {
             _allVms = [.. await _inventory.QueryAsync(_scopeContext.CurrentScope)];
-            ResourceGroupOptions = ["All resource groups", .. _allVms.Select(vm => vm.ResourceGroupName).Distinct().OrderBy(x => x)];
-            RegionOptions = ["All regions", .. _allVms.Select(vm => vm.Region).Distinct().OrderBy(x => x)];
+            ResourceGroupOptions = ["全部资源组", .. _allVms.Select(vm => vm.ResourceGroupName).Distinct().OrderBy(x => x)];
+            RegionOptions = ["全部区域", .. _allVms.Select(vm => vm.Region).Distinct().OrderBy(x => x)];
             OnPropertyChanged(nameof(ResourceGroupOptions));
             OnPropertyChanged(nameof(RegionOptions));
             ApplyFilters();
@@ -147,37 +174,39 @@ public partial class VirtualMachinesViewModel : ObservableObject
                 vm.VmSize.Contains(text, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (StatusFilter is not "All statuses" and not null and not "")
+        if (StatusFilter is not "全部状态" and not null and not "")
         {
-            query = StatusFilter == "Warning"
-                ? query.Where(vm => vm.HasWarning)
-                : query.Where(vm => vm.PowerState.ToString() == StatusFilter);
+            query = StatusFilterMap.TryGetValue(StatusFilter, out var key)
+                ? (key == "Warning"
+                    ? query.Where(vm => vm.HasWarning)
+                    : query.Where(vm => vm.PowerState.ToString() == key))
+                : query;
         }
 
-        if (ResourceGroupFilter.StartsWith("All ") is false)
+        if (ResourceGroupFilter.StartsWith("全部") is false)
         {
             query = query.Where(vm => vm.ResourceGroupName == ResourceGroupFilter);
         }
 
-        if (RegionFilter.StartsWith("All ") is false)
+        if (RegionFilter.StartsWith("全部") is false)
         {
             query = query.Where(vm => vm.Region == RegionFilter);
         }
 
         _filtered = [.. query.OrderBy(vm => vm.Name, StringComparer.OrdinalIgnoreCase)];
 
-        TotalPages = Math.Max(1, (int)Math.Ceiling(_filtered.Count / (double)DefaultPageSize));
+        TotalPages = Math.Max(1, (int)Math.Ceiling(_filtered.Count / (double)_pageSize));
         if (CurrentPage > TotalPages)
         {
             CurrentPage = TotalPages;
         }
 
-        var skip = (CurrentPage - 1) * DefaultPageSize;
-        PageItems = [.. _filtered.Skip(skip).Take(DefaultPageSize)];
+        var skip = (CurrentPage - 1) * _pageSize;
+        PageItems = [.. _filtered.Skip(skip).Take(_pageSize)];
 
         var from = _filtered.Count == 0 ? 0 : skip + 1;
-        var to = Math.Min(skip + DefaultPageSize, _filtered.Count);
-        PageInfoText = $"Showing {from}–{to} of {_filtered.Count} virtual machines";
+        var to = Math.Min(skip + _pageSize, _filtered.Count);
+        PageInfoText = $"显示 {from}–{to}，共 {_filtered.Count} 台虚拟机";
         OnPropertyChanged(nameof(PageNumbers));
     }
 
@@ -216,41 +245,48 @@ public partial class VirtualMachinesViewModel : ObservableObject
     [RelayCommand]
     private void OpenDetail(VmSummary vm) => _navigation.NavigateToVmDetail(vm);
 
+    /// <summary>创建虚拟机（概念图保留按钮；预配能力不在 P1 运维范围，设计文档 §75/§80）。</summary>
+    [RelayCommand]
+    private void CreateVm() =>
+        MessageBox.Show(
+            "创建虚拟机属于预配（Provisioning）能力，不属于 P1 运维范围（设计文档 §75/§80）。\n按钮按 UI 概念图保留，将在后续版本实现。",
+            "创建虚拟机", MessageBoxButton.OK, MessageBoxImage.Information);
+
     // ==== 行操作：全部经 Operation Engine（设计文档 §29）====
 
     [RelayCommand]
     private async Task RestartAsync(VmSummary vm) => await SubmitPowerAsync(
-        () => _power.RestartAsync(vm), $"Restart VM {vm.Name}");
+        () => _power.RestartAsync(vm), $"重启虚拟机 {vm.Name}");
 
     [RelayCommand]
     private async Task PowerOffAsync(VmSummary vm)
     {
-        var confirmed = System.Windows.MessageBox.Show(
-            "Shut down\n\nThe VM stops but compute resources remain allocated.\nCharges may continue.\n\n继续吗？",
-            "Shut down VM", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var confirmed = MessageBox.Show(
+            "关机\n\n虚拟机将停止，但计算资源仍保留分配。\n费用可能继续产生。\n\n是否继续？",
+            "关机", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirmed != MessageBoxResult.Yes)
         {
             return;
         }
-        await SubmitPowerAsync(() => _power.PowerOffAsync(vm), $"Shut down VM {vm.Name}");
+        await SubmitPowerAsync(() => _power.PowerOffAsync(vm), $"关机 {vm.Name}");
     }
 
     [RelayCommand]
     private async Task DeallocateAsync(VmSummary vm)
     {
-        var confirmed = System.Windows.MessageBox.Show(
-            "Stop & Deallocate\n\nThe VM stops and compute resources are released.\n停止计算计费（磁盘与 IP 保留可能继续计费）。\n\n继续吗？",
-            "Deallocate VM", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var confirmed = MessageBox.Show(
+            "停止并解除分配\n\n虚拟机将停止并释放计算资源。\n停止计算计费（磁盘与保留 IP 可能继续计费）。\n\n是否继续？",
+            "解除分配", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirmed != MessageBoxResult.Yes)
         {
             return;
         }
-        await SubmitPowerAsync(() => _power.DeallocateAsync(vm), $"Deallocate VM {vm.Name}");
+        await SubmitPowerAsync(() => _power.DeallocateAsync(vm), $"解除分配 {vm.Name}");
     }
 
     private async Task SubmitPowerAsync(Func<Task<OperationJob>> submit, string display)
     {
-        InfoText = $"Submitting: {display}…";
+        InfoText = $"正在提交：{display}…";
         InfoSeverity = "Validating";
         try
         {
@@ -259,7 +295,7 @@ public partial class VirtualMachinesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            InfoText = $"{display} failed: {ex.Message}";
+            InfoText = $"{display} 失败：{ex.Message}";
             InfoSeverity = "Failed";
         }
     }
@@ -269,21 +305,21 @@ public partial class VirtualMachinesViewModel : ObservableObject
         InfoSeverity = job.Status.ToString();
         InfoText = job.Status switch
         {
-            JobStatus.Succeeded => $"{job.Display} — succeeded (verified).",
-            JobStatus.Failed => $"{job.Display} — failed: {job.Error}",
-            JobStatus.WaitingApproval => $"{job.Display} — waiting approval.",
-            _ => $"{job.Display} — {job.Status}…"
+            JobStatus.Succeeded => $"{job.Display} —— 成功（已验证）。",
+            JobStatus.Failed => $"{job.Display} —— 失败：{job.Error}",
+            JobStatus.WaitingApproval => $"{job.Display} —— 等待审批。",
+            _ => $"{job.Display} —— {CfStatusTextConverter.Map(job.Status.ToString())}…"
         };
     }
 
     private void OnScopeChanged(object? sender, EventArgs e)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(async () => await RefreshAsync());
+        Application.Current?.Dispatcher.BeginInvoke(async () => await RefreshAsync());
     }
 
     private void OnJobChanged(object? sender, OperationJob job)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             // Job 完成后刷新行状态（Mock Handler 已改内存状态）
             if (job.Status is JobStatus.Succeeded or JobStatus.Failed)

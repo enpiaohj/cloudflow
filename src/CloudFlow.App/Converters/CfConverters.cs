@@ -108,3 +108,53 @@ public sealed class CfNullToVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => Binding.DoNothing;
 }
+
+/// <summary>
+/// 状态/枚举 → 中文显示文本（VM 状态、Job 状态、NSG Action/Origin、风险等级）。
+/// 颜色转换器仍使用英文枚举键，本转换器只负责显示。
+/// </summary>
+public sealed class CfStatusTextConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value switch
+        {
+            null => "",
+            Enum e => Map(e.ToString()),
+            string s => Map(s),
+            _ => value.ToString() ?? ""
+        };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Binding.DoNothing;
+
+    public static string Map(string key) => key switch
+    {
+        // VM 电源状态 / 注意标记
+        "Running" => "运行中",
+        "Stopped" => "已停止",
+        "Deallocated" => "已解除分配",
+        "Warning" => "警告",
+        // Job 状态机
+        "Pending" => "排队中",
+        "Validating" => "校验中",
+        "AnalyzingImpact" => "影响分析中",
+        "WaitingApproval" => "等待审批",
+        "WaitingAzure" => "等待 Azure",
+        "Verifying" => "验证中",
+        "Succeeded" => "成功",
+        "Failed" => "失败",
+        "Canceled" => "已取消",
+        // NSG 规则
+        "Allow" => "允许",
+        "Deny" => "拒绝",
+        "Nic" => "网卡",
+        "Subnet" => "子网",
+        // 风险等级
+        "Low" => "低",
+        "Medium" => "中",
+        "High" => "高",
+        // 安全状态
+        "Protected" => "受保护",
+        _ => key
+    };
+}

@@ -46,11 +46,11 @@ public sealed class ResourceScope
         return Mode switch
         {
             ScopeMode.SingleSubscription => ScopeName,
-            ScopeMode.MultipleSubscriptions => $"{ScopeName} ({SubscriptionIds.Count} subscriptions)",
-            ScopeMode.Tenant => $"{ScopeName} (tenant)",
-            ScopeMode.ManagementGroup => $"{ScopeName} (management group)",
-            ScopeMode.AllAccessible => "All accessible subscriptions",
-            ScopeMode.AllAccounts => "All accounts",
+            ScopeMode.MultipleSubscriptions => $"{ScopeName}（{SubscriptionIds.Count} 个订阅）",
+            ScopeMode.Tenant => $"{ScopeName}（租户）",
+            ScopeMode.ManagementGroup => $"{ScopeName}（管理组）",
+            ScopeMode.AllAccessible => "全部可访问订阅",
+            ScopeMode.AllAccounts => "全部账户",
             _ => ScopeName
         };
     }

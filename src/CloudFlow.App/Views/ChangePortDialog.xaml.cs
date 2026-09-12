@@ -70,12 +70,12 @@ public partial class ChangePortDialog : Window, INotifyPropertyChanged
     {
         if (!int.TryParse(NewPortText.Trim(), out var port) || port is < 1 or > 65535)
         {
-            ErrorText = "Port must be an integer between 1 and 65535.";
+            ErrorText = "端口必须是 1–65535 之间的整数。";
             return;
         }
         if (port == CurrentPort)
         {
-            ErrorText = "New port is the same as the current port.";
+            ErrorText = "新端口与当前端口相同。";
             return;
         }
 

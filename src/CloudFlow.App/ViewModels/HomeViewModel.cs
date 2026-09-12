@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Collections.ObjectModel;
 using CloudFlow.App.Infrastructure;
@@ -26,18 +27,20 @@ public sealed class AttentionItem
 }
 
 /// <summary>
-/// Home 页（概念图 1 左窗口）：统计卡 + Recent Operations + Attention Items + Cost Insight + Quick Actions。
+/// Home 页（概念图 1 左窗口）：统计卡 + 最近操作 + 注意项 + 成本洞察 + 快捷操作。
 /// 遵循设计文档 §40。
 /// </summary>
 public partial class HomeViewModel : ObservableObject
 {
+    private static readonly CultureInfo ZhCn = CultureInfo.GetCultureInfo("zh-CN");
+
     private readonly IVmInventoryService _inventory;
     private readonly IJobStore _jobStore;
     private readonly ScopeContext _scopeContext;
     private readonly IShellNavigation _navigation;
 
     [ObservableProperty]
-    private string _todayText = DateTime.Now.ToString("dddd, MMMM d, yyyy");
+    private string _todayText = DateTime.Now.ToString("yyyy年M月d日 dddd", CultureInfo.GetCultureInfo("zh-CN"));
 
     [ObservableProperty]
     private string _scopeSubtitle = "";
@@ -70,7 +73,7 @@ public partial class HomeViewModel : ObservableObject
     private string _costAmount = "$482.21";
 
     [ObservableProperty]
-    private string _costDelta = "↓ 12% vs. last month";
+    private string _costDelta = "↓ 12% 对比上月";
 
     private bool _demoJobsSeeded;
 
@@ -89,7 +92,29 @@ public partial class HomeViewModel : ObservableObject
         _scopeContext.ScopeChanged += OnScopeChanged;
     }
 
-    /// <summary>Attention Items（Demo 数据与概念图 1 一致；真实实现来自 Health/Alerts，P3）。</summary>
+    [RelayCommand]
+    public async Task RefreshAsync()
+    {
+        var scope = _scopeContext.CurrentScope;
+        var vms = await _inventory.QueryAsync(scope);
+
+        TotalVms = vms.Count;
+        RunningVms = vms.Count(vm => vm.PowerState == VmPowerState.Running);
+        DeallocatedVms = vms.Count(vm => vm.PowerState == VmPowerState.Deallocated);
+        NeedAttention = vms.Count(vm => vm.HasWarning);
+        RunningPercent = TotalVms == 0 ? "" : $"占总量 {RunningVms * 100 / TotalVms}%";
+        DeallocatedPercent = TotalVms == 0 ? "" : $"占总量 {DeallocatedVms * 100 / TotalVms}%";
+        ScopeSubtitle = scope.Describe();
+
+        await SeedDemoJobsAsync();
+
+        var recent = _jobStore.GetAll().Take(6);
+        RecentOperations = [.. recent];
+
+        BuildAttentionItems(vms);
+    }
+
+    /// <summary>注意项（Demo 数据与概念图 1 一致；真实实现来自 Health/Alerts，P3）。</summary>
     private void BuildAttentionItems(IReadOnlyList<VmSummary> vms)
     {
         AttentionItems = [];
@@ -101,8 +126,8 @@ public partial class HomeViewModel : ObservableObject
             {
                 Severity = "Error",
                 Title = unexpected.Name,
-                Description = "VM stopped unexpectedly",
-                Age = "2 hours ago",
+                Description = "虚拟机意外停止",
+                Age = "2 小时前",
                 VmName = unexpected.Name
             });
         }
@@ -111,8 +136,8 @@ public partial class HomeViewModel : ObservableObject
         {
             Severity = "Warning",
             Title = "OLD-SQL",
-            Description = "Not backed up in 14 days",
-            Age = "1 day ago",
+            Description = "已 14 天未备份",
+            Age = "1 天前",
             VmName = "OLD-SQL"
         });
 
@@ -120,17 +145,17 @@ public partial class HomeViewModel : ObservableObject
         {
             Severity = "Warning",
             Title = "WEB-LEGACY",
-            Description = "Using older VM size (D2_v3)",
-            Age = "2 days ago",
+            Description = "使用旧版 VM 规格（D2_v3）",
+            Age = "2 天前",
             VmName = "WEB-LEGACY"
         });
 
         AttentionItems.Add(new AttentionItem
         {
             Severity = "Info",
-            Title = "3 VMs",
-            Description = "Have available updates",
-            Age = "3 days ago"
+            Title = "3 台虚拟机",
+            Description = "有可用更新",
+            Age = "3 天前"
         });
     }
 
@@ -164,22 +189,22 @@ public partial class HomeViewModel : ObservableObject
                 Risk = RiskLevel.Low,
                 CreatedAt = DateTime.Now.AddMinutes(-minutesAgo),
                 CompletedAt = DateTime.Now.AddMinutes(-minutesAgo).AddSeconds(45),
-                Summary = status == JobStatus.Succeeded ? $"{op} verified." : "Start VM request was rejected by Azure.",
-                Error = status == JobStatus.Failed ? "Operation failed" : null
+                Summary = status == JobStatus.Succeeded ? $"{op} 已验证。" : "启动请求被 Azure 拒绝。",
+                Error = status == JobStatus.Failed ? "操作失败" : null
             };
         }
 
-        await _jobStore.AddAsync(Job("vm.start", "WEB01", JobStatus.Succeeded, 96, "Start VM"));
-        await _jobStore.AddAsync(Job("vm.restart", "SQL01", JobStatus.Succeeded, 82, "Restart VM"));
-        await _jobStore.AddAsync(Job("disk.snapshot", "DEV01", JobStatus.Succeeded, 68, "Create Snapshot"));
-        await _jobStore.AddAsync(Job("vm.power_off", "TEST01", JobStatus.Succeeded, 56, "Stop VM"));
-        await _jobStore.AddAsync(Job("network.open_port", "BASTION01", JobStatus.Succeeded, 37, "Open Port (3389)"));
-        await _jobStore.AddAsync(Job("vm.start", "APP01", JobStatus.Failed, 143, "Start VM"));
+        await _jobStore.AddAsync(Job("vm.start", "WEB01", JobStatus.Succeeded, 96, "启动虚拟机"));
+        await _jobStore.AddAsync(Job("vm.restart", "SQL01", JobStatus.Succeeded, 82, "重启虚拟机"));
+        await _jobStore.AddAsync(Job("disk.snapshot", "DEV01", JobStatus.Succeeded, 68, "创建快照"));
+        await _jobStore.AddAsync(Job("vm.power_off", "TEST01", JobStatus.Succeeded, 56, "关机"));
+        await _jobStore.AddAsync(Job("network.open_port", "BASTION01", JobStatus.Succeeded, 37, "打开端口（3389）"));
+        await _jobStore.AddAsync(Job("vm.start", "APP01", JobStatus.Failed, 143, "启动虚拟机"));
     }
 
     private void OnJobChanged(object? sender, OperationJob job)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             RecentOperations = [.. _jobStore.GetAll().Take(6)];
         });
@@ -187,29 +212,7 @@ public partial class HomeViewModel : ObservableObject
 
     private void OnScopeChanged(object? sender, EventArgs e)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(async () => await RefreshAsync());
-    }
-
-    [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        var scope = _scopeContext.CurrentScope;
-        var vms = await _inventory.QueryAsync(scope);
-
-        TotalVms = vms.Count;
-        RunningVms = vms.Count(vm => vm.PowerState == VmPowerState.Running);
-        DeallocatedVms = vms.Count(vm => vm.PowerState == VmPowerState.Deallocated);
-        NeedAttention = vms.Count(vm => vm.HasWarning);
-        RunningPercent = TotalVms == 0 ? "" : $"{RunningVms * 100 / TotalVms}% of total";
-        DeallocatedPercent = TotalVms == 0 ? "" : $"{DeallocatedVms * 100 / TotalVms}% of total";
-        ScopeSubtitle = scope.Describe();
-
-        await SeedDemoJobsAsync();
-
-        var recent = _jobStore.GetAll().Take(6);
-        RecentOperations = [.. recent];
-
-        BuildAttentionItems(vms);
+        Application.Current?.Dispatcher.BeginInvoke(async () => await RefreshAsync());
     }
 
     [RelayCommand]
@@ -225,7 +228,13 @@ public partial class HomeViewModel : ObservableObject
     [RelayCommand]
     private void ViewAllJobs() => _navigation.NavigateJobs();
 
-    // ==== Quick Actions（概念图 1；Create VM 不在 P1 范围，设计文档 §75/§80）====
+    // ==== 快捷操作（概念图 1 四按钮；创建虚拟机属预配能力，P1 为运维范围，点击给出说明）====
+
+    [RelayCommand]
+    private void QuickCreateVm() =>
+        MessageBox.Show(
+            "创建虚拟机属于预配（Provisioning）能力，不属于 P1 运维范围（设计文档 §75/§80）。\n按钮按 UI 概念图保留，将在后续版本实现。",
+            "创建虚拟机", MessageBoxButton.OK, MessageBoxImage.Information);
 
     [RelayCommand]
     private void QuickOpenPort() => _navigation.NavigateVirtualMachines();
@@ -235,7 +244,7 @@ public partial class HomeViewModel : ObservableObject
 
     [RelayCommand]
     private void QuickTakeSnapshot() =>
-        System.Windows.MessageBox.Show(
-            "Snapshot 操作属于 P1 Exit Gate（设计文档 §80），将在下一迭代实现。",
-            "CloudFlow", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(
+            "快照操作属于 P1 Exit Gate（设计文档 §80），将在下一迭代实现（当前为演示模式）。",
+            "创建快照", MessageBoxButton.OK, MessageBoxImage.Information);
 }

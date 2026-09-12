@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Collections.ObjectModel;
+using CloudFlow.App.Converters;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Modules.Compute.Models;
@@ -214,8 +215,8 @@ public partial class VmDetailViewModel : ObservableObject
     private async Task PowerOffAsync()
     {
         var confirmed = System.Windows.MessageBox.Show(
-            "Shut down\n\nThe VM stops but compute resources remain allocated.\nCharges may continue.\n\n继续吗？",
-            "Shut down VM", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            "关机\n\n虚拟机将停止，但计算资源仍保留分配。\n费用可能继续产生。\n\n是否继续？",
+            "关机", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirmed != MessageBoxResult.Yes)
         {
             return;
@@ -228,8 +229,8 @@ public partial class VmDetailViewModel : ObservableObject
     private async Task DeallocateAsync()
     {
         var confirmed = System.Windows.MessageBox.Show(
-            "Stop & Deallocate\n\nThe VM stops and compute resources are released.\n\n继续吗？",
-            "Deallocate VM", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            "停止并解除分配\n\n虚拟机将停止并释放计算资源。\n停止计算计费（磁盘与保留 IP 可能继续计费）。\n\n是否继续？",
+            "解除分配", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirmed != MessageBoxResult.Yes)
         {
             return;
@@ -267,7 +268,7 @@ public partial class VmDetailViewModel : ObservableObject
             ResourceId = _vm.ResourceId,
             Risk = result.SourcePrefix is ("*" or "0.0.0.0/0") ? RiskLevel.High : RiskLevel.Medium,
             PreApproved = preApproved,
-            Display = $"Open Port {result.Port}",
+            Display = $"打开端口 {result.Port}",
             Payload = new Dictionary<string, string>
             {
                 ["ruleName"] = result.RuleName,
@@ -312,7 +313,7 @@ public partial class VmDetailViewModel : ObservableObject
             ResourceId = _vm.ResourceId,
             Risk = RiskLevel.Medium,
             PreApproved = true,
-            Display = $"Change Port {rule.Name}: {rule.DestinationPort} → {newPort}",
+            Display = $"更改端口 {rule.Name}：{rule.DestinationPort} → {newPort}",
             Payload = new Dictionary<string, string>
             {
                 ["ruleId"] = rule.RuleId,
@@ -333,8 +334,8 @@ public partial class VmDetailViewModel : ObservableObject
         }
 
         var confirmed = System.Windows.MessageBox.Show(
-            $"Delete rule '{rule.Name}' (port {rule.DestinationPort})?\n该操作会先经 Impact Analysis。",
-            "Delete Rule", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            $"删除规则“{rule.Name}”（端口 {rule.DestinationPort}）？\n该操作会先经过影响分析。",
+            "删除规则", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirmed != MessageBoxResult.Yes)
         {
             return;
@@ -349,7 +350,7 @@ public partial class VmDetailViewModel : ObservableObject
             ResourceId = _vm.ResourceId,
             Risk = RiskLevel.Medium,
             PreApproved = true,
-            Display = $"Delete Rule {rule.Name}",
+            Display = $"删除规则 {rule.Name}",
             Payload = new Dictionary<string, string>
             {
                 ["ruleId"] = rule.RuleId,
@@ -390,10 +391,10 @@ public partial class VmDetailViewModel : ObservableObject
         InfoSeverity = job.Status.ToString();
         InfoText = job.Status switch
         {
-            JobStatus.Succeeded => $"{job.Display} — succeeded (verified).",
-            JobStatus.Failed => $"{job.Display} — failed: {job.Error}",
-            JobStatus.WaitingApproval => $"{job.Display} — waiting approval.",
-            _ => $"{job.Display} — {job.Status}…"
+            JobStatus.Succeeded => $"{job.Display} —— 成功（已验证）。",
+            JobStatus.Failed => $"{job.Display} —— 失败：{job.Error}",
+            JobStatus.WaitingApproval => $"{job.Display} —— 等待审批。",
+            _ => $"{job.Display} —— {CfStatusTextConverter.Map(job.Status.ToString())}…"
         };
     }
 
@@ -419,8 +420,8 @@ public partial class VmDetailViewModel : ObservableObject
         var target = PublicIp ?? PrivateIp;
         if (string.IsNullOrEmpty(target))
         {
-            System.Windows.MessageBox.Show("该 VM 没有 IP 地址（未分配）。",
-                "Connect", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show("该虚拟机没有可用的 IP 地址（未分配）。",
+                "连接", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -434,12 +435,12 @@ public partial class VmDetailViewModel : ObservableObject
             {
                 System.Windows.Clipboard.SetText($"ssh azureuser@{target}");
                 System.Windows.MessageBox.Show($"已复制 SSH 命令：\nssh azureuser@{target}",
-                    "Connect", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "连接", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"启动连接失败：{ex.Message}", "Connect",
+            System.Windows.MessageBox.Show($"启动连接失败：{ex.Message}", "连接",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -448,8 +449,8 @@ public partial class VmDetailViewModel : ObservableObject
     [RelayCommand]
     private void TakeSnapshot() =>
         System.Windows.MessageBox.Show(
-            "Snapshot 操作属于 P1 Exit Gate（设计文档 §80），将在下一迭代实现（当前为 Demo 模式）。",
-            "Create Snapshot", MessageBoxButton.OK, MessageBoxImage.Information);
+            "快照操作属于 P1 Exit Gate（设计文档 §80），将在下一迭代实现（当前为演示模式）。",
+            "创建快照", MessageBoxButton.OK, MessageBoxImage.Information);
 
     [RelayCommand]
     private void CopyToClipboard(string? text)

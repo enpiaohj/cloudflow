@@ -13,8 +13,8 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Home" Style="{StaticResource Cf.PageTitle}" />
-                    <TextBlock Text="Welcome back. Here's what's happening in your Azure environment."
+                    <TextBlock Text="首页" Style="{StaticResource Cf.PageTitle}" />
+                    <TextBlock Text="欢迎回来。以下是你 Azure 环境的当前概况。"
                                Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right">
@@ -34,9 +34,9 @@
                                            Foreground="{DynamicResource Cf.PrimaryBrush}" />
                         </Border>
                         <TextBlock Text="{Binding TotalVms}" Style="{StaticResource Cf.StatNumber}" Margin="0,12,0,0" />
-                        <TextBlock Text="Virtual Machines" FontSize="13" FontWeight="SemiBold"
+                        <TextBlock Text="虚拟机" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" Margin="0,2,0,0" />
-                        <TextBlock Text="+3 this week" Style="{StaticResource Cf.Muted}"
+                        <TextBlock Text="本周新增 3 台" Style="{StaticResource Cf.Muted}"
                                    Foreground="#FF137333" Margin="0,3,0,0" />
                     </StackPanel>
                 </Border>
@@ -47,7 +47,7 @@
                             <ui:SymbolIcon Symbol="Play24" FontSize="19" Foreground="#FF137333" />
                         </Border>
                         <TextBlock Text="{Binding RunningVms}" Style="{StaticResource Cf.StatNumber}" Margin="0,12,0,0" />
-                        <TextBlock Text="Running" FontSize="13" FontWeight="SemiBold"
+                        <TextBlock Text="运行中" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" Margin="0,2,0,0" />
                         <TextBlock Text="{Binding RunningPercent}" Style="{StaticResource Cf.Muted}" Margin="0,3,0,0" />
                     </StackPanel>
@@ -60,7 +60,7 @@
                                            Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
                         </Border>
                         <TextBlock Text="{Binding DeallocatedVms}" Style="{StaticResource Cf.StatNumber}" Margin="0,12,0,0" />
-                        <TextBlock Text="Deallocated" FontSize="13" FontWeight="SemiBold"
+                        <TextBlock Text="已解除分配" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" Margin="0,2,0,0" />
                         <TextBlock Text="{Binding DeallocatedPercent}" Style="{StaticResource Cf.Muted}" Margin="0,3,0,0" />
                     </StackPanel>
@@ -72,9 +72,9 @@
                             <ui:SymbolIcon Symbol="Warning24" FontSize="19" Foreground="#FFB06000" />
                         </Border>
                         <TextBlock Text="{Binding NeedAttention}" Style="{StaticResource Cf.StatNumber}" Margin="0,12,0,0" />
-                        <TextBlock Text="Need Attention" FontSize="13" FontWeight="SemiBold"
+                        <TextBlock Text="需要关注" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" Margin="0,2,0,0" />
-                        <TextBlock Text="1 stopped unexpectedly" Style="{StaticResource Cf.Muted}"
+                        <TextBlock Text="1 台意外停机" Style="{StaticResource Cf.Muted}"
                                    Foreground="#FFC5221F" Margin="0,3,0,0" />
                     </StackPanel>
                 </Border>
@@ -95,18 +95,18 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Recent Operations" Style="{StaticResource Cf.SectionTitle}" />
-                            <Button Grid.Column="1" Content="View all" Command="{Binding ViewAllJobsCommand}"
+                            <TextBlock Grid.Column="0" Text="最近操作" Style="{StaticResource Cf.SectionTitle}" />
+                            <Button Grid.Column="1" Content="查看全部" Command="{Binding ViewAllJobsCommand}"
                                     Background="Transparent" BorderThickness="0" Cursor="Hand"
                                     Foreground="{DynamicResource Cf.PrimaryBrush}" FontSize="12.5" />
                         </Grid>
                         <DataGrid ItemsSource="{Binding RecentOperations}" Style="{StaticResource Cf.DataGrid}"
                                   RowHeight="36">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Time" Binding="{Binding CreatedAt, StringFormat=hh:mm tt}"
+                                <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt, StringFormat=hh:mm tt}"
                                                     CanUserResize="False" />
-                                <DataGridTextColumn Header="Operation" Binding="{Binding Display}" Width="*" />
-                                <DataGridTextColumn Header="Resource"
+                                <DataGridTextColumn Header="操作" Binding="{Binding Display}" Width="*" />
+                                <DataGridTextColumn Header="资源"
                                                     Binding="{Binding ResourceId, Converter={StaticResource NullableText}}"
                                                     Width="110">
                                     <DataGridTextColumn.ElementStyle>
@@ -115,11 +115,11 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTemplateColumn Header="Status" Width="100" CanUserResize="False">
+                                <DataGridTemplateColumn Header="状态" Width="100" CanUserResize="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border Style="{StaticResource Cf.Badge}">
-                                                <TextBlock Text="{Binding Status}" Style="{StaticResource Cf.BadgeText}" />
+                                                <TextBlock Text="{Binding Status, Converter={StaticResource StatusText}}" Style="{StaticResource Cf.BadgeText}" />
                                             </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -132,7 +132,7 @@
                 <!-- Attention Items -->
                 <Border Grid.Column="1" Style="{StaticResource Cf.Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Attention Items" Style="{StaticResource Cf.SectionTitle}"
+                        <TextBlock DockPanel.Dock="Top" Text="注意项" Style="{StaticResource Cf.SectionTitle}"
                                    Margin="0,0,0,10" />
                         <ScrollViewer VerticalScrollBarVisibility="Disabled">
                             <ItemsControl ItemsSource="{Binding AttentionItems}">
@@ -199,12 +199,12 @@
                             </Grid.ColumnDefinitions>
                             <ui:SymbolIcon Grid.Column="0" Symbol="DataUsage24" FontSize="16"
                                            Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                            <TextBlock Grid.Column="1" Text="Cost Insight" Style="{StaticResource Cf.SectionTitle}"
+                            <TextBlock Grid.Column="1" Text="成本洞察" Style="{StaticResource Cf.SectionTitle}"
                                        Margin="8,0,0,0" />
                         </Grid>
                         <TextBlock Text="{Binding CostAmount}" FontSize="24" FontWeight="Bold"
                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                        <TextBlock Text="Estimated compute cost (this month)" Style="{StaticResource Cf.Muted}"
+                        <TextBlock Text="本月计算成本（估算）" Style="{StaticResource Cf.Muted}"
                                    Margin="0,2,0,0" />
                         <Border Background="#FFE6F4EA" CornerRadius="999" Padding="10,3"
                                 HorizontalAlignment="Left" Margin="0,10,0,0">
@@ -224,16 +224,16 @@
                             </Grid.ColumnDefinitions>
                             <ui:SymbolIcon Grid.Column="0" Symbol="Flash24" FontSize="16"
                                            Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                            <TextBlock Grid.Column="1" Text="Quick Actions" Style="{StaticResource Cf.SectionTitle}"
+                            <TextBlock Grid.Column="1" Text="快捷操作" Style="{StaticResource Cf.SectionTitle}"
                                        Margin="8,0,0,0" />
                         </Grid>
                         <UniformGrid Columns="4">
                             <Button Style="{StaticResource Cf.SecondaryButton}" Margin="0,0,10,0" Padding="8,12"
-                                    Command="{Binding QuickOpenPortCommand}">
+                                    Command="{Binding QuickCreateVmCommand}">
                                 <StackPanel>
                                     <ui:SymbolIcon Symbol="Add24" FontSize="18" HorizontalAlignment="Center"
                                                    Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                                    <TextBlock Text="Open Port" FontSize="12" Margin="0,6,0,0"
+                                    <TextBlock Text="创建虚拟机" FontSize="12" Margin="0,6,0,0"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>
@@ -242,7 +242,7 @@
                                 <StackPanel>
                                     <ui:SymbolIcon Symbol="Camera24" FontSize="18" HorizontalAlignment="Center"
                                                    Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                                    <TextBlock Text="Take Snapshot" FontSize="12" Margin="0,6,0,0"
+                                    <TextBlock Text="创建快照" FontSize="12" Margin="0,6,0,0"
                                                HorizontalAlignment="Center" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Button>
@@ -251,16 +251,16 @@
                                 <StackPanel>
                                     <ui:SymbolIcon Symbol="Desktop24" FontSize="18" HorizontalAlignment="Center"
                                                    Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                                    <TextBlock Text="View All VMs" FontSize="12" Margin="0,6,0,0"
+                                    <TextBlock Text="查看全部虚拟机" FontSize="12" Margin="0,6,0,0"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button Style="{StaticResource Cf.SecondaryButton}" Padding="8,12"
-                                    Command="{Binding ViewAllJobsCommand}">
+                                    Command="{Binding QuickOpenPortCommand}">
                                 <StackPanel>
-                                    <ui:SymbolIcon Symbol="Clock24" FontSize="18" HorizontalAlignment="Center"
+                                    <ui:SymbolIcon Symbol="Globe24" FontSize="18" HorizontalAlignment="Center"
                                                    Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                                    <TextBlock Text="View Jobs" FontSize="12" Margin="0,6,0,0"
+                                    <TextBlock Text="打开端口" FontSize="12" Margin="0,6,0,0"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>

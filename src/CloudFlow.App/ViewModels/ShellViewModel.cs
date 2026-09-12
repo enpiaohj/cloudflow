@@ -36,17 +36,18 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
         NavItems =
         [
-            new() { PageKey = "home", Label = "Home", Symbol = SymbolRegular.Home24 },
-            new() { PageKey = "compute", Label = "Compute", Symbol = SymbolRegular.Cloud24 },
-            new() { PageKey = "vms", Label = "Virtual Machines", Symbol = SymbolRegular.Desktop24, IsChild = true },
-            new() { PageKey = "jobs", Label = "Jobs", Symbol = SymbolRegular.Clock24 },
+            new() { PageKey = "home", Label = "首页", Symbol = SymbolRegular.Home24 },
+            new() { PageKey = "compute", Label = "计算", Symbol = SymbolRegular.Cloud24 },
+            new() { PageKey = "vms", Label = "虚拟机", Symbol = SymbolRegular.Desktop24, IsChild = true },
+            new() { PageKey = "jobs", Label = "任务", Symbol = SymbolRegular.Clock24 },
             new() { PageKey = "sep1", IsSeparator = true, IsEnabled = false },
-            new() { PageKey = "settings", Label = "Settings", Symbol = SymbolRegular.Settings24 }
+            new() { PageKey = "settings", Label = "设置", Symbol = SymbolRegular.Settings24 }
         ];
 
         // Demo 账户显示（真实接入后来自 MSAL 账户缓存）
         AccountOptions = ["Contoso (contoso.onmicrosoft.com)"];
         _selectedAccount = AccountOptions[0];
+        _selectedScope = "全部可访问订阅";
     }
 
     public ObservableCollection<NavItemViewModel> NavItems { get; }
@@ -66,13 +67,13 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     [ObservableProperty]
     private string _selectedAccount;
 
-    public IReadOnlyList<string> ScopeOptions { get; private set; } = ["All accessible subscriptions"];
+    public IReadOnlyList<string> ScopeOptions { get; private set; } = ["全部可访问订阅"];
 
     [ObservableProperty]
-    private string _selectedScope = "All accessible subscriptions";
+    private string _selectedScope = "全部可访问订阅";
 
     /// <summary>顶栏账户区副标题（Home 右上角显示）。</summary>
-    public string ScopeSubtitle => $"{SelectedAccount.Split(' ')[0]}  |  Scope: {SelectedScope}";
+    public string ScopeSubtitle => $"{SelectedAccount.Split(' ')[0]}  |  范围：{SelectedScope}";
 
     public bool IsNotVmDetailPage => SelectedNav?.PageKey != "__detail";
 
@@ -82,7 +83,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         var saved = _savedScopeStore.LoadOrDefault();
         _scopeContext.SetSavedScopes(saved);
 
-        var options = new List<string> { "All accessible subscriptions" };
+        var options = new List<string> { "全部可访问订阅" };
         options.AddRange(saved.Select(s => s.Name));
         ScopeOptions = options;
         OnPropertyChanged(nameof(ScopeOptions));
@@ -121,7 +122,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     private void ApplyScope(string option)
     {
         ResourceScope scope;
-        if (option == "All accessible subscriptions")
+        if (option == "全部可访问订阅")
         {
             scope = new ResourceScope
             {

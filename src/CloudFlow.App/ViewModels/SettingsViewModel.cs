@@ -41,9 +41,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _signedInAs = "（未登录）";
 
-    public string AppVersion => $"CloudFlow v0.1.0-dev  ·  Demo 模式（Mock 数据）";
+    public string AppVersion => "CloudFlow v0.1.0-dev · 演示模式（模拟数据）";
 
-    public string SignInButtonText => IsSigningIn ? "Signing in…" : "Sign in with Microsoft";
+    public string SignInButtonText => IsSigningIn ? "正在登录…" : "使用 Microsoft 登录";
 
     public SettingsViewModel(
         IAccountSessionManager sessionManager,
@@ -71,13 +71,13 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (_sessionManager.IsConfigured)
         {
-            AuthStatusText = "Configured";
+            AuthStatusText = "已配置";
             ClientIdDisplay = Mask(_authConfig.ClientId);
             TenantIdDisplay = _authConfig.TenantId;
         }
         else
         {
-            AuthStatusText = "Not configured";
+            AuthStatusText = "未配置";
             ClientIdDisplay = "—";
             TenantIdDisplay = "—";
         }

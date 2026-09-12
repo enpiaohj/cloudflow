@@ -5,8 +5,8 @@
                  xmlns:vm="clr-namespace:CloudFlow.App.ViewModels"
                  xmlns:views="clr-namespace:CloudFlow.App.Views"
                  Title="CloudFlow"
-                 Width="1440" Height="920"
-                 MinWidth="1180" MinHeight="700"
+                 Width="1180" Height="700"
+                 MinWidth="980" MinHeight="620"
                  WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
@@ -80,7 +80,7 @@
                         Background="{DynamicResource Cf.PageBackgroundBrush}"
                         BorderBrush="{DynamicResource Cf.BorderBrush}"
                         BorderThickness="1" CornerRadius="6">
-                    <ui:TextBox PlaceholderText="Search resources, VMs, and more..."
+                    <ui:TextBox PlaceholderText="搜索资源、虚拟机…"
                                 Icon="{ui:SymbolIcon Search24}"
                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                 BorderThickness="0" Background="Transparent"
@@ -95,7 +95,7 @@
                 <Button Grid.Column="4" Width="34" Height="34" Margin="4,0"
                         VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
                         Command="{Binding RefreshCommand}" Cursor="Hand"
-                        ToolTip="Refresh">
+                        ToolTip="刷新">
                     <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="16"
                                    Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
                 </Button>
@@ -103,7 +103,7 @@
                 <!-- 通知 -->
                 <Button Grid.Column="5" Width="34" Height="34" Margin="4,0"
                         VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
-                        Cursor="Hand" ToolTip="Notifications">
+                        Cursor="Hand" ToolTip="通知">
                     <Grid>
                         <ui:SymbolIcon Symbol="Alert24" FontSize="16"
                                        Foreground="{DynamicResource Cf.TextSecondaryBrush}" />

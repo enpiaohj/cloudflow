@@ -3,7 +3,7 @@ using System.Windows;
 
 namespace CloudFlow.App.Views;
 
-/// <summary>Open Port 结果（提交 Operation Engine 的参数，设计文档 §23/§24）。</summary>
+/// <summary>打开端口结果（提交 Operation Engine 的参数，设计文档 §23/§24）。</summary>
 public sealed record OpenPortResult(
     string RuleName,
     int Port,
@@ -14,17 +14,19 @@ public sealed record OpenPortResult(
     int Priority);
 
 /// <summary>
-/// Open Port 对话框（概念图 2 右侧面板）。
-/// Source 默认 My Current IP（§24 My Current IP 一键开放）。
+/// 打开端口对话框（概念图 2 右侧面板）。
+/// 来源默认我的当前 IP（§24 My Current IP 一键开放）。
 /// </summary>
 public partial class OpenPortDialog : Window, INotifyPropertyChanged
 {
+    private const string AnyOption = "任意 (Any)";
+
     private string _ruleName = "AppAccess";
     private string _portText = "";
     private string _selectedProtocol = "TCP";
     private string? _selectedSource;
     private string _priorityText = "400";
-    private string _selectedApplyTo = "Network Interface (NIC)";
+    private string _selectedApplyTo = "网卡 NSG（仅本虚拟机）";
     private string _errorText = "";
 
     private readonly string _myIpDisplay;
@@ -34,15 +36,15 @@ public partial class OpenPortDialog : Window, INotifyPropertyChanged
 
     public string[] SourceOptions { get; }
 
-    public string[] ApplyToOptions { get; } = ["Network Interface (NIC)", "Subnet NSG (shared)"];
+    public string[] ApplyToOptions { get; } = ["网卡 NSG（仅本虚拟机）", "子网 NSG（共享）"];
 
     public OpenPortResult? Result { get; private set; }
 
     public OpenPortDialog(string currentIp, string currentIpCidr)
     {
-        _myIpDisplay = $"My Current IP ({currentIp})";
+        _myIpDisplay = $"我的当前 IP ({currentIp})";
         _myIpCidr = currentIpCidr;
-        SourceOptions = [_myIpDisplay, "Any", "10.0.2.0/24"];
+        SourceOptions = [_myIpDisplay, AnyOption, "10.0.2.0/24"];
         _selectedSource = _myIpDisplay;
         _portText = "8443";
         InitializeComponent();
@@ -132,26 +134,26 @@ public partial class OpenPortDialog : Window, INotifyPropertyChanged
         var name = RuleName.Trim();
         if (name.Length == 0)
         {
-            ErrorText = "Rule name is required.";
+            ErrorText = "请输入规则名称。";
             return;
         }
 
         if (!int.TryParse(PortText.Trim(), out var port) || port is < 1 or > 65535)
         {
-            ErrorText = "Port must be an integer between 1 and 65535.";
+            ErrorText = "端口必须是 1–65535 之间的整数。";
             return;
         }
 
         if (!int.TryParse(PriorityText.Trim(), out var priority) || priority is < 100 or > 4096)
         {
-            ErrorText = "Priority must be between 100 and 4096.";
+            ErrorText = "优先级必须是 100–4096 之间的整数。";
             return;
         }
 
         var source = (SelectedSource ?? "").Trim();
         if (source.Length == 0)
         {
-            ErrorText = "Source is required.";
+            ErrorText = "请选择或输入来源。";
             return;
         }
 
@@ -160,12 +162,12 @@ public partial class OpenPortDialog : Window, INotifyPropertyChanged
         if (source == _myIpDisplay)
         {
             prefix = _myIpCidr;                    // 例如 203.0.113.10/32
-            display = $"My IP ({_myIpCidr[..^3]})";
+            display = $"我的 IP ({_myIpCidr[..^3]})";
         }
-        else if (source == "Any")
+        else if (source == AnyOption)
         {
             prefix = "*";
-            display = "Any";
+            display = "任意 (Any)";
         }
         else
         {
@@ -177,14 +179,14 @@ public partial class OpenPortDialog : Window, INotifyPropertyChanged
             if (!System.Text.RegularExpressions.Regex.IsMatch(
                     source, @"^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$"))
             {
-                ErrorText = "Source must be 'Any', 'My Current IP' or a valid IP/CIDR.";
+                ErrorText = "来源必须是“我的当前 IP”、“任意 (Any)”或有效的 IP/CIDR。";
                 return;
             }
             prefix = source;
             display = source;
         }
 
-        var origin = SelectedApplyTo.StartsWith("Subnet") ? "Subnet" : "Nic";
+        var origin = SelectedApplyTo.StartsWith("子网") ? "Subnet" : "Nic";
 
         Result = new OpenPortResult(name, port, SelectedProtocol, prefix, display, origin, priority);
         DialogResult = true;

@@ -15,16 +15,31 @@
         <!-- ===== 面包屑 + 标题 ===== -->
         <StackPanel Grid.Row="0">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBlock Text="Compute" FontSize="12.5"
+                <TextBlock Text="计算" FontSize="12.5"
                            Foreground="{DynamicResource Cf.TextMutedBrush}" />
                 <TextBlock Text="  ›  " FontSize="12.5"
                            Foreground="{DynamicResource Cf.TextMutedBrush}" />
-                <TextBlock Text="Virtual Machines" FontSize="12.5" FontWeight="SemiBold"
+                <TextBlock Text="虚拟机" FontSize="12.5" FontWeight="SemiBold"
                            Foreground="{DynamicResource Cf.PrimaryBrush}" />
             </StackPanel>
-            <TextBlock Text="Virtual Machines" Style="{StaticResource Cf.PageTitle}" />
-            <TextBlock Text="Manage and monitor your Azure virtual machines."
-                       Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="虚拟机" Style="{StaticResource Cf.PageTitle}" />
+                    <TextBlock Text="管理并监控你的 Azure 虚拟机。"
+                               Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Height="36"
+                        VerticalAlignment="Top" Command="{Binding CreateVmCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="＋" FontWeight="Bold" />
+                        <TextBlock Text="创建虚拟机" Margin="5,0,0,0" />
+                    </StackPanel>
+                </Button>
+            </Grid>
         </StackPanel>
 
         <!-- ===== 操作反馈 InfoBar ===== -->
@@ -50,7 +65,7 @@
                     Background="{DynamicResource Cf.CardBrush}"
                     BorderBrush="{DynamicResource Cf.BorderBrush}"
                     BorderThickness="1" CornerRadius="6">
-                <ui:TextBox PlaceholderText="Search virtual machines..."
+                <ui:TextBox PlaceholderText="搜索虚拟机…"
                             Icon="{ui:SymbolIcon Search24}"
                             Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                             BorderThickness="0" Background="Transparent"
@@ -71,7 +86,7 @@
                     Command="{Binding RefreshCommand}">
                 <StackPanel Orientation="Horizontal">
                     <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" />
-                    <TextBlock Text="Refresh" Margin="7,0,0,0" />
+                    <TextBlock Text="刷新" Margin="7,0,0,0" />
                 </StackPanel>
             </Button>
         </Grid>
@@ -94,7 +109,7 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150">
+                        <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="150">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="FontWeight" Value="SemiBold" />
@@ -103,17 +118,17 @@
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
 
-                        <DataGridTemplateColumn Header="Status" Width="110" CanUserResize="False">
+                        <DataGridTemplateColumn Header="状态" Width="110" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Border Style="{StaticResource Cf.Badge}">
-                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Cf.BadgeText}" />
+                                        <TextBlock Text="{Binding StatusText, Converter={StaticResource StatusText}}" Style="{StaticResource Cf.BadgeText}" />
                                     </Border>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="IP Address" Width="110">
+                        <DataGridTemplateColumn Header="IP 地址" Width="110">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding PublicIp, Converter={StaticResource NullableText}}"
@@ -122,9 +137,9 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTextColumn Header="Size" Binding="{Binding VmSize}" Width="150" />
-                        <DataGridTextColumn Header="Resource Group" Binding="{Binding ResourceGroupName}" Width="140" />
-                        <DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="120" />
+                        <DataGridTextColumn Header="大小" Binding="{Binding VmSize}" Width="150" />
+                        <DataGridTextColumn Header="资源组" Binding="{Binding ResourceGroupName}" Width="140" />
+                        <DataGridTextColumn Header="区域" Binding="{Binding Region}" Width="120" />
 
                         <DataGridTemplateColumn Header="CPU" Width="70">
                             <DataGridTemplateColumn.CellTemplate>
@@ -135,7 +150,7 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="Subscription" Width="130">
+                        <DataGridTemplateColumn Header="订阅" Width="130">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding SubscriptionName}" FontSize="12.5"
@@ -153,11 +168,11 @@
                                             Tag="{Binding}">
                                         <Button.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="View details" Click="MenuViewDetails_Click" />
+                                                <MenuItem Header="查看详情" Click="MenuViewDetails_Click" />
                                                 <Separator />
-                                                <MenuItem Header="Restart VM" Tag="restart" Click="MenuPower_Click" />
-                                                <MenuItem Header="Shut down (Power Off)" Tag="poweroff" Click="MenuPower_Click" />
-                                                <MenuItem Header="Stop &amp; Deallocate" Tag="deallocate" Click="MenuPower_Click" />
+                                                <MenuItem Header="重启虚拟机" Tag="restart" Click="MenuPower_Click" />
+                                                <MenuItem Header="关机（保留分配）" Tag="poweroff" Click="MenuPower_Click" />
+                                                <MenuItem Header="停止并解除分配" Tag="deallocate" Click="MenuPower_Click" />
                                             </ContextMenu>
                                         </Button.ContextMenu>
                                     </Button>
@@ -169,7 +184,7 @@
 
                 <!-- Loading 遮罩 -->
                 <Border Background="#80FFFFFF" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="Loading…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Text="加载中…" HorizontalAlignment="Center" VerticalAlignment="Center"
                                Style="{StaticResource Cf.Muted}" />
                 </Border>
             </Grid>
@@ -219,8 +234,10 @@
                         Command="{Binding NextPageCommand}" Content="›" />
             </StackPanel>
 
-            <TextBlock Grid.Column="2" Text="10 / page" Style="{StaticResource Cf.Muted}"
-                       VerticalAlignment="Center" Margin="14,0,0,0" />
+            <ComboBox Grid.Column="2" Width="110" Height="28" Margin="14,0,0,0" FontSize="12"
+                      ItemsSource="{Binding PageSizeOptions}"
+                      SelectedItem="{Binding SelectedPageSize}"
+                      VerticalAlignment="Center" />
         </Grid>
     </Grid>
 </UserControl>
