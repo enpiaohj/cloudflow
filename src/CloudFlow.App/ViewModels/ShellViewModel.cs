@@ -34,11 +34,20 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         _scopeContext = scopeContext;
         _savedScopeStore = savedScopeStore;
 
+        // "计算"为可展开分组，"虚拟机"子项默认折叠
+        var computeGroup = new NavItemViewModel
+        {
+            PageKey = "compute",
+            Label = "计算",
+            Symbol = SymbolRegular.Cloud24,
+            IsGroup = true
+        };
+
         NavItems =
         [
             new() { PageKey = "home", Label = "首页", Symbol = SymbolRegular.Home24 },
-            new() { PageKey = "compute", Label = "计算", Symbol = SymbolRegular.Cloud24 },
-            new() { PageKey = "vms", Label = "虚拟机", Symbol = SymbolRegular.Desktop24, IsChild = true },
+            computeGroup,
+            new() { PageKey = "vms", Label = "虚拟机", Symbol = SymbolRegular.Desktop24, IsChild = true, Parent = computeGroup },
             new() { PageKey = "jobs", Label = "任务", Symbol = SymbolRegular.Clock24 },
             new() { PageKey = "sep1", IsSeparator = true, IsEnabled = false },
             new() { PageKey = "settings", Label = "设置", Symbol = SymbolRegular.Settings24 }
@@ -99,17 +108,31 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         }
     }
 
+    private NavItemViewModel? _lastSelectedNav;
+    private bool _suppressNavSelection;
+
     partial void OnSelectedNavChanged(NavItemViewModel? value)
     {
-        if (value is null || value.IsSeparator)
+        if (_suppressNavSelection || value is null || value.IsSeparator)
         {
             return;
         }
 
+        // 分组头（如"计算"）：点击仅切换展开/折叠，不导航；选中态恢复到之前的项
+        if (value.IsGroup)
+        {
+            value.IsExpanded = !value.IsExpanded;
+            _suppressNavSelection = true;
+            SelectedNav = _lastSelectedNav;
+            _suppressNavSelection = false;
+            return;
+        }
+
+        _lastSelectedNav = value;
         Current = value.PageKey switch
         {
             "home" => Home,
-            "vms" or "compute" => Vms,
+            "vms" => Vms,
             "jobs" => Jobs,
             "settings" => Settings,
             _ => Current
@@ -178,10 +201,15 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     public void NavigateVirtualMachines(string? filter = null)
     {
-        if (SelectedNav?.PageKey != "vms")
+        // 确保分组展开（从 Quick Actions / 注意项 / 搜索进入时）
+        NavItems.First(n => n.PageKey == "compute").IsExpanded = true;
+
+        var vmsItem = NavItems.First(n => n.PageKey == "vms");
+        if (SelectedNav != vmsItem)
         {
-            SelectedNav = NavItems.First(n => n.PageKey == "vms");
+            SelectedNav = vmsItem;
         }
+        _lastSelectedNav = vmsItem;
         Current = Vms;
         if (filter is not null)
         {
