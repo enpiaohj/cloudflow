@@ -1,4 +1,5 @@
 using System.Windows;
+using CloudFlow.App.Infrastructure;
 using CloudFlow.App.ViewModels;
 using CloudFlow.App.Views;
 using CloudFlow.Azure.Arm;
@@ -107,7 +108,9 @@ public partial class App : Application
         services.AddSingleton<IVmNetworkService>(sp => sp.GetRequiredService<MockVmNetworkService>());
 
         // ---- ViewModels / Views ----
+        // IShellNavigation 与 ShellViewModel 共享同一单例（页面导航统一走 Shell）
         services.AddSingleton<ShellViewModel>();
+        services.AddSingleton<IShellNavigation>(sp => sp.GetRequiredService<ShellViewModel>());
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<VirtualMachinesViewModel>();
         services.AddSingleton<JobsViewModel>();
