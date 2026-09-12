@@ -5,7 +5,7 @@
                  xmlns:vm="clr-namespace:CloudFlow.App.ViewModels"
                  xmlns:views="clr-namespace:CloudFlow.App.Views"
                  Title="CloudFlow"
-                 Icon="Assets/app.ico"
+                 Icon="pack://application:,,,/Assets/app.ico"
                  Width="1180" Height="700"
                  MinWidth="980" MinHeight="620"
                  WindowStartupLocation="CenterScreen"
