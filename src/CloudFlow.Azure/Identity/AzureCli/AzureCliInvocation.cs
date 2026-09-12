@@ -17,4 +17,10 @@ public sealed record AzureCliInvocation
 
     /// <summary>超时；到期终止整个进程树。默认 5 分钟。</summary>
     public TimeSpan? Timeout { get; init; }
+
+    /// <summary>
+    /// 逐行输出回调（stdout / stderr 均触发）。用于设备码登录等需要实时展示 CLI 提示的场景；
+    /// 输出内容可能含敏感值，进入日志前必须经 <see cref="AzureCliOutputRedactor"/> 脱敏。
+    /// </summary>
+    public Action<string>? OnOutputLine { get; init; }
 }

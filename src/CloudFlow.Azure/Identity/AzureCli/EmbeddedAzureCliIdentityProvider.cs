@@ -33,7 +33,16 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
 
     public AuthenticationProviderType Type => AuthenticationProviderType.EmbeddedAzureCli;
 
-    public async Task<CloudAccount> SignInAsync(CancellationToken cancellationToken = default)
+    public Task<CloudAccount> SignInAsync(CancellationToken cancellationToken = default)
+        => SignInAsync(null, cancellationToken);
+
+    /// <summary>
+    /// 设备码登录（经本机实测：默认 WAM Broker 流在企业代理网络下不可用，设备码流稳定）。
+    /// <paramref name="onSignInMessage"/> 实时收到 CLI 的登录提示（含设备码 URL 与代码），由 UI 展示。
+    /// </summary>
+    public async Task<CloudAccount> SignInAsync(
+        Action<string>? onSignInMessage,
+        CancellationToken cancellationToken = default)
     {
         var profileId = _profiles.CreateProfile();
         var profilePath = _profiles.GetProfilePath(profileId);
@@ -44,9 +53,10 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
             result = await _runner.RunAsync(new AzureCliInvocation
             {
                 ExecutablePath = _azCmdPath,
-                Arguments = ["login", "--output", "json"],
+                Arguments = ["login", "--use-device-code", "--output", "json"],
                 ConfigDirectory = profilePath,
-                Timeout = AuthTimeout
+                Timeout = AuthTimeout,
+                OnOutputLine = onSignInMessage
             }, cancellationToken).ConfigureAwait(false);
         }
         catch

@@ -56,8 +56,10 @@ public sealed class AzureCliProcessRunner : IAzureCliProcessRunner
 
         try
         {
-            var stdout = await process.StandardOutput.ReadToEndAsync(timeoutCts.Token).ConfigureAwait(false);
-            var stderr = await process.StandardError.ReadToEndAsync(timeoutCts.Token).ConfigureAwait(false);
+            var stdoutTask = ReadStreamAsync(process.StandardOutput, invocation, timeoutCts.Token).ConfigureAwait(false);
+            var stderrTask = ReadStreamAsync(process.StandardError, invocation, timeoutCts.Token).ConfigureAwait(false);
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
             return new AzureCliResult(process.ExitCode, stdout, stderr);
         }
@@ -92,6 +94,22 @@ public sealed class AzureCliProcessRunner : IAzureCliProcessRunner
         }
         builder.Append('"');
         return builder.ToString();
+    }
+
+    /// <summary>逐行读取流：累积完整输出并逐行触发回调（设备码提示需实时到达 UI）。</summary>
+    private static async Task<string> ReadStreamAsync(
+        StreamReader reader,
+        AzureCliInvocation invocation,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new StringBuilder();
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            buffer.AppendLine(line);
+            invocation.OnOutputLine?.Invoke(line);
+        }
+
+        return buffer.ToString();
     }
 
     private static void ApplyConfigDirectory(ProcessStartInfo startInfo, string? configDirectory)

@@ -94,6 +94,26 @@ public sealed class AzureCliProcessRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task Run_逐行回调输出内容()
+    {
+        var script = WriteScript("lines.cmd", "@echo line-one\r\n@echo line-two 1>&2\r\n@exit /b 0");
+        var lines = new List<string>();
+
+        var result = await _runner.RunAsync(new AzureCliInvocation
+        {
+            ExecutablePath = script,
+            OnOutputLine = lines.Add
+        });
+
+        Assert.True(result.Succeeded);
+        Assert.Contains("line-one", lines);
+        Assert.Contains(lines, line => line.TrimEnd().StartsWith("line-two"));
+        // 回调之外，完整输出仍可用于解析
+        Assert.Contains("line-one", result.StandardOutput);
+        Assert.Contains("line-two", result.StandardError);
+    }
+
+    [Fact]
     public void Redactor_掩盖敏感JSON值()
     {
         var redacted = AzureCliOutputRedactor.Redact(

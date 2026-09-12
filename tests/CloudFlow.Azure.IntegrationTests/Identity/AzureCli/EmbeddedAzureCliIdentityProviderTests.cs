@@ -92,17 +92,28 @@ public sealed class EmbeddedAzureCliIdentityProviderTests
     }
 
     [Fact]
-    public async Task SignIn_创建独立Profile并以它执行login()
+    public async Task SignIn_设备码流回调登录提示并解析账户()
     {
-        var runner = new FakeRunner { Responder = _ => new AzureCliResult(0, LoginOutput, "") };
+        var runner = new FakeRunner
+        {
+            Responder = invocation =>
+            {
+                invocation.OnOutputLine?.Invoke(
+                    "To sign in, use a web browser to open the page https://login.microsoft.com/device and enter the code N3VSGZNUY to authenticate.");
+                return new AzureCliResult(0, LoginOutput, "");
+            }
+        };
         var profiles = new FakeProfiles();
         var provider = new EmbeddedAzureCliIdentityProvider(runner, profiles, "C:\\rt\\az.cmd");
+        var messages = new List<string>();
 
-        var account = await provider.SignInAsync();
+        var account = await provider.SignInAsync(messages.Add);
 
         var invocation = LastArgs(runner);
         Assert.Contains("login", invocation.Arguments);
+        Assert.Contains("--use-device-code", invocation.Arguments);
         Assert.Equal(profiles.GetProfilePath(profiles.Created.Single()), invocation.ConfigDirectory);
+        Assert.Contains(messages, message => message.Contains("N3VSGZNUY"));
 
         Assert.Equal(AuthenticationProviderType.EmbeddedAzureCli, account.ProviderType);
         Assert.Equal("personal@outlook.com", account.Username);
