@@ -31,6 +31,25 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // 崩溃日志：所有未处理异常落盘（%LOCALAPPDATA%\CloudFlow\logs）
+        DispatcherUnhandledException += (_, args) =>
+        {
+            CloudFlow.Data.Stores.CloudFlowPaths.WriteCrashLog("DispatcherUnhandledException", args.Exception);
+            MessageBox.Show(
+                $"发生未处理的异常：\n\n{args.Exception.Message}\n\n{args.Exception.GetType().Name}\n\n" +
+                $"日志：{CloudFlow.Data.Stores.CloudFlowPaths.LogsDirectory}",
+                "CloudFlow", MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+            {
+                CloudFlow.Data.Stores.CloudFlowPaths.WriteCrashLog("AppDomain.UnhandledException", ex);
+            }
+        };
+
         Services = BuildServices();
 
         var window = Services.GetRequiredService<MainWindow>();
@@ -97,14 +116,5 @@ public partial class App : Application
         services.AddSingleton<MainWindow>();
 
         return services.BuildServiceProvider();
-    }
-
-    private void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
-    {
-        // 不隐藏 Error：未处理异常显式提示（全局开发规范 §14）
-        MessageBox.Show(
-            $"发生未处理的异常：\n\n{e.Exception.Message}\n\n{e.Exception.GetType().Name}",
-            "CloudFlow", MessageBoxButton.OK, MessageBoxImage.Error);
-        e.Handled = true;
     }
 }

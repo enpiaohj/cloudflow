@@ -105,7 +105,7 @@
                         VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
                         Cursor="Hand" ToolTip="Notifications">
                     <Grid>
-                        <ui:SymbolIcon Symbol="Bell24" FontSize="16"
+                        <ui:SymbolIcon Symbol="Alert24" FontSize="16"
                                        Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
                         <Ellipse Width="7" Height="7" Fill="#FFD93025"
                                  HorizontalAlignment="Right" VerticalAlignment="Top"
