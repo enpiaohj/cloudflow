@@ -1,0 +1,182 @@
+<ui:FluentWindow x:Class="CloudFlow.App.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:vm="clr-namespace:CloudFlow.App.ViewModels"
+                 xmlns:views="clr-namespace:CloudFlow.App.Views"
+                 Title="CloudFlow"
+                 Width="1440" Height="920"
+                 MinWidth="1180" MinHeight="700"
+                 WindowStartupLocation="CenterScreen"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="None"
+                 Background="{DynamicResource Cf.PageBackgroundBrush}">
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:HomeViewModel}">
+            <views:HomePage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VirtualMachinesViewModel}">
+            <views:VirtualMachinesPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VmDetailViewModel}">
+            <views:VmDetailPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:JobsViewModel}">
+            <views:JobsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsPage />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="52" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===================== 顶栏（概念图 1：logo + Account + Scope + Search + 工具） ===================== -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource Cf.TopBarBrush}"
+                BorderBrush="{DynamicResource Cf.BorderBrush}"
+                BorderThickness="0,0,0,1"
+                MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Logo -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,10,0" VerticalAlignment="Center">
+                    <ui:SymbolIcon Symbol="Cloud24" FontSize="22" Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                    <TextBlock Text="CloudFlow" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Account / Tenant 选择器（P1 单活动账户，P1.5 多账号切换） -->
+                <ComboBox Grid.Column="1" Width="250" Height="34" Margin="6,0"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding AccountOptions}"
+                          SelectedItem="{Binding SelectedAccount}" />
+
+                <!-- Scope 选择器（设计文档 §8：不命名 Subscription） -->
+                <ComboBox Grid.Column="2" Width="220" Height="34" Margin="6,0"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding ScopeOptions}"
+                          SelectedItem="{Binding SelectedScope, Mode=TwoWay}" />
+
+                <!-- 全局搜索 -->
+                <Border Grid.Column="3" MaxWidth="430" Height="34" Margin="10,0"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource Cf.PageBackgroundBrush}"
+                        BorderBrush="{DynamicResource Cf.BorderBrush}"
+                        BorderThickness="1" CornerRadius="6">
+                    <ui:TextBox PlaceholderText="Search resources, VMs, and more..."
+                                Icon="{ui:SymbolIcon Search24}"
+                                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                BorderThickness="0" Background="Transparent"
+                                VerticalContentAlignment="Center" FontSize="13">
+                        <ui:TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                        </ui:TextBox.InputBindings>
+                    </ui:TextBox>
+                </Border>
+
+                <!-- 刷新 -->
+                <Button Grid.Column="4" Width="34" Height="34" Margin="4,0"
+                        VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                        Command="{Binding RefreshCommand}" Cursor="Hand"
+                        ToolTip="Refresh">
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="16"
+                                   Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                </Button>
+
+                <!-- 通知 -->
+                <Button Grid.Column="5" Width="34" Height="34" Margin="4,0"
+                        VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                        Cursor="Hand" ToolTip="Notifications">
+                    <Grid>
+                        <ui:SymbolIcon Symbol="Bell24" FontSize="16"
+                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                        <Ellipse Width="7" Height="7" Fill="#FFD93025"
+                                 HorizontalAlignment="Right" VerticalAlignment="Top"
+                                 Margin="0,2,2,0" />
+                    </Grid>
+                </Button>
+
+                <!-- 账户头像 -->
+                <Border Grid.Column="6" Width="32" Height="32" Margin="6,0"
+                        VerticalAlignment="Center" CornerRadius="16"
+                        Background="#FFE8F0FE">
+                    <TextBlock Text="JD" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Cf.PrimaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <!-- 标题栏按钮（最小化 / 最大化 / 关闭） -->
+                <ui:TitleBar Grid.Column="7" VerticalAlignment="Top" />
+            </Grid>
+        </Border>
+
+        <!-- ===================== 主体：左导航 + 内容 ===================== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="216" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧导航 -->
+            <Border Grid.Column="0" Background="{DynamicResource Cf.NavBackgroundBrush}"
+                    BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="0,0,1,0">
+                <ListBox ItemsSource="{Binding NavItems}"
+                         SelectedItem="{Binding SelectedNav, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource Cf.NavItem}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Margin="0,10,0,0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <!-- 分组分隔线 -->
+                                <Separator Height="1" Margin="12,6"
+                                           Background="{DynamicResource Cf.BorderBrush}"
+                                           Visibility="{Binding IsSeparator, Converter={StaticResource BoolToVisibility}}" />
+                                <!-- 普通导航项 -->
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding IsSeparator, Converter={StaticResource InverseBoolToVisibility}}">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChild}" Value="True">
+                                                    <Setter Property="Margin" Value="26,0,0,0" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="17"
+                                                   Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                    <TextBlock Text="{Binding Label}" FontSize="13.5"
+                                               Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- 页面内容 -->
+            <ContentControl Grid.Column="1" Content="{Binding Current}" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

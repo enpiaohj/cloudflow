@@ -1,0 +1,266 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:cvc="clr-namespace:CloudFlow.App.Converters">
+
+    <!--
+      CloudFlow 主题：配色与样式取自 docs/01-产品设计/UI/UI概念图*.png
+      浅色 Fluent 风格、蓝色主色、白卡片、圆角、细边框
+    -->
+
+    <!-- ===== 颜色 ===== -->
+    <SolidColorBrush x:Key="Cf.PrimaryBrush" Color="#FF0F6CBD" />
+    <SolidColorBrush x:Key="Cf.PrimaryHoverBrush" Color="#FF115EA3" />
+    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FFF6F8FB" />
+    <SolidColorBrush x:Key="Cf.TopBarBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.CardBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FFE3E8F0" />
+    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FF1B1F2A" />
+    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FF5B6472" />
+    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF8A93A2" />
+    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FFFBFCFE" />
+    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FFF0F2F6" />
+    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FFF3F7FC" />
+    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FFEAF2FB" />
+
+    <!-- ===== 转换器 ===== -->
+    <cvc:CfStatusBrushConverter x:Key="StatusBg" Mode="Background" />
+    <cvc:CfStatusBrushConverter x:Key="StatusFg" Mode="Foreground" />
+    <cvc:CfNullableTextConverter x:Key="NullableText" />
+    <cvc:CfBoolToVisibilityConverter x:Key="BoolToVisibility" />
+    <cvc:CfInverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+    <cvc:CfNonEmptyToVisibilityConverter x:Key="NonEmptyToVisibility" />
+    <cvc:CfNullToVisibilityConverter x:Key="NullToVisibility" />
+
+    <!-- ===== 卡片 ===== -->
+    <Style x:Key="Cf.Card" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cf.BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="18" />
+    </Style>
+
+    <!-- ===== 文本 ===== -->
+    <Style x:Key="Cf.PageTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="Cf.SectionTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="Cf.Subtitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+    </Style>
+
+    <Style x:Key="Cf.Muted" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextMutedBrush}" />
+    </Style>
+
+    <Style x:Key="Cf.StatNumber" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+    </Style>
+
+    <!-- ===== 状态徽章 ===== -->
+    <Style x:Key="Cf.Badge" TargetType="Border">
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Padding" Value="10,3" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{Binding Mode=OneWay, Converter={StaticResource StatusBg}}" />
+    </Style>
+
+    <Style x:Key="Cf.BadgeText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{Binding Mode=OneWay, Converter={StaticResource StatusFg}}" />
+    </Style>
+
+    <!-- ===== 图标圆底（统计卡） ===== -->
+    <Style x:Key="Cf.IconCircle" TargetType="Border">
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="38" />
+        <Setter Property="CornerRadius" Value="19" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- ===== 按钮 ===== -->
+    <Style x:Key="Cf.PrimaryButton" TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource Cf.PrimaryBrush}" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.PrimaryHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Cf.SecondaryButton" TargetType="Button" BasedOn="{StaticResource Cf.PrimaryButton}">
+        <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                            BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Cf.DangerButton" TargetType="Button" BasedOn="{StaticResource Cf.PrimaryButton}">
+        <Setter Property="Background" Value="#FFC13438" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="#FFA52A2E" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== 导航 ===== -->
+    <Style x:Key="Cf.NavItem" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="10,1" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="bd" Background="Transparent" CornerRadius="7" Padding="12,9">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.RowSelectedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== DataGrid ===== -->
+    <Style x:Key="Cf.GridColumnHeader" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cf.BorderBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridColumnHeader">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Cf.GridRow" TargetType="DataGridRow">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cf.RowSeparatorBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Cf.RowSelectedBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Cf.GridCell" TargetType="DataGridCell">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Cf.DataGrid" TargetType="DataGrid">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="RowHeight" Value="42" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="CanUserSortColumns" Value="False" />
+        <Setter Property="CanUserResizeRows" Value="False" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="SelectionUnit" Value="FullRow" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource Cf.GridColumnHeader}" />
+        <Setter Property="RowStyle" Value="{StaticResource Cf.GridRow}" />
+        <Setter Property="CellStyle" Value="{StaticResource Cf.GridCell}" />
+    </Style>
+
+</ResourceDictionary>

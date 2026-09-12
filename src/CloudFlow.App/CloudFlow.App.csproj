@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>CloudFlow.App</RootNamespace>
+    <AssemblyName>CloudFlow.App</AssemblyName>
+    <Description>CloudFlow 桌面应用（WPF + Fluent）</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CloudFlow.Core\CloudFlow.Core.csproj" />
+    <ProjectReference Include="..\CloudFlow.Data\CloudFlow.Data.csproj" />
+    <ProjectReference Include="..\CloudFlow.Operations\CloudFlow.Operations.csproj" />
+    <ProjectReference Include="..\CloudFlow.Azure\CloudFlow.Azure.csproj" />
+    <ProjectReference Include="..\Modules\CloudFlow.Modules.Compute\CloudFlow.Modules.Compute.csproj" />
+    <ProjectReference Include="..\Modules\CloudFlow.Modules.Network\CloudFlow.Modules.Network.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.example.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

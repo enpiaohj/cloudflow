@@ -1,0 +1,45 @@
+# ===== .NET / Visual Studio =====
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# 测试结果
+[Tt]est[Rr]esult*/
+*.trx
+
+# NuGet
+*.nupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# 发布产物
+publish/
+[Dd]ebug/
+[Rr]elease/
+
+# ===== CloudFlow 本地配置（含 TenantId / ClientId，不入库） =====
+src/CloudFlow.App/appsettings.json
+tools/CloudFlow.Spike/appsettings.json
+tests/CloudFlow.Azure.IntegrationTests/appsettings.json
+
+# 本地数据
+*.jsonl.local
+*.db
+*.db-shm
+*.db-wal
+
+# ===== Release 快照：source/ 与 CHANGELOG.md 入库，二进制产物不入库 =====
+releases/**
+!releases/**/
+!releases/**/*.md
+
+# ===== 操作系统 =====
+Thumbs.db
+.DS_Store

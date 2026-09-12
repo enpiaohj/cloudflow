@@ -1,0 +1,58 @@
+<UserControl x:Class="CloudFlow.App.Views.JobsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <Grid Margin="28,22,28,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Jobs" Style="{StaticResource Cf.PageTitle}" />
+            <TextBlock Text="All write operations across the platform — every operation is verified and audited."
+                       Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ComboBox Grid.Column="0" Width="180" Height="34"
+                      ItemsSource="{Binding StatusOptions}"
+                      SelectedItem="{Binding StatusFilter}" />
+            <Button Grid.Column="2" Style="{StaticResource Cf.SecondaryButton}" Height="34"
+                    Command="{Binding RefreshCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" />
+                    <TextBlock Text="Refresh" Margin="7,0,0,0" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Border Grid.Row="2" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,14,0,0">
+            <DataGrid ItemsSource="{Binding Jobs}" Style="{StaticResource Cf.DataGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Time" Binding="{Binding CreatedAt, StringFormat=MM-dd HH:mm:ss}" Width="160" />
+                    <DataGridTextColumn Header="Account" Binding="{Binding AccountDisplayName}" Width="120" />
+                    <DataGridTextColumn Header="Operation" Binding="{Binding Display}" Width="*" />
+                    <DataGridTemplateColumn Header="Status" Width="130">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource Cf.Badge}">
+                                    <TextBlock Text="{Binding Status}" Style="{StaticResource Cf.BadgeText}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Risk" Binding="{Binding Risk}" Width="80" />
+                    <DataGridTextColumn Header="Result" Binding="{Binding Summary}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

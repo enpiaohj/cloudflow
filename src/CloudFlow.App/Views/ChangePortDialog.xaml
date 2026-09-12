@@ -1,0 +1,84 @@
+<Window x:Class="CloudFlow.App.Views.ChangePortDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Change Port"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="White">
+
+    <StackPanel Margin="24,20">
+
+        <!-- 标题（概念图 2 中央弹窗） -->
+        <TextBlock Text="Change Port" FontSize="18" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+        <TextBlock Text="Update the port for this inbound rule."
+                   Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" />
+
+        <!-- Rule Name（只读） -->
+        <TextBlock Text="Rule Name" Style="{StaticResource Cf.Muted}" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0">
+            <TextBlock Text="{Binding RuleName}" FontSize="13" />
+        </Border>
+
+        <!-- Current / New Port -->
+        <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Current Port" Style="{StaticResource Cf.Muted}" />
+                <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                        Padding="10,7" Margin="0,4,0,0">
+                    <TextBlock Text="{Binding CurrentPort}" FontSize="13" />
+                </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="New Port" Style="{StaticResource Cf.Muted}" />
+                <TextBox x:Name="NewPortBox" FontSize="13" Padding="8,6" Margin="0,4,0,0"
+                         Text="{Binding NewPortText, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Protocol（不可变，设计文档 §22 只改端口） -->
+        <TextBlock Text="Protocol" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0">
+            <TextBlock Text="{Binding Protocol}" FontSize="13" Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+        </Border>
+        <TextBlock Text="Protocol cannot be changed." Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,3,0,0" />
+
+        <!-- Source（不可变） -->
+        <TextBlock Text="Source" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0">
+            <TextBlock Text="{Binding Source}" FontSize="13" Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+        </Border>
+        <TextBlock Text="Source cannot be changed." Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,3,0,0" />
+
+        <!-- Priority -->
+        <TextBlock Text="Priority" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0" HorizontalAlignment="Left" MinWidth="120">
+            <TextBlock Text="{Binding Priority}" FontSize="13" />
+        </Border>
+        <TextBlock Text="Priority will remain the same." Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,3,0,0" />
+
+        <!-- 校验错误 -->
+        <TextBlock Text="{Binding ErrorText}" FontSize="11.5" Foreground="#FFC5221F"
+                   Margin="0,10,0,0" TextWrapping="Wrap"
+                   Visibility="{Binding ErrorText, Converter={StaticResource NonEmptyToVisibility}}" />
+
+        <!-- 按钮 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,4">
+            <Button Content="Cancel" Style="{StaticResource Cf.SecondaryButton}" IsCancel="True"
+                    Click="Cancel_Click" />
+            <Button x:Name="OkButton" Content="Update Rule" Style="{StaticResource Cf.PrimaryButton}"
+                    Margin="10,0,0,0" IsDefault="True" Click="Ok_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

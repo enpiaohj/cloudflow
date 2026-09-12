@@ -1,0 +1,226 @@
+<UserControl x:Class="CloudFlow.App.Views.VirtualMachinesPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <Grid Margin="28,22,28,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== 面包屑 + 标题 ===== -->
+        <StackPanel Grid.Row="0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Compute" FontSize="12.5"
+                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                <TextBlock Text="  ›  " FontSize="12.5"
+                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                <TextBlock Text="Virtual Machines" FontSize="12.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Cf.PrimaryBrush}" />
+            </StackPanel>
+            <TextBlock Text="Virtual Machines" Style="{StaticResource Cf.PageTitle}" />
+            <TextBlock Text="Manage and monitor your Azure virtual machines."
+                       Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- ===== 操作反馈 InfoBar ===== -->
+        <Border Grid.Row="1" CornerRadius="6" Padding="12,8" Margin="0,14,0,0"
+                Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}"
+                Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
+            <TextBlock Text="{Binding InfoText}" FontSize="12.5"
+                       Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+        </Border>
+
+        <!-- ===== 筛选行 ===== -->
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Height="34"
+                    Background="{DynamicResource Cf.CardBrush}"
+                    BorderBrush="{DynamicResource Cf.BorderBrush}"
+                    BorderThickness="1" CornerRadius="6">
+                <ui:TextBox PlaceholderText="Search virtual machines..."
+                            Icon="{ui:SymbolIcon Search24}"
+                            Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                            BorderThickness="0" Background="Transparent"
+                            VerticalContentAlignment="Center" FontSize="13" />
+            </Border>
+
+            <ComboBox Grid.Column="1" Width="150" Height="34" Margin="10,0,0,0"
+                      ItemsSource="{Binding StatusOptions}"
+                      SelectedItem="{Binding StatusFilter}" />
+            <ComboBox Grid.Column="2" Width="180" Height="34" Margin="10,0,0,0"
+                      ItemsSource="{Binding ResourceGroupOptions}"
+                      SelectedItem="{Binding ResourceGroupFilter}" />
+            <ComboBox Grid.Column="3" Width="150" Height="34" Margin="10,0,0,0"
+                      ItemsSource="{Binding RegionOptions}"
+                      SelectedItem="{Binding RegionFilter}" />
+
+            <Button Grid.Column="5" Style="{StaticResource Cf.SecondaryButton}" Height="34"
+                    Command="{Binding RefreshCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" />
+                    <TextBlock Text="Refresh" Margin="7,0,0,0" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- ===== VM 列表 ===== -->
+        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,14,0,0">
+            <Grid>
+                <DataGrid x:Name="VmsGrid"
+                          ItemsSource="{Binding PageItems}"
+                          Style="{StaticResource Cf.DataGrid}"
+                          SelectionMode="Single"
+                          MouseDoubleClick="VmsGrid_MouseDoubleClick">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="38" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                              HorizontalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTemplateColumn Header="Status" Width="110" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Cf.Badge}">
+                                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Cf.BadgeText}" />
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Header="IP Address" Width="110">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding PublicIp, Converter={StaticResource NullableText}}"
+                                               FontSize="12.5" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="Size" Binding="{Binding VmSize}" Width="150" />
+                        <DataGridTextColumn Header="Resource Group" Binding="{Binding ResourceGroupName}" Width="140" />
+                        <DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="120" />
+
+                        <DataGridTemplateColumn Header="CPU" Width="70">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding CpuPercent, Converter={StaticResource NullableText}}"
+                                               FontSize="12.5" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Header="Subscription" Width="130">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding SubscriptionName}" FontSize="12.5"
+                                               Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="52" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="…" FontSize="15" FontWeight="Bold"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                                            Tag="{Binding}">
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="View details" Click="MenuViewDetails_Click" />
+                                                <Separator />
+                                                <MenuItem Header="Restart VM" Tag="restart" Click="MenuPower_Click" />
+                                                <MenuItem Header="Shut down (Power Off)" Tag="poweroff" Click="MenuPower_Click" />
+                                                <MenuItem Header="Stop &amp; Deallocate" Tag="deallocate" Click="MenuPower_Click" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Loading 遮罩 -->
+                <Border Background="#80FFFFFF" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Loading…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Style="{StaticResource Cf.Muted}" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ===== 分页（概念图：Showing 1–10 of 42 + 页码 + 10/page） ===== -->
+        <Grid Grid.Row="4" Margin="4,12,4,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding PageInfoText}" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Style="{StaticResource Cf.SecondaryButton}" Width="30" Height="28" Padding="0"
+                        Command="{Binding PreviousPageCommand}" Content="‹" />
+                <ItemsControl ItemsSource="{Binding PageNumbers}" Margin="6,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Command="{Binding DataContext.GoToPageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Width="28" Height="28" Margin="2,0" Padding="0"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    FontSize="12.5" Content="{Binding}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Style="{StaticResource Cf.SecondaryButton}" Width="30" Height="28" Padding="0"
+                        Command="{Binding NextPageCommand}" Content="›" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="10 / page" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,0,0" />
+        </Grid>
+    </Grid>
+</UserControl>
