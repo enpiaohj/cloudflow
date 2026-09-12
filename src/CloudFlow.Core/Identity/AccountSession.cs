@@ -10,7 +10,10 @@ public sealed class AccountSession
 
     public IReadOnlyList<TenantProfile> Tenants { get; init; } = [];
 
-    /// <summary>按 scopes 获取 Access Token（平台层实现，通常内部走 AcquireTokenSilent → Interactive 回退）。</summary>
+    /// <summary>
+    /// 按 scopes 获取 Access Token（平台层实现，AcquireTokenSilent，会用 Refresh Token 自动续期）。
+    /// 静默失败（如 Refresh Token 被撤销）时抛出要求重新登录的错误，绝不弹出交互式登录窗。
+    /// </summary>
     public required Func<IEnumerable<string>, CancellationToken, Task<string>> AccessTokenProvider { get; init; }
 
     public Task<string> GetAccessTokenAsync(IEnumerable<string> scopes, CancellationToken ct = default)

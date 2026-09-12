@@ -18,8 +18,15 @@ public interface IAccountSessionManager
     /// <summary>只清除 CloudFlow Token Cache 中对应账户，不影响 Microsoft 账户本身（§6）。</summary>
     Task RemoveAccountAsync(string accountId, CancellationToken ct = default);
 
-    /// <summary>获取当前活动会话（未登录时为 null）。</summary>
-    Task<AccountSession?> GetActiveSessionAsync(CancellationToken ct = default);
+    /// <summary>按明确的 MSAL Account ID 获取会话（未登录/缓存已移除时为 null）。</summary>
+    Task<AccountSession?> GetSessionAsync(string accountId, CancellationToken ct = default);
+
+    /// <summary>
+    /// 启动时静默恢复会话；优先尝试上次活动账户，失败时尝试其他缓存账户，绝不弹出浏览器/登录窗。
+    /// </summary>
+    Task<AccountSession?> TryRestoreSessionAsync(
+        string? preferredAccountId = null,
+        CancellationToken ct = default);
 
     /// <summary>发现账户可访问的 Tenant 列表。</summary>
     Task<IReadOnlyList<TenantProfile>> GetTenantsAsync(CloudAccount account, CancellationToken ct = default);
