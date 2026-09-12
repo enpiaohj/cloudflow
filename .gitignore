@@ -40,6 +40,9 @@ releases/**
 !releases/**/
 !releases/**/*.md
 
+# ===== P0 嵌入式 Azure CLI Runtime（本机下载/解包，不入库；认证版本记录见 docs/Identity-Spike.md） =====
+/runtime/
+
 # ===== 操作系统 =====
 Thumbs.db
 .DS_Store
