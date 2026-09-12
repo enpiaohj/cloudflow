@@ -50,6 +50,29 @@ public sealed class ScopeContext : INotifyPropertyChanged
         }
     }
 
+    private IReadOnlyList<Identity.SubscriptionProfile> _availableSubscriptions =
+        [];
+
+    /// <summary>
+    /// 登录后发现的真实订阅列表（Shell 据此重建 Scope 选项）。
+    /// 未登录时为空，此时使用 SavedScopes（Demo）。
+    /// </summary>
+    public IReadOnlyList<Identity.SubscriptionProfile> AvailableSubscriptions
+    {
+        get => _availableSubscriptions;
+        private set
+        {
+            _availableSubscriptions = value;
+            OnPropertyChanged(nameof(AvailableSubscriptions));
+        }
+    }
+
+    /// <summary>登录后写入真实订阅。</summary>
+    public void SetAvailableSubscriptions(IEnumerable<Identity.SubscriptionProfile> subs)
+    {
+        AvailableSubscriptions = [.. subs];
+    }
+
     /// <summary>Scope / Account 变更事件（模块订阅后刷新数据）。</summary>
     public event EventHandler? ScopeChanged;
 

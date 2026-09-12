@@ -2,6 +2,7 @@ using System.Windows;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.App.ViewModels;
 using CloudFlow.App.Views;
+using CloudFlow.Azure.ResourceGraph;
 using CloudFlow.Azure.Arm;
 using CloudFlow.Azure.Auth;
 using CloudFlow.Core.Identity;
@@ -101,10 +102,14 @@ public partial class App : Application
         // ---- Modules：Compute（Demo / Mock）----
         services.AddSingleton<MockAccountContext>();
         services.AddSingleton<MockVmInventoryService>();
-        services.AddSingleton<IVmInventoryService>(sp => sp.GetRequiredService<MockVmInventoryService>());
         services.AddSingleton<IVmPowerService, MockVmPowerService>();
         services.AddSingleton<IVmDiskService, MockVmDiskService>();
         services.AddSingleton<CloudFlow.Modules.Compute.Models.ComputeModule>();
+
+        // ---- 真实 Azure 数据（登录后自动启用，未登录回退 Mock）----
+        services.AddSingleton<ISubscriptionDiscoveryService, SubscriptionDiscoveryService>();
+        services.AddSingleton<ResourceGraphVmInventoryService>();
+        services.AddSingleton<IVmInventoryService, HybridVmInventoryService>();
 
         // ---- Modules：Network（Demo / Mock）----
         services.AddSingleton<MockCurrentIpProvider>();

@@ -6,8 +6,14 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>CloudFlow.App</RootNamespace>
     <AssemblyName>CloudFlow.App</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Description>CloudFlow 桌面应用（WPF + Fluent）</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\app-icon-preview.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />

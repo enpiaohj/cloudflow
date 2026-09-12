@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CloudFlow.Core.Identity;
 using CloudFlow.Core.Scopes;
 using CloudFlow.Azure.Auth;
+using CloudFlow.Azure.Arm;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -14,8 +15,10 @@ namespace CloudFlow.App.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly IAccountSessionManager _sessionManager;
+    private readonly ISubscriptionDiscoveryService _subscriptionDiscovery;
     private readonly ScopeContext _scopeContext;
     private readonly MsalAuthConfig _authConfig;
+    private readonly ShellViewModel _shell;
 
     [ObservableProperty]
     private ObservableCollection<string> _savedScopeNames = [];
@@ -47,12 +50,16 @@ public partial class SettingsViewModel : ObservableObject
 
     public SettingsViewModel(
         IAccountSessionManager sessionManager,
+        ISubscriptionDiscoveryService subscriptionDiscovery,
         ScopeContext scopeContext,
-        MsalAuthConfig authConfig)
+        MsalAuthConfig authConfig,
+        ShellViewModel shell)
     {
         _sessionManager = sessionManager;
+        _subscriptionDiscovery = subscriptionDiscovery;
         _scopeContext = scopeContext;
         _authConfig = authConfig;
+        _shell = shell;
 
         UpdateAuthStatus();
         _scopeContext.ScopeChanged += (_, _) =>
@@ -105,11 +112,22 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(SignInButtonText));
         try
         {
+            // 1. MSAL 交互登录
             var account = await _sessionManager.AddAccountAsync();
             _scopeContext.SetActiveAccount(account);
+
+            // 2. 订阅发现（含多 Tenant 识别，设计文档 §72）
+            var session = await _sessionManager.GetActiveSessionAsync();
+            var subscriptions = session is null
+                ? []
+                : await _subscriptionDiscovery.DiscoverAsync(session);
+
+            // 3. 通知 Shell 重建账户 / Scope 选项（触发全页面真实数据刷新）
+            _shell.OnSignedIn(account, subscriptions);
+
             UpdateSignedInAccount();
             MessageSeverity = "Succeeded";
-            MessageText = $"登录成功：{account.Username}";
+            MessageText = $"登录成功：{account.Username}，发现 {subscriptions.Count} 个订阅。虚拟机列表已切换为真实数据。";
         }
         catch (Exception ex)
         {

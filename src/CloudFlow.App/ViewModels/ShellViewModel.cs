@@ -61,6 +61,9 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     public ObservableCollection<NavItemViewModel> NavItems { get; }
 
+    /// <summary>顶栏账户列表（登录后替换为真实账户）。</summary>
+    public ObservableCollection<string> AccountOptions { get; private set; } = ["Contoso (contoso.onmicrosoft.com)"];
+
     [ObservableProperty]
     private object? _current;
 
@@ -70,8 +73,6 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     [ObservableProperty]
     private string _searchText = "";
-
-    public IReadOnlyList<string> AccountOptions { get; }
 
     [ObservableProperty]
     private string _selectedAccount;
@@ -91,13 +92,13 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     {
         var saved = _savedScopeStore.LoadOrDefault();
         _scopeContext.SetSavedScopes(saved);
+        BuildScopeOptions();
 
-        var options = new List<string> { "全部可访问订阅" };
-        options.AddRange(saved.Select(s => s.Name));
-        ScopeOptions = options;
-        OnPropertyChanged(nameof(ScopeOptions));
-
-        var defaultScope = options.FirstOrDefault(o => o == "Production") ?? options[0];
+        var defaultScope = "全部可访问订阅";
+        if (_scopeContext.AvailableSubscriptions.Count == 0)
+        {
+            defaultScope = ScopeOptions.FirstOrDefault(o => o == "Production") ?? ScopeOptions[0];
+        }
         SelectedScope = defaultScope;
         ApplyScope(defaultScope);
 
@@ -159,12 +160,25 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     private void ApplyScope(string option)
     {
         ResourceScope scope;
+        var realSub = _scopeContext.AvailableSubscriptions.FirstOrDefault(
+            s => string.Equals(s.DisplayName, option, StringComparison.OrdinalIgnoreCase));
+
         if (option == "全部可访问订阅")
         {
             scope = new ResourceScope
             {
                 ScopeName = option,
                 Mode = ScopeMode.AllAccessible
+            };
+        }
+        else if (realSub is not null)
+        {
+            // 登录后的真实订阅：单订阅 Scope
+            scope = new ResourceScope
+            {
+                ScopeName = option,
+                Mode = ScopeMode.SingleSubscription,
+                SubscriptionIds = [realSub.SubscriptionId]
             };
         }
         else
@@ -204,6 +218,44 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             JobsViewModel jobs => jobs.RefreshAsync(),
             _ => Task.CompletedTask
         };
+    }
+
+    /// <summary>
+    /// 登录成功后调用：顶栏账户、Scope 选项切换为真实订阅（设计文档 §11 Scope 贯穿全应用）。
+    /// </summary>
+    public void OnSignedIn(
+        CloudFlow.Core.Identity.CloudAccount account,
+        IReadOnlyList<CloudFlow.Core.Identity.SubscriptionProfile> subscriptions)
+    {
+        AccountOptions = [$"{account.DisplayName} ({account.Username})"];
+        OnPropertyChanged(nameof(AccountOptions));
+        SelectedAccount = AccountOptions[0];
+
+        _scopeContext.SetAvailableSubscriptions(subscriptions);
+        BuildScopeOptions();
+
+        // 登录后默认回到"全部可访问订阅"，触发全页面刷新
+        SelectedScope = "全部可访问订阅";
+        ApplyScope(SelectedScope);
+    }
+
+    /// <summary>Scope 选项：登录后为真实订阅名；未登录为 Saved Scopes（Demo）。</summary>
+    private void BuildScopeOptions()
+    {
+        var options = new List<string> { "全部可访问订阅" };
+        if (_scopeContext.AvailableSubscriptions.Count > 0)
+        {
+            options.AddRange(_scopeContext.AvailableSubscriptions
+                .Select(s => s.DisplayName)
+                .Where(n => !string.IsNullOrEmpty(n)));
+        }
+        else
+        {
+            options.AddRange(_scopeContext.SavedScopes.Select(s => s.Name));
+        }
+
+        ScopeOptions = options;
+        OnPropertyChanged(nameof(ScopeOptions));
     }
 
     // ==== IShellNavigation ====
