@@ -15,6 +15,8 @@ public static class CloudFlowPaths
 
     public static string SavedScopesFile => Path.Combine(Root, "saved-scopes.json");
 
+    public static string JobsFile => Path.Combine(Root, "jobs.json");
+
     public static void EnsureRoot()
     {
         Directory.CreateDirectory(Root);

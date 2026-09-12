@@ -170,6 +170,7 @@
                                             <ContextMenu>
                                                 <MenuItem Header="查看详情" Click="MenuViewDetails_Click" />
                                                 <Separator />
+                                                <MenuItem Header="启动虚拟机" Tag="start" Click="MenuPower_Click" />
                                                 <MenuItem Header="重启虚拟机" Tag="restart" Click="MenuPower_Click" />
                                                 <MenuItem Header="关机（保留分配）" Tag="poweroff" Click="MenuPower_Click" />
                                                 <MenuItem Header="停止并解除分配" Tag="deallocate" Click="MenuPower_Click" />

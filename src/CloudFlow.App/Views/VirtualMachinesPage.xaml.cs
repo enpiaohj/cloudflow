@@ -43,6 +43,9 @@ public partial class VirtualMachinesPage : UserControl
         var action = (sender as MenuItem)?.Tag as string;
         switch (action)
         {
+            case "start":
+                Vm.StartCommand.Execute(vm);
+                break;
             case "restart":
                 Vm.RestartCommand.Execute(vm);
                 break;

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using CloudFlow.App.ViewModels;
+using CloudFlow.Modules.Compute.Models;
 using CloudFlow.Modules.Network.Models;
 
 namespace CloudFlow.App.Views;
@@ -17,6 +18,32 @@ public partial class VmDetailPage : UserControl
     private void MenuDeallocate_Click(object sender, RoutedEventArgs e)
     {
         Vm.DeallocateFromMenu();
+    }
+
+    private async void MenuStart_Click(object sender, RoutedEventArgs e)
+    {
+        await Vm.StartCommand.ExecuteAsync(null);
+    }
+
+    private async void MenuResize_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ResizeDialog(Vm.VmSize, Vm.ResizeSizeOptions)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (dialog.ShowDialog() is true && !string.IsNullOrEmpty(dialog.NewSize))
+        {
+            await Vm.ResizeFromMenuAsync(dialog.NewSize);
+        }
+    }
+
+    private async void MenuSnapshot_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = (sender as FrameworkElement)?.Parent as ContextMenu;
+        if ((menu?.PlacementTarget as FrameworkElement)?.Tag is VmDiskInfo disk)
+        {
+            await Vm.CreateSnapshotCommand.ExecuteAsync(disk);
+        }
     }
 
     private void MenuCopyResourceId_Click(object sender, RoutedEventArgs e)

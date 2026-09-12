@@ -18,4 +18,7 @@ public interface IVmPowerService
 
     /// <summary>Deallocate：释放计算资源，停止计算计费。</summary>
     Task<OperationJob> DeallocateAsync(VmSummary vm, CancellationToken ct = default);
+
+    /// <summary>Resize：更改 VM 规格（设计文档 §19 P1 Compute Operations）。</summary>
+    Task<OperationJob> ResizeAsync(VmSummary vm, string newSize, CancellationToken ct = default);
 }

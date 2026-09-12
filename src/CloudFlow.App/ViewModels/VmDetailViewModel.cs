@@ -4,6 +4,7 @@ using CloudFlow.App.Converters;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Modules.Compute.Models;
+using CloudFlow.Modules.Compute.Operations;
 using CloudFlow.Modules.Compute.Services;
 using CloudFlow.Modules.Network.Models;
 using CloudFlow.Modules.Network.Services;
@@ -20,6 +21,7 @@ public partial class VmDetailViewModel : ObservableObject
 {
     private readonly IVmPowerService _power;
     private readonly IVmNetworkService _network;
+    private readonly IVmDiskService _diskService;
     private readonly ICurrentIpProvider _currentIp;
     private readonly IJobStore _jobStore;
     private readonly IOperationEngine _engine;
@@ -87,12 +89,12 @@ public partial class VmDetailViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<NsgSecurityRule> _inboundRules = [];
 
-    // ---- Disks（Demo 数据）----
-    public IReadOnlyList<DiskInfo> Disks { get; } =
-    [
-        new("osdisk-web01", "OS Disk", "128 GB", "Premium SSD (P10)", "Attached"),
-        new("data-01", "Data Disk", "256 GB", "Standard SSD (E10)", "Attached")
-    ];
+    // ---- 磁盘（设计文档 §26；当前 Mock，P1 接入 ARM Disks / Snapshots）----
+    [ObservableProperty]
+    private ObservableCollection<VmDiskInfo> _disks = [];
+
+    [ObservableProperty]
+    private int _snapshotTotal;
 
     // ---- Performance（Demo 数据，概念：§27 不伪造真实 Azure 数据，Demo 明确标注）----
     [ObservableProperty]
@@ -128,6 +130,7 @@ public partial class VmDetailViewModel : ObservableObject
     public VmDetailViewModel(
         IVmPowerService power,
         IVmNetworkService network,
+        IVmDiskService diskService,
         ICurrentIpProvider currentIp,
         IJobStore jobStore,
         IOperationEngine engine,
@@ -136,6 +139,7 @@ public partial class VmDetailViewModel : ObservableObject
     {
         _power = power;
         _network = network;
+        _diskService = diskService;
         _currentIp = currentIp;
         _jobStore = jobStore;
         _engine = engine;
@@ -143,6 +147,9 @@ public partial class VmDetailViewModel : ObservableObject
         _navigation = navigation;
         _engine.JobUpdated += OnEngineJobUpdated;
     }
+
+    /// <summary>当前 VM（Header 按钮的可见性随 PowerState 联动）。</summary>
+    public VmSummary Vm => _vm;
 
     public void Initialize(VmSummary vm)
     {
@@ -162,10 +169,9 @@ public partial class VmDetailViewModel : ObservableObject
         PendingApprovalJob = null;
 
         _ = LoadNetworkAsync();
+        _ = LoadDisksAsync();
         RefreshActivity();
     }
-
-    public sealed record DiskInfo(string Name, string Type, string Size, string Tier, string Status);
 
     private async Task LoadNetworkAsync()
     {
@@ -200,6 +206,13 @@ public partial class VmDetailViewModel : ObservableObject
         ActivityJobs = [.. _jobStore.GetAll()
             .Where(j => string.Equals(j.ResourceId, _vm.ResourceId, StringComparison.OrdinalIgnoreCase))
             .Take(20)];
+    }
+
+    private async Task LoadDisksAsync()
+    {
+        var disks = await _diskService.GetDisksAsync(_vm.ResourceId);
+        Disks = [.. disks];
+        SnapshotTotal = disks.Sum(d => d.SnapshotCount);
     }
 
     // ==== 电源操作 ====
@@ -396,7 +409,64 @@ public partial class VmDetailViewModel : ObservableObject
             JobStatus.WaitingApproval => $"{job.Display} —— 等待审批。",
             _ => $"{job.Display} —— {CfStatusTextConverter.Map(job.Status.ToString())}…"
         };
+
+        // 终态后联动刷新活动与磁盘快照计数
+        if (job.Status is JobStatus.Succeeded or JobStatus.Failed)
+        {
+            RefreshActivity();
+            _ = LoadDisksAsync();
+        }
     }
+
+    /// <summary>启动（Stopped / Deallocated → Running）。</summary>
+    [RelayCommand]
+    private async Task StartAsync()
+    {
+        var job = await _power.StartAsync(_vm);
+        ShowJob(job);
+    }
+
+    /// <summary>创建快照（磁盘级，disk.snapshot 经 Operation Engine，P1 Exit Gate 项）。</summary>
+    [RelayCommand]
+    private async Task CreateSnapshotAsync(VmDiskInfo? disk)
+    {
+        if (disk is null)
+        {
+            return;
+        }
+
+        var job = await _engine.SubmitAsync(new OperationRequest
+        {
+            OperationType = "disk.snapshot",
+            AccountId = _account.AccountId,
+            TenantId = _account.TenantId,
+            SubscriptionId = _vm.SubscriptionId,
+            ResourceId = _vm.ResourceId,
+            Risk = RiskLevel.Low,
+            PreApproved = true,
+            Display = $"创建快照 {disk.Name}",
+            Payload = new Dictionary<string, string>
+            {
+                ["diskId"] = disk.DiskId,
+                ["diskName"] = disk.Name
+            }
+        });
+
+        ShowJob(job);
+    }
+
+    /// <summary>更改规格（code-behind 菜单入口打开对话框并提交 vm.resize）。</summary>
+    public async Task ResizeFromMenuAsync(string newSize)
+    {
+        var job = await _power.ResizeAsync(_vm, newSize);
+        if (job.Status == JobStatus.Succeeded)
+        {
+            VmSize = _vm.VmSize; // Header 元信息联动
+        }
+        ShowJob(job);
+    }
+
+    public IReadOnlyList<string> ResizeSizeOptions => MockResizeVmHandler.SupportedSizes;
 
     private void OnEngineJobUpdated(object? sender, OperationJob job)
     {

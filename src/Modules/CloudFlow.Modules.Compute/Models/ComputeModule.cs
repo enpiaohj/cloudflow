@@ -12,6 +12,7 @@ public sealed class ComputeModule : IResourceModule
     public const string OperationPowerOff = "vm.power_off";
     public const string OperationDeallocate = "vm.deallocate";
     public const string OperationResize = "vm.resize";
+    public const string OperationSnapshot = "disk.snapshot";
 
     public string ModuleId => "compute";
 
@@ -23,6 +24,7 @@ public sealed class ComputeModule : IResourceModule
         OperationRestart,
         OperationPowerOff,
         OperationDeallocate,
-        OperationResize
+        OperationResize,
+        OperationSnapshot
     ];
 }

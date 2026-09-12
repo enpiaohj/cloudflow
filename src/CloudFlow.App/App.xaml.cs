@@ -85,20 +85,25 @@ public partial class App : Application
         services.AddSingleton<IAuditLog, AuditFileLog>();
 
         // ---- Operations（Operation Engine + Handlers）----
-        services.AddSingleton<IJobStore, InMemoryJobStore>();
+        // Job 历史持久化到 %LOCALAPPDATA%\CloudFlow\jobs.json，重启不丢失
+        services.AddSingleton<IJobStore, JsonJobStore>();
         services.AddSingleton<IOperationEngine, OperationEngine>();
         services.AddTransient<IOperationHandler, MockStartVmHandler>();
         services.AddTransient<IOperationHandler, MockRestartVmHandler>();
         services.AddTransient<IOperationHandler, MockPowerOffVmHandler>();
         services.AddTransient<IOperationHandler, MockDeallocateVmHandler>();
+        services.AddTransient<IOperationHandler, MockResizeVmHandler>();
+        services.AddTransient<IOperationHandler, MockSnapshotVmHandler>();
         services.AddTransient<IOperationHandler, ChangePortHandler>();
         services.AddTransient<IOperationHandler, OpenPortHandler>();
+        services.AddTransient<IOperationHandler, DeleteRuleHandler>();
 
         // ---- Modules：Compute（Demo / Mock）----
         services.AddSingleton<MockAccountContext>();
         services.AddSingleton<MockVmInventoryService>();
         services.AddSingleton<IVmInventoryService>(sp => sp.GetRequiredService<MockVmInventoryService>());
         services.AddSingleton<IVmPowerService, MockVmPowerService>();
+        services.AddSingleton<IVmDiskService, MockVmDiskService>();
         services.AddSingleton<CloudFlow.Modules.Compute.Models.ComputeModule>();
 
         // ---- Modules：Network（Demo / Mock）----

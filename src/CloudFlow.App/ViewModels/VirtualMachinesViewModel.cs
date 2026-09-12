@@ -255,6 +255,10 @@ public partial class VirtualMachinesViewModel : ObservableObject
     // ==== 行操作：全部经 Operation Engine（设计文档 §29）====
 
     [RelayCommand]
+    private async Task StartAsync(VmSummary vm) => await SubmitPowerAsync(
+        () => _power.StartAsync(vm), $"启动虚拟机 {vm.Name}");
+
+    [RelayCommand]
     private async Task RestartAsync(VmSummary vm) => await SubmitPowerAsync(
         () => _power.RestartAsync(vm), $"重启虚拟机 {vm.Name}");
 

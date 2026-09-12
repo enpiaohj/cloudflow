@@ -105,6 +105,10 @@
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
+                            Command="{Binding StartCommand}" Content="启动"
+                            Foreground="#FF137333"
+                            Visibility="{Binding Vm.PowerState, Converter={StaticResource NotRunningToVisibility}}" />
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
                             Command="{Binding RestartCommand}">
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" />
@@ -131,6 +135,8 @@
                         VerticalAlignment="Center">
                     <Button.ContextMenu>
                         <ContextMenu>
+                            <MenuItem Header="启动虚拟机" Click="MenuStart_Click" />
+                            <MenuItem Header="更改规格 (Resize)" Click="MenuResize_Click" />
                             <MenuItem Header="停止并解除分配" Click="MenuDeallocate_Click" />
                             <Separator />
                             <MenuItem Header="复制资源 ID" Click="MenuCopyResourceId_Click" />
@@ -373,25 +379,54 @@
                     </Grid>
                 </TabItem>
 
-                <!-- ============ Disks ============ -->
+                <!-- ============ 磁盘（设计文档 §26） ============ -->
                 <TabItem Header="磁盘">
                     <StackPanel Margin="14,14,14,16">
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="磁盘" Style="{StaticResource Cf.SectionTitle}" />
-                            <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}" Padding="10,5"
+                            <TextBlock Grid.Column="0" Text="磁盘" Style="{StaticResource Cf.SectionTitle}" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" Style="{StaticResource Cf.Badge}" Margin="0,0,12,0">
+                                <TextBlock FontSize="11.5" FontWeight="SemiBold">
+                                    <Run Text="快照 " /><Run Text="{Binding SnapshotTotal, Mode=OneWay}" />
+                                </TextBlock>
+                            </Border>
+                            <Button Grid.Column="2" Style="{StaticResource Cf.SecondaryButton}" Padding="10,5"
                                     FontSize="12.5" Command="{Binding TakeSnapshotCommand}" Content="创建快照" />
                         </Grid>
-                        <DataGrid ItemsSource="{Binding Disks}" Style="{StaticResource Cf.DataGrid}" RowHeight="40">
+                        <DataGrid ItemsSource="{Binding Disks}" Style="{StaticResource Cf.DataGrid}" RowHeight="42">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="180" />
+                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="200" />
                                 <DataGridTextColumn Header="类型" Binding="{Binding Type}" Width="110" />
                                 <DataGridTextColumn Header="容量" Binding="{Binding Size}" Width="100" />
                                 <DataGridTextColumn Header="层级" Binding="{Binding Tier}" Width="180" />
+                                <DataGridTemplateColumn Header="快照数" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding SnapshotCount}" FontSize="12.5" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="状态" Binding="{Binding Status}" Width="110" />
+                                <DataGridTemplateColumn Width="52">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="…" FontSize="15" FontWeight="Bold"
+                                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                    Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                                                    Tag="{Binding}">
+                                                <Button.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="创建快照" Click="MenuSnapshot_Click" />
+                                                    </ContextMenu>
+                                                </Button.ContextMenu>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>

@@ -109,6 +109,18 @@ public sealed class CfNullToVisibilityConverter : IValueConverter
         => Binding.DoNothing;
 }
 
+/// <summary>非 Running → Visible（"启动"按钮仅在未运行时显示）。</summary>
+public sealed class CfNotRunningToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => string.Equals(value?.ToString(), "Running", StringComparison.OrdinalIgnoreCase)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Binding.DoNothing;
+}
+
 /// <summary>
 /// 状态/枚举 → 中文显示文本（VM 状态、Job 状态、NSG Action/Origin、风险等级）。
 /// 颜色转换器仍使用英文枚举键，本转换器只负责显示。

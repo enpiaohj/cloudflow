@@ -31,6 +31,7 @@
     <cvc:CfInverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
     <cvc:CfNonEmptyToVisibilityConverter x:Key="NonEmptyToVisibility" />
     <cvc:CfNullToVisibilityConverter x:Key="NullToVisibility" />
+    <cvc:CfNotRunningToVisibilityConverter x:Key="NotRunningToVisibility" />
 
     <!-- ===== 卡片 ===== -->
     <Style x:Key="Cf.Card" TargetType="Border">

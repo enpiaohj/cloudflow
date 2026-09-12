@@ -1,0 +1,42 @@
+<Window x:Class="CloudFlow.App.Views.ResizeDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="更改规格 (Resize)"
+        Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="White">
+
+    <StackPanel Margin="24,20">
+
+        <TextBlock Text="更改规格 (Resize)" FontSize="18" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+        <TextBlock Text="更换虚拟机的 VM 规格（需要重启才能完全生效）。"
+                   Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" />
+
+        <TextBlock Text="当前规格" Style="{StaticResource Cf.Muted}" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0">
+            <TextBlock Text="{Binding CurrentSize}" FontSize="13" />
+        </Border>
+
+        <TextBlock Text="目标规格" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <ComboBox FontSize="13" Margin="0,4,0,0"
+                  ItemsSource="{Binding SizeOptions}"
+                  SelectedItem="{Binding SelectedSize}" />
+
+        <TextBlock Text="注意：Resize 会短暂重启虚拟机；不同规格计费不同。"
+                   FontSize="11.5" Foreground="#FFB06000" Margin="0,12,0,0" TextWrapping="Wrap" />
+
+        <TextBlock Text="{Binding ErrorText}" FontSize="11.5" Foreground="#FFC5221F" Margin="0,10,0,0"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ErrorText, Converter={StaticResource NonEmptyToVisibility}}" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,4">
+            <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" IsCancel="True" Click="Cancel_Click" />
+            <Button Content="更改规格" Style="{StaticResource Cf.PrimaryButton}"
+                    Margin="10,0,0,0" IsDefault="True" Click="Ok_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>
