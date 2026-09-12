@@ -6,7 +6,7 @@ namespace CloudFlow.Azure.Identity.AzureCli;
 /// ProfileId 必须是 N 格式 GUID，杜绝路径穿越；删除可幂等执行且不影响其他 Profile。
 /// Profile 根目录默认：%LOCALAPPDATA%\CloudFlow\Identity\cli-profile-{GUID}\
 /// </summary>
-public sealed class AzureCliProfileManager
+public sealed class AzureCliProfileManager : IAzureCliProfileManager
 {
     private const string Prefix = "cli-profile-";
 

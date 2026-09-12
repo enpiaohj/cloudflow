@@ -11,7 +11,7 @@ namespace CloudFlow.Azure.Identity.AzureCli;
 /// - 异常消息经 <see cref="AzureCliOutputRedactor"/> 脱敏，绝不携带 Token / Secret。
 /// 全部 Azure CLI 调用必须经由本类，禁止业务代码直接 Process.Start("az", ...)。
 /// </summary>
-public sealed class AzureCliProcessRunner
+public sealed class AzureCliProcessRunner : IAzureCliProcessRunner
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
 
