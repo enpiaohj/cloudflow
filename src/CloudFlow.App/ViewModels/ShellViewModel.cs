@@ -129,14 +129,28 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         }
 
         _lastSelectedNav = value;
-        Current = value.PageKey switch
+        switch (value.PageKey)
         {
-            "home" => Home,
-            "vms" => Vms,
-            "jobs" => Jobs,
-            "settings" => Settings,
-            _ => Current
-        };
+            case "home":
+                Current = Home;
+                break;
+
+            case "vms":
+                Current = Vms;
+                // 进入页面即刷新（页面为懒加载单例，避免首次进入时空列表）
+                _ = Vms.RefreshAsync();
+                break;
+
+            case "jobs":
+                Current = Jobs;
+                _ = Jobs.RefreshAsync();
+                break;
+
+            case "settings":
+                Current = Settings;
+                _ = Settings.RefreshAsync();
+                break;
+        }
     }
 
     partial void OnSelectedScopeChanged(string value) => ApplyScope(value);
