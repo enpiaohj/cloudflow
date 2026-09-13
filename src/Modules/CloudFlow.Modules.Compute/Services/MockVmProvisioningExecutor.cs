@@ -15,6 +15,17 @@ public sealed class MockVmProvisioningExecutor(MockVmInventoryService inventory)
 {
     private const int SimulatedLatencyMs = 900;
 
+    /// <summary>
+    /// 演示数据里"已存在"的资源组集合，与 <see cref="MockVmInventoryService"/> 的种子数据同名，
+    /// 保持 Demo 模式下"这些是老资源组、新名字才会走新建提示"的一致体验。
+    /// 创建成功后把这次用到的资源组名也加进去——本次新建的，下次视为已存在。
+    /// </summary>
+    private readonly HashSet<string> _knownResourceGroups = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "rg-web", "rg-data", "rg-dev", "rg-app", "rg-test",
+        "rg-shared", "rg-ops", "rg-legacy", "rg-analytics"
+    };
+
     public async Task<string?> CreateAsync(
         OperationRequest request,
         Func<CancellationToken, Task<string?>>? resolvePassword,
@@ -24,6 +35,10 @@ public sealed class MockVmProvisioningExecutor(MockVmInventoryService inventory)
 
         var p = request.Payload;
         var name = p[CreateVmHandler.PayloadVmName];
+
+        // 与真实执行器同一语义：不存在则视为"这次新建"，存在则复用——Demo 模式下没有真实
+        // ARM 调用，这里只需要让这个资源组名此后"看起来"已存在即可。
+        _knownResourceGroups.Add(ResourceGroupOf(request.ResourceId));
 
         var vm = new VmSummary
         {
@@ -49,6 +64,9 @@ public sealed class MockVmProvisioningExecutor(MockVmInventoryService inventory)
 
     public Task<bool> VmReadyAsync(OperationRequest request, CancellationToken ct = default) =>
         Task.FromResult(inventory.FindById(request.ResourceId) is not null);
+
+    public Task<bool> ResourceGroupExistsAsync(OperationRequest request, CancellationToken ct = default) =>
+        Task.FromResult(_knownResourceGroups.Contains(ResourceGroupOf(request.ResourceId)));
 
     /// <summary>Resource ID 中段即资源组名（…/resourceGroups/{rg}/providers/…）。</summary>
     private static string ResourceGroupOf(string resourceId)

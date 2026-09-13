@@ -45,6 +45,9 @@ public sealed class VmProvisioningExecutorRouter(
     public Task<bool> VmReadyAsync(OperationRequest request, CancellationToken ct = default) =>
         For(request).VmReadyAsync(request, ct);
 
+    public Task<bool> ResourceGroupExistsAsync(OperationRequest request, CancellationToken ct = default) =>
+        For(request).ResourceGroupExistsAsync(request, ct);
+
     /// <summary>
     /// 把载荷里的凭据 Id 变成"解出管理员密码"的委托。
     /// 密文解不出（凭据被删 / 保险库来自他机）时返回 null，由执行器转为显式失败 ——

@@ -19,6 +19,13 @@ public partial class CreateVmWizardDialog : CfDialogWindow
     private static readonly Regex VmNamePattern = new(
         "^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}[a-zA-Z0-9]$", RegexOptions.Compiled);
 
+    private static readonly Regex NetworkResourceNamePattern = new(
+        @"^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,79}$", RegexOptions.Compiled);
+
+    private static readonly Regex CidrPattern = new(
+        @"^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}/(3[0-2]|[12]?\d)$",
+        RegexOptions.Compiled);
+
     private bool _isSecondStep;
     private bool _settingCredentialSuggestion;
     private bool _credentialNameWasEdited;
@@ -84,7 +91,10 @@ public partial class CreateVmWizardDialog : CfDialogWindow
         var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [CreateVmHandler.PayloadVmName] = VmNameBox.Text.Trim(),
-            [CreateVmHandler.PayloadSubnetId] = SubnetIdBox.Text.Trim(),
+            [CreateVmHandler.PayloadVirtualNetwork] = VirtualNetworkBox.Text.Trim(),
+            [CreateVmHandler.PayloadVnetAddressSpace] = VnetAddressSpaceBox.Text.Trim(),
+            [CreateVmHandler.PayloadSubnetName] = SubnetNameBox.Text.Trim(),
+            [CreateVmHandler.PayloadSubnetAddressPrefix] = SubnetAddressPrefixBox.Text.Trim(),
             [CreateVmHandler.PayloadVmSize] = SelectedContent(VmSizeBox),
             [CreateVmHandler.PayloadImage] = image,
             [CreateVmHandler.PayloadAdminUsername] = AdminUsernameBox.Text.Trim(),
@@ -200,7 +210,7 @@ public partial class CreateVmWizardDialog : CfDialogWindow
 
         if (string.IsNullOrWhiteSpace(ResourceGroupBox.Text))
         {
-            return ShowError("请输入已有资源组名称。");
+            return ShowError("请输入资源组名称（不存在会自动创建）。");
         }
 
         var region = RegionBox.Text.Trim();
@@ -236,10 +246,27 @@ public partial class CreateVmWizardDialog : CfDialogWindow
 
     private bool ValidateNetworkAndCredentials()
     {
-        var subnetId = SubnetIdBox.Text.Trim();
-        if (!subnetId.Contains("/subnets/", StringComparison.OrdinalIgnoreCase))
+        var vnet = VirtualNetworkBox.Text.Trim();
+        if (!vnet.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase) &&
+            !NetworkResourceNamePattern.IsMatch(vnet))
         {
-            return ShowError("请输入完整的已有子网 Resource ID（…/virtualNetworks/…/subnets/…）。");
+            return ShowError("虚拟网络请填写名称，或粘贴完整 Resource ID（…/virtualNetworks/…）。");
+        }
+
+        var subnetName = SubnetNameBox.Text.Trim();
+        if (!NetworkResourceNamePattern.IsMatch(subnetName))
+        {
+            return ShowError("子网名称不合法。");
+        }
+
+        if (!CidrPattern.IsMatch(VnetAddressSpaceBox.Text.Trim()))
+        {
+            return ShowError("虚拟网络地址空间不是合法的 CIDR，例如 10.0.0.0/16（仅虚拟网络不存在时用于新建）。");
+        }
+
+        if (!CidrPattern.IsMatch(SubnetAddressPrefixBox.Text.Trim()))
+        {
+            return ShowError("子网地址段不是合法的 CIDR，例如 10.0.0.0/24（仅子网不存在时用于新建）。");
         }
 
         if (PasswordAuthBox.IsChecked is true)
@@ -266,7 +293,7 @@ public partial class CreateVmWizardDialog : CfDialogWindow
     }
 
     private bool IsWindowsImage() => SelectedTag(ImageBox)
-        .StartsWith("MicrosoftWindowsServer:", StringComparison.OrdinalIgnoreCase);
+        .StartsWith("MicrosoftWindows", StringComparison.OrdinalIgnoreCase);
 
     private string SelectedSubscriptionId() => SubscriptionBox.SelectedItem is ProvisioningSubscriptionOption item
         ? item.SubscriptionId

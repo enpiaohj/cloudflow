@@ -16,19 +16,22 @@ using Microsoft.Extensions.Logging;
 namespace CloudFlow.Azure.Compute;
 
 /// <summary>
-/// 真实 Azure 的创建执行器（设计文档 v3.1 §87）：
+/// 真实 Azure 的创建执行器（设计文档 v3.1 §87，v3.2 起支持按需新建资源组 / 虚拟网络 / 子网）：
 /// OperationEngine → CreateVmHandler → 本执行器 → IAzureClientFactory → ArmClient → ARM LRO。
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>创建顺序不可颠倒</b>：公网 IP（可选）→ NIC → VM。
-/// NIC 引用公网 IP、VM 引用 NIC，反过来必然 NotFound。OS 盘随 VM 的 StorageProfile 隐式创建，
-/// 且 <see cref="VirtualMachineOSDisk.DeleteOption"/> 设为 Delete —— 删除这台 VM 时 OS 盘一并删除，
-/// 从源头减少孤儿盘。
+/// <b>创建顺序不可颠倒</b>：资源组 → 虚拟网络 → 子网 → 公网 IP（可选）→ NIC → VM。
+/// 后面每一步都依赖前一步产出的 Id；NIC 引用公网 IP、VM 引用 NIC，反过来必然 NotFound。
+/// OS 盘随 VM 的 StorageProfile 隐式创建，且 <see cref="VirtualMachineOSDisk.DeleteOption"/>
+/// 设为 Delete —— 删除这台 VM 时 OS 盘一并删除，从源头减少孤儿盘。
 /// </para>
 /// <para>
-/// 资源组与子网必须<b>已存在</b>（§87 明确不做资源组/网络创建）；不存在时 ARM 返回 NotFound，
-/// 由引擎按失败处理并如实报告。
+/// <b>资源组 / 虚拟网络 / 子网按幂等 ensure-exists 处理</b>（v3.2 起，§87 收窄范围已放开这三项）：
+/// 不存在则用请求里给的地址段新建；<b>已存在则完全不碰其配置</b>，只取其 Id 挂后续资源——
+/// 这与本文件对 VM / NIC / 公网 IP"先查重名再创建"的既有纪律是同一种谨慎，只是方向相反
+/// （那三个是"存在则拒绝，必须是全新名字"，这三个是"存在则复用，不做全新校验"）。
+/// NSG 仍不创建。
 /// </para>
 /// </remarks>
 public sealed class ArmVmProvisioningExecutor(
@@ -42,19 +45,18 @@ public sealed class ArmVmProvisioningExecutor(
     {
         var p = request.Payload;
         var vmName = p[CreateVmHandler.PayloadVmName];
-        var subnetIdText = p[CreateVmHandler.PayloadSubnetId];
-
-        if (!ResourceIdentifier.TryParse(subnetIdText, out var subnetId) || subnetId is null)
-        {
-            throw new CloudFlow.Core.Errors.OperationValidationException($"子网 Resource ID 无效：{subnetIdText}");
-        }
+        var location = new AzureLocation(p[CreateVmHandler.PayloadRegion]);
 
         var armClient = await clientFactory
             .CreateAsync(RequestCredential.From(request), ct)
             .ConfigureAwait(false);
 
-        var resourceGroup = GetResourceGroup(armClient, request);
-        var location = new AzureLocation(p[CreateVmHandler.PayloadRegion]);
+        // ① 资源组（幂等：已存在是安全的空操作，不影响组内现有资源）
+        var resourceGroup = await EnsureResourceGroupAsync(armClient, request, location, ct).ConfigureAwait(false);
+
+        // ② 虚拟网络 + ③ 子网（存在则复用真实配置，不存在才用请求里的地址段新建）
+        var subnetId = await EnsureSubnetAsync(armClient, resourceGroup, location, p, ct).ConfigureAwait(false);
+
         var nicName = $"{vmName}-nic";
         var publicIpName = $"{vmName}-public-ip";
 
@@ -80,7 +82,7 @@ public sealed class ArmVmProvisioningExecutor(
             throw new CloudFlow.Core.Errors.OperationValidationException($"公网 IP「{publicIpName}」已存在，不能覆盖创建。");
         }
 
-        // ① 公网 IP（可选）
+        // ④ 公网 IP（可选）
         ResourceIdentifier? publicIpId = null;
         if (withPublicIp)
         {
@@ -101,7 +103,7 @@ public sealed class ArmVmProvisioningExecutor(
             logger.LogInformation("ARM create public IP {ResourceId}", publicIpId);
         }
 
-        // ② NIC（挂已有子网 + 可选公网 IP）
+        // ⑤ NIC（挂上面解析出的子网 + 可选公网 IP）
         var nicData = new NetworkInterfaceData
         {
             Location = location,
@@ -129,12 +131,12 @@ public sealed class ArmVmProvisioningExecutor(
         var nicResourceId = nicOperation.Value.Data.Id;
         logger.LogInformation("ARM create NIC {ResourceId}", nicResourceId);
 
-        // ③ VM（OS 盘随 StorageProfile 隐式创建，DeleteOption=Delete 使其随 VM 一并删除）
+        // ⑥ VM（OS 盘随 StorageProfile 隐式创建，DeleteOption=Delete 使其随 VM 一并删除）
         var authType = p.GetValueOrDefault(CreateVmHandler.PayloadAuthType, "ssh");
         var adminUsername = p[CreateVmHandler.PayloadAdminUsername];
 
         var isWindowsImage = p[CreateVmHandler.PayloadImage]
-            .StartsWith("MicrosoftWindowsServer:", StringComparison.OrdinalIgnoreCase);
+            .StartsWith("MicrosoftWindows", StringComparison.OrdinalIgnoreCase);
         var osProfile = new VirtualMachineOSProfile
         {
             ComputerName = vmName,
@@ -244,18 +246,120 @@ public sealed class ArmVmProvisioningExecutor(
         }
     }
 
-    private static ResourceGroupResource GetResourceGroup(ArmClient armClient, OperationRequest request)
+    public async Task<bool> ResourceGroupExistsAsync(OperationRequest request, CancellationToken ct = default)
     {
-        if (!ResourceIdentifier.TryParse(request.ResourceId, out var vmId) || vmId is null ||
-            string.IsNullOrWhiteSpace(vmId.ResourceGroupName))
+        var rgName = ParseResourceGroupName(request.ResourceId);
+        if (rgName is null)
         {
-            throw new CloudFlow.Core.Errors.OperationValidationException(
-                $"无法从请求解析资源组（请求指向：{request.ResourceId}）。");
+            return false;
         }
 
-        return armClient.GetResourceGroupResource(
-            new ResourceIdentifier($"/subscriptions/{request.SubscriptionId}/resourceGroups/{vmId.ResourceGroupName}"));
+        var armClient = await clientFactory
+            .CreateAsync(RequestCredential.From(request), ct)
+            .ConfigureAwait(false);
+
+        var subscription = armClient.GetSubscriptionResource(
+            SubscriptionResource.CreateResourceIdentifier(request.SubscriptionId));
+
+        return (await subscription.GetResourceGroups()
+            .ExistsAsync(rgName, ct).ConfigureAwait(false)).Value;
     }
+
+    /// <summary>
+    /// 确保目标资源组存在：不存在则以 <see cref="CreateVmHandler.PayloadRegion"/> 新建，
+    /// 已存在则直接复用（<c>CreateOrUpdateAsync</c> 对同位置的已有资源组是安全的空操作；
+    /// 若已有资源组的实际位置与本次请求的区域不同，ARM 会在这一步报错，交由引擎按失败处理）。
+    /// </summary>
+    private async Task<ResourceGroupResource> EnsureResourceGroupAsync(
+        ArmClient armClient, OperationRequest request, AzureLocation location, CancellationToken ct)
+    {
+        var rgName = ParseResourceGroupName(request.ResourceId)
+            ?? throw new CloudFlow.Core.Errors.OperationValidationException(
+                $"无法从请求解析资源组（请求指向：{request.ResourceId}）。");
+
+        var subscription = armClient.GetSubscriptionResource(
+            SubscriptionResource.CreateResourceIdentifier(request.SubscriptionId));
+
+        var operation = await subscription.GetResourceGroups()
+            .CreateOrUpdateAsync(WaitUntil.Completed, rgName, new ResourceGroupData(location), ct)
+            .ConfigureAwait(false);
+
+        logger.LogInformation("确保资源组存在：{Name}", rgName);
+        return operation.Value;
+    }
+
+    /// <summary>
+    /// 确保目标虚拟网络与子网存在，返回可供 NIC 引用的子网 Id。
+    /// 虚拟网络输入接受纯名称（在 <paramref name="resourceGroup"/> 下创建/复用）或完整 Resource ID
+    /// （跨资源组/订阅复用一个已知存在的虚拟网络——粘贴了具体 ID 就是明确指向已知资源，
+    /// 不做存在性判断，真的不存在的话由挂子网这一步的 ARM 调用报 NotFound）。
+    /// </summary>
+    private async Task<ResourceIdentifier> EnsureSubnetAsync(
+        ArmClient armClient, ResourceGroupResource resourceGroup, AzureLocation location,
+        IReadOnlyDictionary<string, string> p, CancellationToken ct)
+    {
+        var vnetInput = p[CreateVmHandler.PayloadVirtualNetwork];
+        VirtualNetworkResource vnet;
+
+        if (vnetInput.Contains("/virtualNetworks/", StringComparison.OrdinalIgnoreCase) &&
+            ResourceIdentifier.TryParse(vnetInput, out var vnetId) && vnetId is not null)
+        {
+            vnet = armClient.GetVirtualNetworkResource(vnetId);
+        }
+        else
+        {
+            var vnetName = vnetInput;
+            var exists = (await resourceGroup.GetVirtualNetworks()
+                .ExistsAsync(vnetName, expand: null, cancellationToken: ct).ConfigureAwait(false)).Value;
+
+            if (exists)
+            {
+                vnet = (await resourceGroup.GetVirtualNetworks()
+                    .GetAsync(vnetName, expand: null, cancellationToken: ct).ConfigureAwait(false)).Value;
+                logger.LogInformation("复用已有虚拟网络 {Name}，不改动其地址空间", vnetName);
+            }
+            else
+            {
+                var addressSpace = p.GetValueOrDefault(CreateVmHandler.PayloadVnetAddressSpace, "10.0.0.0/16");
+                var vnetData = new VirtualNetworkData
+                {
+                    Location = location,
+                    AddressPrefixes = { addressSpace }
+                };
+
+                var vnetOperation = await resourceGroup.GetVirtualNetworks()
+                    .CreateOrUpdateAsync(WaitUntil.Completed, vnetName, vnetData, ct).ConfigureAwait(false);
+                vnet = vnetOperation.Value;
+                logger.LogInformation("新建虚拟网络 {Name}（{AddressSpace}）", vnetName, addressSpace);
+            }
+        }
+
+        var subnetName = p[CreateVmHandler.PayloadSubnetName];
+        var subnetExists = (await vnet.GetSubnets()
+            .ExistsAsync(subnetName, expand: null, cancellationToken: ct).ConfigureAwait(false)).Value;
+
+        if (subnetExists)
+        {
+            var existing = (await vnet.GetSubnets()
+                .GetAsync(subnetName, expand: null, cancellationToken: ct).ConfigureAwait(false)).Value;
+            logger.LogInformation("复用已有子网 {Name}（实际地址段 {Prefix}），不改动其配置",
+                subnetName, existing.Data.AddressPrefix);
+            return existing.Data.Id;
+        }
+
+        var subnetPrefix = p.GetValueOrDefault(CreateVmHandler.PayloadSubnetAddressPrefix, "10.0.0.0/24");
+        var subnetData = new SubnetData { AddressPrefix = subnetPrefix };
+        var subnetOperation = await vnet.GetSubnets()
+            .CreateOrUpdateAsync(WaitUntil.Completed, subnetName, subnetData, ct).ConfigureAwait(false);
+        logger.LogInformation("新建子网 {Name}（{Prefix}）", subnetName, subnetPrefix);
+        return subnetOperation.Value.Data.Id;
+    }
+
+    /// <summary>从形如 …/resourceGroups/{rg}/… 的 Resource ID 里解析资源组名。</summary>
+    private static string? ParseResourceGroupName(string resourceId) =>
+        ResourceIdentifier.TryParse(resourceId, out var id) && id is not null
+            ? id.ResourceGroupName
+            : null;
 
     private static string? RequestIdOf(Response? response) =>
         response is not null &&

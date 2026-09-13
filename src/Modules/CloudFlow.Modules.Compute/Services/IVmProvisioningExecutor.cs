@@ -31,4 +31,12 @@ public interface IVmProvisioningExecutor
 
     /// <summary>该请求指向的虚拟机是否已存在且预配成功。Verify 用。</summary>
     Task<bool> VmReadyAsync(OperationRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// <paramref name="request"/> 目标资源组是否已存在（资源组名从 <see cref="OperationRequest.ResourceId"/>
+    /// 解析，与 <see cref="CreateAsync"/> 内部定位资源组的方式一致）。仅供 Impact 分析读用
+    /// （决定要不要在描述里说"将新建资源组"），不影响 <see cref="CreateAsync"/> 的行为——
+    /// 那边始终按"不存在则建、存在则复用"的幂等语义执行，不依赖这里的查询结果。
+    /// </summary>
+    Task<bool> ResourceGroupExistsAsync(OperationRequest request, CancellationToken ct = default);
 }

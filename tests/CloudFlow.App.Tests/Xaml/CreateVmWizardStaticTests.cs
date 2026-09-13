@@ -16,7 +16,8 @@ public sealed class CreateVmWizardStaticTests
         foreach (var name in new[]
                  {
                      "BasicPanel", "NetworkPanel", "SubscriptionBox", "ResourceGroupBox", "RegionBox",
-                     "SubnetIdBox", "SshPublicKeyBox", "AdminPasswordBox", "CredentialNameBox",
+                     "VirtualNetworkBox", "VnetAddressSpaceBox", "SubnetNameBox", "SubnetAddressPrefixBox",
+                     "SshPublicKeyBox", "AdminPasswordBox", "CredentialNameBox",
                      "BackButton", "NextButton", "CreateButton"
                  })
         {
@@ -24,7 +25,7 @@ public sealed class CreateVmWizardStaticTests
         }
 
         Assert.Contains("创建 Standard 静态公网 IP", xaml, StringComparison.Ordinal);
-        Assert.Contains("不会创建 VNet、子网或 NSG", xaml, StringComparison.Ordinal);
+        Assert.Contains("仍不创建 NSG", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

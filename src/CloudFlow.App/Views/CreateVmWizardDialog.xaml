@@ -22,7 +22,7 @@
         <StackPanel Grid.Row="0">
             <TextBlock Text="创建虚拟机" FontSize="18" FontWeight="SemiBold"
                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-            <TextBlock Text="仅在已有资源组和子网中创建 VM、网卡及可选公网 IP；不会创建 VNet、子网或 NSG。"
+            <TextBlock Text="创建 VM、网卡及可选公网 IP；资源组 / 虚拟网络 / 子网不存在时会按填写的信息自动新建，已存在则直接复用，不会改动其配置。仍不创建 NSG。"
                        Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -121,13 +121,39 @@
                 <StackPanel x:Name="NetworkPanel" Visibility="Collapsed">
                     <TextBlock Text="挂接已有网络并设定操作系统凭据" FontWeight="SemiBold" />
 
+                    <!-- 虚拟网络/子网：始终四个字段一起填，不做"已有/新建"模式切换——目标不存在时用这里的
+                         名称与地址段新建，已存在时直接复用其真实配置（地址段输入被忽略），执行器自己判断。 -->
                     <Grid Margin="0,14,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="已有子网" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
-                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="SubnetIdBox" FontSize="12.5" Padding="8,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="虚拟网络" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="VirtualNetworkBox" FontSize="12.5" Padding="8,6" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0"
-                                   TextWrapping="Wrap" Text="粘贴已有子网的完整 Azure Resource ID（…/virtualNetworks/…/subnets/…）。本版本不会新建或变更网络资源。" />
+                                   TextWrapping="Wrap" Text="名称（不存在会在目标资源组下新建），或粘贴完整 Resource ID 复用其它资源组下的虚拟网络。" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="地址空间" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="VnetAddressSpaceBox" FontSize="12.5" Padding="8,6" Text="10.0.0.0/16" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0"
+                                   TextWrapping="Wrap" Text="仅在虚拟网络不存在时用于新建；虚拟网络已存在则不会改动其地址空间，这里填什么都不影响。" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="子网名称" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" x:Name="SubnetNameBox" FontSize="12.5" Padding="8,6" Text="default" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="子网地址段" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="SubnetAddressPrefixBox" FontSize="12.5" Padding="8,6" Text="10.0.0.0/24" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0"
+                                   TextWrapping="Wrap" Text="仅在子网不存在时用于新建；子网已存在则复用其真实地址段，这里填什么都不影响。" />
                     </Grid>
 
                     <CheckBox x:Name="PublicIpBox" Content="创建 Standard 静态公网 IP" FontSize="12.5" Margin="112,14,0,0" />

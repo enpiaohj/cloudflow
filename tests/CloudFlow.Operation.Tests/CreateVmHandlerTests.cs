@@ -57,6 +57,63 @@ public sealed class CreateVmHandlerTests
     }
 
     [Fact]
+    public async Task AnalyzeImpactAsync_资源组不存在时计入受影响资源数并如实说明()
+    {
+        var payload = ValidPayload();
+        var executor = new RecordingProvisioningExecutor { ResourceGroupExists = false };
+        var handler = new CreateVmHandler(executor, NullLogger<CreateVmHandler>.Instance);
+        var request = Request(payload);
+
+        await handler.ValidateAsync(request, CancellationToken.None);
+        var impact = await handler.AnalyzeImpactAsync(request, CancellationToken.None);
+
+        Assert.Equal(4, impact.AffectedResources); // VM + NIC + OS 盘 + 新建资源组
+        Assert.Contains("资源组不存在，将一并新建", impact.Description, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("rg with space")] // 空格不在允许字符集内
+    [InlineData("rg-test.")]      // 不能以句点结尾
+    public async Task ValidateAsync_资源组名称不合法时拒绝(string invalidResourceGroupName)
+    {
+        var payload = ValidPayload();
+        var request = Request(payload,
+            resourceId: $"/subscriptions/sub-1/resourceGroups/{invalidResourceGroupName}/providers/Microsoft.Compute/virtualMachines/cf-test-vm");
+        var handler = CreateHandler();
+
+        var error = await Assert.ThrowsAsync<OperationValidationException>(
+            () => handler.ValidateAsync(request, CancellationToken.None));
+
+        Assert.Contains("资源组名称", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_虚拟网络既不是合法名称也不是完整ResourceId时拒绝()
+    {
+        var payload = ValidPayload();
+        payload[CreateVmHandler.PayloadVirtualNetwork] = "invalid vnet name!";
+        var handler = CreateHandler();
+
+        var error = await Assert.ThrowsAsync<OperationValidationException>(
+            () => handler.ValidateAsync(Request(payload), CancellationToken.None));
+
+        Assert.Contains("虚拟网络", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(CreateVmHandler.PayloadVnetAddressSpace, "not-a-cidr")]
+    [InlineData(CreateVmHandler.PayloadSubnetAddressPrefix, "10.0.0.0/33")]
+    public async Task ValidateAsync_地址段不是合法CIDR时拒绝(string payloadKey, string invalidCidr)
+    {
+        var payload = ValidPayload();
+        payload[payloadKey] = invalidCidr;
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<OperationValidationException>(
+            () => handler.ValidateAsync(Request(payload), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_通过执行器且不传入密码解析委托()
     {
         var executor = new RecordingProvisioningExecutor();
@@ -77,7 +134,10 @@ public sealed class CreateVmHandlerTests
     {
         [CreateVmHandler.PayloadVmName] = "cf-test-vm",
         [CreateVmHandler.PayloadRegion] = "koreacentral",
-        [CreateVmHandler.PayloadSubnetId] = "/subscriptions/sub-1/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/snet-test",
+        [CreateVmHandler.PayloadVirtualNetwork] = "vnet-test",
+        [CreateVmHandler.PayloadVnetAddressSpace] = "10.0.0.0/16",
+        [CreateVmHandler.PayloadSubnetName] = "snet-test",
+        [CreateVmHandler.PayloadSubnetAddressPrefix] = "10.0.0.0/24",
         [CreateVmHandler.PayloadVmSize] = "Standard_B1s",
         [CreateVmHandler.PayloadImage] = "Canonical:ubuntu-24_04-lts:server:latest",
         [CreateVmHandler.PayloadAdminUsername] = "azureuser",
@@ -86,13 +146,14 @@ public sealed class CreateVmHandlerTests
         [CreateVmHandler.PayloadPublicIp] = "false"
     };
 
-    private static OperationRequest Request(IReadOnlyDictionary<string, string> payload) => new()
+    private static OperationRequest Request(IReadOnlyDictionary<string, string> payload, string? resourceId = null) => new()
     {
         OperationType = ComputeModule.OperationCreate,
         AccountId = "account-1",
         TenantId = "tenant-1",
         SubscriptionId = "sub-1",
-        ResourceId = "/subscriptions/sub-1/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/cf-test-vm",
+        ResourceId = resourceId
+            ?? "/subscriptions/sub-1/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/cf-test-vm",
         Display = "创建虚拟机 cf-test-vm",
         Payload = payload
     };
@@ -101,6 +162,9 @@ public sealed class CreateVmHandlerTests
     {
         public OperationRequest? LastRequest { get; private set; }
         public Func<CancellationToken, Task<string?>>? LastPasswordResolver { get; private set; }
+
+        /// <summary>默认已存在——大多数测试不关心资源组新建分支，只有专门测这条分支的用例会置 false。</summary>
+        public bool ResourceGroupExists { get; set; } = true;
 
         public Task<string?> CreateAsync(
             OperationRequest request,
@@ -114,5 +178,8 @@ public sealed class CreateVmHandlerTests
 
         public Task<bool> VmReadyAsync(OperationRequest request, CancellationToken ct = default) =>
             Task.FromResult(true);
+
+        public Task<bool> ResourceGroupExistsAsync(OperationRequest request, CancellationToken ct = default) =>
+            Task.FromResult(ResourceGroupExists);
     }
 }
