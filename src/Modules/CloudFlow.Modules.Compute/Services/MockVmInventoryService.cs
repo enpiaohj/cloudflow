@@ -36,6 +36,13 @@ public sealed class MockVmInventoryService : IVmInventoryService
     public VmSummary? FindById(string resourceId) =>
         _vms.FirstOrDefault(vm => string.Equals(vm.ResourceId, resourceId, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// 从演示数据面移除一台 VM（删除操作执行器用）。
+    /// 返回是否真的移除了 —— 演示数据面是"真的会变"的，删掉之后列表里就不该再有它。
+    /// </summary>
+    public bool Remove(string resourceId) =>
+        _vms.RemoveAll(vm => string.Equals(vm.ResourceId, resourceId, StringComparison.OrdinalIgnoreCase)) > 0;
+
     private static List<VmSummary> BuildDemoVms()
     {
         List<VmSummary> vms =
@@ -107,12 +114,41 @@ public sealed class MockVmInventoryService : IVmInventoryService
                 OsType = name.Contains("SQL", StringComparison.OrdinalIgnoreCase) || name.Contains("ANALYTICS", StringComparison.OrdinalIgnoreCase)
                     ? VmOsType.Linux
                     : VmOsType.Windows,
+                OsName = isWindows ? "Windows" : "ubuntu",
+                OsVersion = isWindows ? "2022 Datacenter" : "24.04",
+                OsImageOffer = isWindows ? "windows-2022" : "ubuntu-24_04-lts",
                 PowerState = state,
                 HasWarning = warning,
                 PublicIp = publicIp,
                 PrivateIp = publicIp is null ? null : $"10.0.{name.Length % 5}.5",
-                CpuPercent = cpu
+                CpuPercent = cpu,
+                MemoryMb = MockMemoryMb(size),
+                VCpuCount = MockVCpus(size)
             };
         }
+
+        // 演示数据的内存与核数取真实 Azure 规格值（来自 Microsoft.Compute vmSizes 实测），
+        // 这样 Demo 模式下「内存」「vCPU」列与真实账户下的读数口径一致。
+        static int? MockMemoryMb(string size) => size switch
+        {
+            "Standard_B2s" => 4096,
+            "Standard_B2ms" => 8192,
+            "Standard_B4ms" => 16384,
+            "Standard_D2s_v3" => 8192,
+            "Standard_D4s_v5" => 16384,
+            "Standard_E4s_v5" => 32768,
+            _ => null
+        };
+
+        static int? MockVCpus(string size) => size switch
+        {
+            "Standard_B2s" => 2,
+            "Standard_B2ms" => 2,
+            "Standard_B4ms" => 4,
+            "Standard_D2s_v3" => 2,
+            "Standard_D4s_v5" => 4,
+            "Standard_E4s_v5" => 4,
+            _ => null
+        };
     }
 }

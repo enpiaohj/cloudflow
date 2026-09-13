@@ -36,21 +36,27 @@ public sealed class MockVmDiskService : IVmDiskService
         }
     }
 
-    public Task<bool> CreateSnapshotAsync(string vmResourceId, string diskId, CancellationToken ct = default)
+    // ==== 供 Operation Handler 调用的数据面操作 ====
+
+    /// <summary>
+    /// 记录一次快照。刻意不放在 <see cref="IVmDiskService"/> 上：
+    /// 读服务带写方法，等于给写操作留了一条绕过 Operation Engine 的后门。
+    /// </summary>
+    public bool AddSnapshot(string vmResourceId, string diskId)
     {
         lock (_lock)
         {
             if (!_disks.TryGetValue(vmResourceId, out var disks))
             {
-                return Task.FromResult(false);
+                return false;
             }
             var disk = disks.FirstOrDefault(d => string.Equals(d.DiskId, diskId, StringComparison.OrdinalIgnoreCase));
             if (disk is null)
             {
-                return Task.FromResult(false);
+                return false;
             }
             disk.SnapshotCount++;
-            return Task.FromResult(true);
+            return true;
         }
     }
 

@@ -3,6 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
+    <UserControl.Resources>
+        <!-- 行操作菜单：⋯ 按钮（左键）与整行右键共用同一份定义。
+             x:Shared="False" 让每处引用各得一个实例 —— ContextMenu 只能有一个逻辑父级。 -->
+        <ContextMenu x:Key="Cf.VmRowMenu" x:Shared="False" Opened="RowMenu_Opened">
+            <MenuItem Header="连接" Click="MenuConnect_Click" />
+            <MenuItem Header="查看详情" Click="MenuViewDetails_Click" />
+            <Separator />
+            <MenuItem Header="启动虚拟机" Tag="start" Click="MenuPower_Click" />
+            <MenuItem Header="重启虚拟机" Tag="restart" Click="MenuPower_Click" />
+            <MenuItem Header="关机（保留分配）" Tag="poweroff" Click="MenuPower_Click" />
+            <MenuItem Header="停止并解除分配" Tag="deallocate" Click="MenuPower_Click" />
+        </ContextMenu>
+    </UserControl.Resources>
+
     <Grid Margin="28,22,28,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -32,13 +46,26 @@
                     <TextBlock Text="管理并监控你的 Azure 虚拟机。"
                                Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
                 </StackPanel>
-                <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Height="36"
-                        VerticalAlignment="Top" Command="{Binding CreateVmCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="＋" FontWeight="Bold" />
-                        <TextBlock Text="创建虚拟机" Margin="5,0,0,0" />
-                    </StackPanel>
-                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                    <!-- 批量连接入口。放标题行是因为筛选行已经排满（766/768px），
+                         往那里塞会把刷新按钮挤出视口。
+                         未选中时**可见但禁用**，不隐藏 —— 隐藏会让人以为没有这个功能。
+                         文案随勾选台数变：1 台是「连接」，2 台以上是「批量连接 (N)」。 -->
+                    <Button Style="{StaticResource Cf.PrimaryButton}" Height="36" Padding="14,0"
+                            Margin="0,0,10,0"
+                            Command="{Binding ConnectSelectedCommand}"
+                            IsEnabled="{Binding HasChecked}"
+                            ToolTip="连接所有勾选的 Linux 虚拟机；Windows 会被跳过">
+                        <TextBlock Text="{Binding ConnectActionText}" />
+                    </Button>
+                    <Button Style="{StaticResource Cf.PrimaryButton}" Height="36"
+                            Command="{Binding CreateVmCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="＋" FontWeight="Bold" />
+                            <TextBlock Text="创建虚拟机" Margin="5,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </StackPanel>
 
@@ -46,14 +73,29 @@
         <Border Grid.Row="1" CornerRadius="6" Padding="12,8" Margin="0,14,0,0"
                 Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}"
                 Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
-            <TextBlock Text="{Binding InfoText}" FontSize="12.5"
-                       Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
+                           Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                <!-- §25 Continue：停在 WaitingApproval 的 Job 必须有出口，否则重启会永远卡住 -->
+                <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
+                        Margin="14,0,0,0" FontSize="12"
+                        Command="{Binding ApproveCommand}"
+                        Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
+                <!-- 批量连接是串行的，探测+连接可能持续几十秒（不可达主机会各付一次 15s 超时）。
+                     没有出口的话用户只能干等 —— 这条与"批准执行"用的是同一个 InfoBar 插槽范式。 -->
+                <Button Content="取消连接" Padding="10,3" Margin="14,0,0,0" FontSize="12"
+                        Command="{Binding CancelConnectCommand}"
+                        Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
         </Border>
 
         <!-- ===== 筛选行 ===== -->
-        <Grid Grid.Row="2" Margin="0,16,0,0">
+        <Grid Grid.Row="2" x:Name="FilterRow" Margin="0,16,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" />
+                <!-- 搜索框 220：固定列宽合计（220+160+190+160+36=766）必须落在最小窗口的内容宽度
+                     （1040 - 216 侧栏 - 56 页边距 = 768）之内，否则右侧刷新按钮会被挤出可视区。
+                     VmListLayoutTests.最小窗口内筛选行必须保留刷新入口 把这条约束锁住了。 -->
+                <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -82,12 +124,10 @@
                       ItemsSource="{Binding RegionOptions}"
                       SelectedItem="{Binding RegionFilter}" />
 
-            <Button Grid.Column="5" Style="{StaticResource Cf.SecondaryButton}" Height="34"
-                    Command="{Binding RefreshCommand}">
-                <StackPanel Orientation="Horizontal">
-                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" />
-                    <TextBlock Text="刷新" Margin="7,0,0,0" />
-                </StackPanel>
+            <Button Grid.Column="5" Style="{StaticResource Cf.IconButton}"
+                    Command="{Binding RefreshCommand}"
+                    ToolTip="重新查询虚拟机列表">
+                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
             </Button>
         </Grid>
 
@@ -97,84 +137,224 @@
                 <DataGrid x:Name="VmsGrid"
                           ItemsSource="{Binding PageItems}"
                           Style="{StaticResource Cf.DataGrid}"
+                          RowHeight="48"
                           SelectionMode="Single"
+                          HorizontalScrollBarVisibility="Auto"
+                          PreviewMouseLeftButtonUp="VmsGrid_PreviewMouseLeftButtonUp"
                           MouseDoubleClick="VmsGrid_MouseDoubleClick">
+                    <!-- 整行右键同样打开行操作菜单（桌面表格的常规操作方式） -->
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
+                            <Setter Property="ContextMenu" Value="{StaticResource Cf.VmRowMenu}" />
+                        </Style>
+                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Width="38" CanUserResize="False">
+                        <!-- 必须用紧凑单元格：默认 Cf.GridCell 的 Padding="12,0" 在 34px 列里
+                             只剩 10px，复选框会被横向压成竖长条（概念图 1 中是方形）。 -->
+                        <!-- Header 必须给一个非 null 值：DataGridColumnHeader 的 ContentPresenter
+                             拿到 null 内容时**不应用 HeaderTemplate**，模板里的复选框根本不会画出来
+                             （实测：只设 HeaderTemplate 时表头是一片空白）。模板会完整替换内容，
+                             所以这个字符串本身不会显示。 -->
+                        <DataGridTemplateColumn Header="全选" Width="34" MinWidth="34" CanUserResize="False"
+                                                CellStyle="{StaticResource Cf.GridCellCompact}">
+                            <!-- 表头这一格必须去掉内边距：Cf.GridColumnHeader 的 Padding="12,9"
+                                 在 34px 宽的列上左右各吃掉 12px，留给内容的只剩 10px ——
+                                 18px 的复选框被横向裁成一条，圆角也一并裁没，看起来成了个直角竖条，
+                                 与行里那个圆角方块明显不同（行里用的是为窄列设计的 Cf.GridCellCompact）。
+                                 表头只有这一个复选框，不需要留白。 -->
+                            <DataGridTemplateColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader"
+                                       BasedOn="{StaticResource Cf.GridColumnHeader}">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </DataGridTemplateColumn.HeaderStyle>
+                            <!-- 表头「本页全选」。只作用于当前页 —— 用户已定，不做跨页全选。
+                                 用普通绑定而不是 RelativeSource 回绑 UserControl：表头内容的
+                                 DataContext 继承自 DataGrid（即页面 VM），直接绑即可；而从
+                                 DataGridTemplateColumn.Header 内部沿祖先链回绑 UserControl
+                                 在本仓没有先例，属于没验证过的写法。 -->
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <!-- 必须沿祖先链指向 DataGrid 的 DataContext：
+                                         表头内容的 DataContext **不继承**自 DataGrid，
+                                         直接写 {Binding IsPageAllChecked} 会静默失效 ——
+                                         复选框照常响应点击，但显示状态永远不跟着行状态走
+                                         （实测确认）。取 DataGrid 这个祖先比取 UserControl 更稳：
+                                         表头一定在 DataGrid 的模板树里。 -->
+                                    <!-- 与行内那个复选框保持一致的显式属性：两个复选框的继承来源不同
+                                         （表头样式 Cf.GridColumnHeader 会设 FontSize / FontWeight / Foreground），
+                                         钉死这几项才不会因为继承差异又长得不一样。
+                                         真正让它们一致的是本列 HeaderStyle 去掉了 Padding（见上）——
+                                         这几项是保险，不是当时的修法。 -->
+                                    <CheckBox IsChecked="{Binding DataContext.IsPageAllChecked,
+                                                  RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              ToolTip="全选本页"
+                                              Click="PageSelectAll_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                              HorizontalAlignment="Center" />
+                                    <!-- ⚠️ 必须是 OneWay + 代码后置写回，**不能**靠 TwoWay。
+                                         Cf.DataGrid 设了 IsReadOnly="True"（CloudFlowTheme.xaml:426），
+                                         只读单元格里 TwoWay 的提交不会发生 —— 复选框照样视觉切换，
+                                         值却永远不回写模型（实测：绑定从不触发，计数恒为 0）。
+                                         同一套路见 RowMenu_Click / PageSelectAll_Click。 -->
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Click="RowCheck_Click" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="150">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                    <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
-
-                        <DataGridTemplateColumn Header="状态" Width="110" CanUserResize="False">
+                        <!-- 概念图 1：名称单元格为两行（资源名 + 计算机名），比单行加宽列更省横向空间。
+                             可伸缩的列一律用星号宽度：窗口宽度变化时由 WPF 分配，避免定宽相加超出视口
+                             把最右侧的操作列挤出可视区（原先就是这样被裁掉的）。 -->
+                        <DataGridTemplateColumn Header="名称" Width="1.2*" MinWidth="124">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource Cf.Badge}">
-                                        <TextBlock Text="{Binding StatusText, Converter={StaticResource StatusText}}" Style="{StaticResource Cf.BadgeText}" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                                        <!-- 操作系统图标（模板内按 OsType 切换屏幕内容） -->
+                                        <ContentControl Content="{Binding}"
+                                                        ContentTemplate="{StaticResource Cf.VmOsIcon}"
+                                                        Focusable="False" VerticalAlignment="Center"
+                                                        Margin="0,0,8,0" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Name}"
+                                                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                            <TextBlock Text="{Binding ComputerNameDisplay}" FontSize="11" Margin="0,2,0,0"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- 窄窗口下列的下限是 MinWidth 而非 Width（固定列默认可压到 20px）；
+                             不设 MinWidth 时 DataGrid 会压碎列而不出横向滚动条（1040 实测状态徽章被截）。 -->
+                        <DataGridTemplateColumn Header="状态" Width="84" MinWidth="84" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- 徽章子树以状态值为 DataContext：Cf.Badge / Cf.BadgeText 的配色绑定
+                                         才能取到 Running / Failed 等键（原先绑定到整行对象，永远落到默认蓝） -->
+                                    <Border Style="{StaticResource Cf.Badge}" DataContext="{Binding StatusText}">
+                                        <TextBlock Text="{Binding Converter={StaticResource StatusText}}"
+                                                   Style="{StaticResource Cf.BadgeText}" />
                                     </Border>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="IP 地址" Width="110">
+                        <DataGridTemplateColumn Header="IP 地址" Width="116" MinWidth="116" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding PublicIp, Converter={StaticResource NullableText}}"
+                                    <!-- 第一行显示值，第二行标明是公网还是专用，避免用户把专用地址当作可直连地址 -->
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding IpDisplay, Converter={StaticResource NullableText}}"
+                                                   FontSize="12.5" />
+                                        <TextBlock Text="{Binding IpKind}" FontSize="11" Margin="0,2,0,0"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- 操作系统（数据来自 ARG properties.storageProfile.osDisk.osType） -->
+                        <!-- 两行：类型 + 发行版。1180 初始窗口下「Linux (ubuntu 24.04)」单行放不下
+                             （会挤掉资源组与区域），故与名称 / 资源组 / 大小同样的两行处理。 -->
+                        <DataGridTemplateColumn Header="操作系统" Width="96" MinWidth="96" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding OsTypeText}" FontSize="12.5"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding OsVersionDisplay}" FontSize="11" Margin="0,2,0,0"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding OsVersionDisplay}"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- vCPU 核数（规格值，与「大小 / 内存」同源，不是使用率） -->
+                        <DataGridTemplateColumn Header="vCPU" Width="54" MinWidth="54" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding VCpuText}"
                                                FontSize="12.5" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-
-                        <DataGridTextColumn Header="大小" Binding="{Binding VmSize}" Width="150" />
-                        <DataGridTextColumn Header="资源组" Binding="{Binding ResourceGroupName}" Width="140" />
-                        <DataGridTextColumn Header="区域" Binding="{Binding Region}" Width="120" />
-
-                        <DataGridTemplateColumn Header="CPU" Width="70">
+                        <!-- 第二行是内存总量。列宽在 1180 初始窗口下不足以再开一列而不截断
+                             现有各列，故并入本单元格（与「资源组 / 订阅」同样的两行处理）。 -->
+                        <DataGridTemplateColumn Header="大小 / 内存" Width="1.4*" MinWidth="128">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding CpuPercent, Converter={StaticResource NullableText}}"
-                                               FontSize="12.5" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,6,0">
+                                        <TextBlock Text="{Binding VmSize}" FontSize="12.5"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding VmSize}" />
+                                        <TextBlock Text="{Binding MemoryText}" FontSize="11" Margin="0,2,0,0"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}"
+                                                   ToolTip="内存总量（由虚拟机规格推导）" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="订阅" Width="130">
+                        <!-- 多订阅场景下订阅必须可见，但独立成列会挤掉操作列 —— 并入资源组单元格第二行 -->
+                        <DataGridTemplateColumn Header="资源组" Width="0.85*" MinWidth="88">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding SubscriptionName}" FontSize="12.5"
-                                               Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,6,0">
+                                        <TextBlock Text="{Binding ResourceGroupName}" FontSize="12.5"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ResourceGroupName}" />
+                                        <TextBlock Text="{Binding SubscriptionName}" FontSize="11" Margin="0,2,0,0"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding SubscriptionName}"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Width="52" CanUserResize="False">
+                        <DataGridTemplateColumn Header="区域" Width="1.0*" MinWidth="96">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Content="…" FontSize="15" FontWeight="Bold"
-                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                            Foreground="{DynamicResource Cf.TextSecondaryBrush}"
-                                            Tag="{Binding}">
+                                    <TextBlock Text="{Binding Region}" FontSize="12.5"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Region}"
+                                               VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+
+                        <!-- 行操作入口。列宽必须扣掉单元格内边距（紧凑 6,0）后仍放得下 26px 图标按钮，
+                             否则按钮内容宽度为负、整列看起来是空的（原先 34px + 12,0 内边距就是这样消失的）。 -->
+                        <DataGridTemplateColumn Width="40" MinWidth="40" CanUserResize="False"
+                                                CellStyle="{StaticResource Cf.GridCellCompact}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource Cf.TopBarButton}"
+                                            Width="26" Height="26" Padding="0"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            ToolTip="更多操作" Tag="{Binding}"
+                                            Click="RowMenu_Click">
+                                        <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
                                         <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="查看详情" Click="MenuViewDetails_Click" />
-                                                <Separator />
-                                                <MenuItem Header="启动虚拟机" Tag="start" Click="MenuPower_Click" />
-                                                <MenuItem Header="重启虚拟机" Tag="restart" Click="MenuPower_Click" />
-                                                <MenuItem Header="关机（保留分配）" Tag="poweroff" Click="MenuPower_Click" />
-                                                <MenuItem Header="停止并解除分配" Tag="deallocate" Click="MenuPower_Click" />
-                                            </ContextMenu>
+                                            <StaticResource ResourceKey="Cf.VmRowMenu" />
                                         </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
@@ -183,10 +363,34 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- Loading 遮罩 -->
-                <Border Background="#80FFFFFF" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="加载中…" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Style="{StaticResource Cf.Muted}" />
+                <!-- Loading 骨架：三行占位条 + 呼吸动画，比"加载中…"文字更有位置感。
+                     骨架色取 Cf.BorderBrush，深浅主题自适应；纯 XAML 动画（Style.EventTrigger）。 -->
+                <Border Background="{DynamicResource Cf.LoadingScrimBrush}"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Margin="24,18" VerticalAlignment="Center">
+                        <StackPanel.Resources>
+                            <Style x:Key="PulseBar" TargetType="Rectangle">
+                                <Setter Property="Height" Value="12" />
+                                <Setter Property="RadiusX" Value="6" />
+                                <Setter Property="RadiusY" Value="6" />
+                                <Setter Property="Fill" Value="{DynamicResource Cf.BorderBrush}" />
+                                <Setter Property="Opacity" Value="0.6" />
+                                <Style.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="0.3" To="1" Duration="0:0:0.8" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Resources>
+                        <Rectangle Style="{StaticResource PulseBar}" Width="420" />
+                        <Rectangle Style="{StaticResource PulseBar}" Width="360" Margin="0,10,0,0" />
+                        <Rectangle Style="{StaticResource PulseBar}" Width="300" Margin="0,10,0,0" />
+                    </StackPanel>
                 </Border>
             </Grid>
         </Border>
@@ -235,7 +439,8 @@
                         Command="{Binding NextPageCommand}" Content="›" />
             </StackPanel>
 
-            <ComboBox Grid.Column="2" Width="110" Height="28" Margin="14,0,0,0" FontSize="12"
+            <!-- 高度必须 ≥ WPF-UI ComboBox 模板的最小高度：28 会把文字纵向裁掉一半 -->
+            <ComboBox Grid.Column="2" Width="110" Height="34" Margin="14,0,0,0" FontSize="12"
                       ItemsSource="{Binding PageSizeOptions}"
                       SelectedItem="{Binding SelectedPageSize}"
                       VerticalAlignment="Center" />

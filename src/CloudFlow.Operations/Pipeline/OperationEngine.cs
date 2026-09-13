@@ -44,7 +44,10 @@ public sealed class OperationEngine : IOperationEngine
         {
             AccountId = request.AccountId,
             TenantId = request.TenantId,
+            AccountDisplayName = request.AccountDisplayName,
             SubscriptionId = request.SubscriptionId,
+            ProviderType = request.ProviderType,
+            ProviderProfileId = request.ProviderProfileId,
             ResourceId = request.ResourceId,
             OperationType = request.OperationType,
             Display = string.IsNullOrEmpty(request.Display) ? request.OperationType : request.Display,
@@ -72,10 +75,15 @@ public sealed class OperationEngine : IOperationEngine
             var impact = await handler.AnalyzeImpactAsync(request, ct).ConfigureAwait(false);
 
             // ---- Permission（审批）----
-            if (impact.RequiresApproval && !request.PreApproved)
+            // CannotBypass（§25 共享子网 NSG 影响面确认）连 PreApproved 都不认：
+            // 它不是"要不要打扰用户"的偏好，是"这一改会波及别人"的告知。
+            if (impact.RequiresApproval && (impact.CannotBypass || !request.PreApproved))
             {
                 job.Status = JobStatus.WaitingApproval;
                 job.Summary = impact.Description;
+                job.ImpactAffectedResources = impact.AffectedResources;
+                // 请求随 Job 一起落盘，审批才熬得过重启（Handler 不落盘：按操作类型反查即可）
+                job.PendingRequest = request;
                 await _jobStore.UpdateAsync(job, ct).ConfigureAwait(false);
                 Notify(job);
 
@@ -106,17 +114,70 @@ public sealed class OperationEngine : IOperationEngine
 
     public async Task<OperationJob> ApproveAsync(Guid jobId, CancellationToken ct = default)
     {
-        if (!_pendingApprovals.Remove(jobId, out var pending))
+        var job = _jobStore.Find(jobId)
+            ?? throw new CloudFlowException(CloudFlowErrorCode.ResourceNotFound,
+                $"Job {jobId} not found.");
+
+        // 内存里命中最好；没命中就回落到 Job 自己带的请求 —— 那是应用重启之后的唯一路径。
+        // Handler 不进 Job：操作类型唯一决定用哪个 Handler，按类型反查即可，
+        // 把一个执行体序列化进历史文件既无必要也多一份要审的东西。
+        _pendingApprovals.Remove(jobId, out var pending);
+        var request = pending?.Request ?? job.PendingRequest;
+        var handler = pending?.Handler
+            ?? (request is null ? null : ResolveHandler(request.OperationType));
+
+        if (request is null || handler is null)
         {
             throw new CloudFlowException(CloudFlowErrorCode.Unknown,
                 $"Job {jobId} is not waiting for approval.");
         }
 
+        // 批准之后请求就没有留存的理由了，清掉再执行 ——
+        // jobs.json 里不该长期躺着一份可被重放的写操作请求。
+        job.PendingRequest = null;
+
+        return await RunAsync(job, request, handler, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 作废挂起审批。与批准共用同一条清理纪律：挂起请求必须清掉，
+    /// jobs.json 里不长期留存一份可被重放的写操作请求。
+    /// 旧版 Job（无 PendingRequest）批准不了，但作废必须可以 —— 这是它唯一的出口。
+    /// </summary>
+    public async Task<OperationJob> RejectAsync(Guid jobId, string? reason = null, CancellationToken ct = default)
+    {
         var job = _jobStore.Find(jobId)
             ?? throw new CloudFlowException(CloudFlowErrorCode.ResourceNotFound,
                 $"Job {jobId} not found.");
 
-        return await RunAsync(job, pending.Request, pending.Handler, ct).ConfigureAwait(false);
+        if (job.Status != JobStatus.WaitingApproval)
+        {
+            throw new CloudFlowException(CloudFlowErrorCode.Unknown,
+                $"Job {jobId} is not waiting for approval.");
+        }
+
+        _pendingApprovals.Remove(jobId, out _);
+        job.PendingRequest = null;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            job.Summary = reason;
+        }
+
+        // CompleteAsync 落盘 + 通知 + 写审计（Outcome = "Canceled"）
+        return await CompleteAsync(job, JobStatus.Canceled).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 该 Job 现在批得了吗。UI 据此决定显示「批准」还是「提交于旧版本，无法恢复审批」——
+    /// 让"批准"按钮点下去才报错，等于把恢复能力的缺失推到用户操作之后才发现。
+    /// </summary>
+    public bool CanApprove(Guid jobId)    {
+        if (_pendingApprovals.ContainsKey(jobId))
+        {
+            return true;
+        }
+
+        return _jobStore.Find(jobId) is { Status: JobStatus.WaitingApproval, PendingRequest: not null };
     }
 
     /// <summary>Execute → WaitingAzure → Verify → Audit 共同后段。</summary>
@@ -199,6 +260,8 @@ public sealed class OperationEngine : IOperationEngine
                 AccountId = job.AccountId,
                 TenantId = job.TenantId,
                 SubscriptionId = job.SubscriptionId,
+                ProviderType = job.ProviderType,
+                ProviderProfileId = job.ProviderProfileId,
                 ResourceId = job.ResourceId,
                 Outcome = outcome,
                 Error = job.Error,

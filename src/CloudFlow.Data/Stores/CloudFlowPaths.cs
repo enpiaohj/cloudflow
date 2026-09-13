@@ -17,6 +17,14 @@ public static class CloudFlowPaths
 
     public static string JobsFile => Path.Combine(Root, "jobs.json");
 
+    public static string ActiveAccountFile => Path.Combine(Root, "account-context.json");
+
+    /// <summary>个人 Microsoft 账户（Embedded Azure CLI 身份）非敏感元数据；不含 Token。</summary>
+    public static string PersonalAccountsFile => Path.Combine(Root, "personal-accounts.json");
+
+    /// <summary>应用级偏好设置（主题 / 审批策略 / 列表刷新与分页 / 公网 IP 自动查询）。</summary>
+    public static string AppSettingsFile => Path.Combine(Root, "settings.json");
+
     public static void EnsureRoot()
     {
         Directory.CreateDirectory(Root);

@@ -10,16 +10,19 @@ namespace CloudFlow.Azure.Identity.AzureCli;
 /// - Token 只在内存中流转，绝不落盘/写日志（CLI 自身的 Token Cache 留在 Profile 内，CloudFlow 不读取）；
 /// - CLI 仅用于身份链路，资源操作禁止走本类（规范 §二）。
 /// </summary>
-public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
+public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, IInteractiveSignInProgress
 {
     public const string AccountIdPrefix = "azurecli:";
 
-    /// <summary>login / get-access-token 的默认超时（含用户在浏览器完成登录的时间）。</summary>
-    private static readonly TimeSpan AuthTimeout = TimeSpan.FromMinutes(5);
+    /// <summary>
+    /// login / get-access-token 的默认超时。设备码需要用户切到浏览器完成登录，
+    /// 采用与 Microsoft 设备码自身有效期一致的 15 分钟，避免用户尚未输码就被超时中断。
+    /// </summary>
+    private static readonly TimeSpan AuthTimeout = TimeSpan.FromMinutes(15);
 
     private readonly IAzureCliProcessRunner _runner;
     private readonly IAzureCliProfileManager _profiles;
-    private readonly string _azCmdPath;
+    private readonly Func<string> _resolveAzCmd;
 
     public EmbeddedAzureCliIdentityProvider(
         IAzureCliProcessRunner runner,
@@ -28,7 +31,17 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
     {
         _runner = runner;
         _profiles = profiles;
-        _azCmdPath = azCmdPath;
+        _resolveAzCmd = () => azCmdPath;
+    }
+
+    public EmbeddedAzureCliIdentityProvider(
+        IAzureCliProcessRunner runner,
+        IAzureCliProfileManager profiles,
+        AzureCliRuntimeManager runtimeManager)
+    {
+        _runner = runner;
+        _profiles = profiles;
+        _resolveAzCmd = runtimeManager.ResolveAzCmd;
     }
 
     public AuthenticationProviderType Type => AuthenticationProviderType.EmbeddedAzureCli;
@@ -52,7 +65,7 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
         {
             result = await _runner.RunAsync(new AzureCliInvocation
             {
-                ExecutablePath = _azCmdPath,
+                ExecutablePath = _resolveAzCmd(),
                 Arguments = ["login", "--use-device-code", "--output", "json"],
                 ConfigDirectory = profilePath,
                 Timeout = AuthTimeout,
@@ -79,13 +92,19 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
             .FirstOrDefault(value => !string.IsNullOrEmpty(value))
             ?? throw new AzureCliException("个人账户登录结果中未找到用户名，已回滚该 Profile。");
 
+        // 主租户：后续按租户取 Token（az account get-access-token --tenant）需要
+        var homeTenantId = loginRows
+            .Select(row => GetJsonString(row, "tenantId"))
+            .FirstOrDefault(value => !string.IsNullOrEmpty(value));
+
         return new CloudAccount
         {
             AccountId = AccountIdPrefix + profileId,
             Username = username,
             DisplayName = username.Split('@')[0],
             ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
-            ProviderProfileId = profileId
+            ProviderProfileId = profileId,
+            HomeTenantId = homeTenantId
         };
     }
 
@@ -97,7 +116,7 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
 
         var result = await _runner.RunAsync(new AzureCliInvocation
         {
-            ExecutablePath = _azCmdPath,
+            ExecutablePath = _resolveAzCmd(),
             Arguments = ["account", "list", "--all", "--output", "json"],
             ConfigDirectory = profilePath
         }, cancellationToken).ConfigureAwait(false);
@@ -133,9 +152,15 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
                 $"凭据上下文的 ProviderType 为 {context.ProviderType}，与 {Type} 不匹配。", nameof(context));
         }
 
-        var profilePath = _profiles.GetProfilePath(
-            context.ProviderProfileId
-            ?? throw new ArgumentException("EmbeddedAzureCli 凭据上下文必须携带 ProviderProfileId。", nameof(context)));
+        var profileId = context.ProviderProfileId
+            ?? throw new ArgumentException("EmbeddedAzureCli 凭据上下文必须携带 ProviderProfileId。", nameof(context));
+        if (!string.Equals(context.AccountId, AccountIdPrefix + profileId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "EmbeddedAzureCli 凭据上下文的 AccountId 与 ProviderProfileId 不一致。", nameof(context));
+        }
+
+        var profilePath = _profiles.GetProfilePath(profileId);
 
         return new CloudAccessToken
         {
@@ -147,7 +172,7 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider
 
                 var result = await _runner.RunAsync(new AzureCliInvocation
                 {
-                    ExecutablePath = _azCmdPath,
+                    ExecutablePath = _resolveAzCmd(),
                     Arguments = ["account", "get-access-token",
                         "--resource", resource, "--tenant", context.TenantId, "--output", "json"],
                     ConfigDirectory = profilePath,

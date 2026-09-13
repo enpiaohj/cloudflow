@@ -26,6 +26,12 @@ public sealed class InMemoryJobStore : IJobStore
         return Task.CompletedTask;
     }
 
+    public Task ClearAsync(CancellationToken ct = default)
+    {
+        _jobs.Clear();
+        return Task.CompletedTask;
+    }
+
     public IReadOnlyList<OperationJob> GetAll() =>
         [.. _jobs.Values.OrderByDescending(j => j.CreatedAt)];
 

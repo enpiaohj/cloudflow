@@ -1,3 +1,5 @@
+using CloudFlow.Core.Identity;
+
 namespace CloudFlow.Core.Operations;
 
 /// <summary>审计记录（每次操作完成后写入，Append-Only）。</summary>
@@ -16,6 +18,10 @@ public sealed class AuditRecord
     public required string TenantId { get; init; }
 
     public required string SubscriptionId { get; init; }
+
+    public AuthenticationProviderType? ProviderType { get; init; }
+
+    public string? ProviderProfileId { get; init; }
 
     public required string ResourceId { get; init; }
 

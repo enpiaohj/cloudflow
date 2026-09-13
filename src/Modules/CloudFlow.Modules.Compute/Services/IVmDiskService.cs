@@ -15,6 +15,4 @@ public interface IVmDiskService
     /// <summary>VM 快照总数。</summary>
     Task<int> GetSnapshotCountAsync(string vmResourceId, CancellationToken ct = default);
 
-    /// <summary>数据面：为指定磁盘创建快照记录（由 Operation Handler 调用）。</summary>
-    Task<bool> CreateSnapshotAsync(string vmResourceId, string diskId, CancellationToken ct = default);
 }

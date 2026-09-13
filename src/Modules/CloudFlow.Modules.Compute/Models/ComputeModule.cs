@@ -14,6 +14,9 @@ public sealed class ComputeModule : IResourceModule
     public const string OperationResize = "vm.resize";
     public const string OperationSnapshot = "disk.snapshot";
 
+    /// <summary>删除虚拟机（设计文档 v3.1 §87）。</summary>
+    public const string OperationDelete = "vm.delete";
+
     public string ModuleId => "compute";
 
     public IReadOnlyList<string> ResourceTypes => ["Microsoft.Compute/virtualMachines"];
@@ -25,6 +28,7 @@ public sealed class ComputeModule : IResourceModule
         OperationPowerOff,
         OperationDeallocate,
         OperationResize,
-        OperationSnapshot
+        OperationSnapshot,
+        OperationDelete
     ];
 }

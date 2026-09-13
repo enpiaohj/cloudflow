@@ -1,12 +1,13 @@
 using System.ComponentModel;
 using System.Windows;
+using CloudFlow.App.Themes;
 
 namespace CloudFlow.App.Views;
 
 /// <summary>
 /// 更改规格对话框（设计文档 §19 Resize；vm.resize 经 Operation Engine 提交）。
 /// </summary>
-public partial class ResizeDialog : Window, INotifyPropertyChanged
+public partial class ResizeDialog : CfDialogWindow, INotifyPropertyChanged
 {
     private string? _selectedSize;
     private string _errorText = "";

@@ -1,6 +1,15 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Azure.ResourceManager.Compute;
+using CloudFlow.Azure.Arm;
+using CloudFlow.Azure.Auth;
+using CloudFlow.Azure.Identity.Msal;
+using CloudFlow.Core.Identity;
+using CloudFlow.Core.Operations;
+using CloudFlow.Data.Stores;
+using CloudFlow.Operations.Pipeline;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Identity.Client;
 
 namespace CloudFlow.Spike;
@@ -41,6 +50,11 @@ public static class Program
             Console.WriteLine("   2. 设置环境变量 CLOUDFLOW_CLIENT_ID（CLOUDFLOW_TENANT_ID 可选）");
             Console.WriteLine("   3. 运行参数 --client-id <guid> [--tenant-id <guid|organizations>]");
             return 1;
+        }
+
+        if (args.Contains("--authorized-restart", StringComparer.Ordinal))
+        {
+            return await RunAuthorizedRestartAsync(args, clientId, tenantId);
         }
 
         var pca = PublicClientApplicationBuilder
@@ -147,6 +161,122 @@ public static class Program
         return 0;
     }
 
+    private static async Task<int> RunAuthorizedRestartAsync(
+        string[] args,
+        string clientId,
+        string tenantId)
+    {
+        var subscriptionName = RequireArgument(args, "--subscription-name");
+        var resourceGroupName = RequireArgument(args, "--resource-group");
+        var vmName = RequireArgument(args, "--vm-name");
+        var accountUsername = RequireArgument(args, "--account-username");
+
+        var sessions = new MsalAccountSessionManager(
+            new MsalAuthConfig { ClientId = clientId, TenantId = tenantId },
+            NullLogger<MsalAccountSessionManager>.Instance);
+        var identityProvider = new MsalIdentityProvider(sessions, new SubscriptionDiscoveryService());
+        var accounts = await sessions.GetAccountsAsync();
+        var account = accounts.SingleOrDefault(item =>
+            string.Equals(item.Username, accountUsername, StringComparison.OrdinalIgnoreCase));
+        if (account is null)
+        {
+            throw new InvalidOperationException("未找到指定企业账户的有效缓存会话，已取消操作。");
+        }
+
+        var subscriptions = await identityProvider.GetSubscriptionsAsync(account);
+        var subscription = subscriptions
+            .SingleOrDefault(item =>
+                string.Equals(item.DisplayName, subscriptionName, StringComparison.Ordinal) &&
+                string.Equals(item.State, "Enabled", StringComparison.OrdinalIgnoreCase));
+        if (subscription is null)
+        {
+            throw new InvalidOperationException("未找到指定的已启用订阅，已取消操作。");
+        }
+
+        var context = new CloudCredentialContext
+        {
+            AccountId = account.AccountId,
+            TenantId = subscription.TenantId,
+            SubscriptionId = subscription.SubscriptionId,
+            ProviderType = AuthenticationProviderType.EntraMsal,
+            ProviderProfileId = account.ProviderProfileId
+        };
+        var clientFactory = new CloudArmClientFactory([identityProvider]);
+        var armClient = await clientFactory.CreateAsync(context);
+        var resourceId = VirtualMachineResource.CreateResourceIdentifier(
+            subscription.SubscriptionId,
+            resourceGroupName,
+            vmName);
+        var vm = armClient.GetVirtualMachineResource(resourceId);
+        var instanceView = (await vm.InstanceViewAsync()).Value;
+        var powerState = instanceView.Statuses
+            .FirstOrDefault(status => status.Code?.StartsWith("PowerState/", StringComparison.OrdinalIgnoreCase) == true)
+            ?.Code ?? "PowerState/unknown";
+
+        Console.WriteLine($"目标：订阅“{subscriptionName}”/ 资源组“{resourceGroupName}”/ VM“{vmName}”");
+        Console.WriteLine($"重启前状态：{powerState}");
+
+        var auditLog = new AuditFileLog();
+        // 使用产品实际注册的 Handler + 执行器组合（与 App 的 DI 装配一致），
+        // 这样 Spike 验证的就是真实链路，而不是一份只在 Spike 里存在的实现。
+        var executor = new CloudFlow.Azure.Compute.ArmVmPowerExecutor(
+            clientFactory, NullLogger<CloudFlow.Azure.Compute.ArmVmPowerExecutor>.Instance);
+        var engine = new OperationEngine(
+            [new CloudFlow.Modules.Compute.Operations.RestartVmHandler(
+                executor, NullLogger<CloudFlow.Modules.Compute.Operations.RestartVmHandler>.Instance)],
+            new JsonJobStore(),
+            auditLog,
+            NullLogger<OperationEngine>.Instance);
+        var request = new OperationRequest
+        {
+            OperationType = CloudFlow.Modules.Compute.Models.ComputeModule.OperationRestart,
+            AccountId = context.AccountId,
+            TenantId = context.TenantId,
+            SubscriptionId = context.SubscriptionId,
+            ProviderType = context.ProviderType,
+            ProviderProfileId = context.ProviderProfileId,
+            ResourceId = resourceId.ToString(),
+            Risk = RiskLevel.High,
+            Display = $"重启虚拟机 {vmName}",
+            Payload = new Dictionary<string, string>()
+        };
+
+        var pending = await engine.SubmitAsync(request);
+        if (pending.Status != JobStatus.WaitingApproval)
+        {
+            throw new InvalidOperationException($"操作未进入 WaitingApproval，当前状态为 {pending.Status}，已取消执行。");
+        }
+
+        Console.WriteLine($"已创建 Job {pending.JobId}，状态 WaitingApproval；尚未调用 Azure Restart。");
+        if (!args.Contains("--approve-restart-once", StringComparer.Ordinal))
+        {
+            return 0;
+        }
+
+        var completed = await engine.ApproveAsync(pending.JobId);
+        var finalAudit = auditLog.Query(resourceId.ToString())
+            .FirstOrDefault(record => record.JobId == completed.JobId);
+        Console.WriteLine($"最终状态：{completed.Status}；审计结果：{finalAudit?.Outcome ?? "缺失"}。");
+        return completed.Status == JobStatus.Succeeded &&
+               string.Equals(finalAudit?.Outcome, "Succeeded", StringComparison.Ordinal)
+            ? 0
+            : 1;
+    }
+
+    private static string RequireArgument(string[] args, string name)
+    {
+        for (var index = 0; index < args.Length - 1; index++)
+        {
+            if (string.Equals(args[index], name, StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(args[index + 1]))
+            {
+                return args[index + 1];
+            }
+        }
+
+        throw new ArgumentException($"缺少必需参数：{name}");
+    }
+
     private static async Task<AuthenticationResult> InteractiveAsync(IPublicClientApplication pca)
     {
         var auth = await pca.AcquireTokenInteractive([ManagementScope])
@@ -173,22 +303,45 @@ public static class Program
 
     private static ConfigInfo? LoadFromConfig()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-        if (!File.Exists(path))
+        foreach (var path in GetConfigPaths())
         {
-            return null;
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(path));
+                var azure = doc.RootElement.GetProperty("Azure");
+                var config = new ConfigInfo(
+                    azure.TryGetProperty("ClientId", out var cid) ? cid.GetString() : null,
+                    azure.TryGetProperty("TenantId", out var tid) ? tid.GetString() : null);
+                if (!string.IsNullOrWhiteSpace(config.ClientId) &&
+                    !config.ClientId.StartsWith("SET-YOUR", StringComparison.OrdinalIgnoreCase))
+                {
+                    return config;
+                }
+            }
+            catch (JsonException)
+            {
+            }
         }
-        try
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetConfigPaths()
+    {
+        var localPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (File.Exists(localPath))
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
-            var azure = doc.RootElement.GetProperty("Azure");
-            return new ConfigInfo(
-                azure.TryGetProperty("ClientId", out var cid) ? cid.GetString() : null,
-                azure.TryGetProperty("TenantId", out var tid) ? tid.GetString() : null);
+            yield return localPath;
         }
-        catch (JsonException)
+
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            return null;
+            var appPath = Path.Combine(directory.FullName, "src", "CloudFlow.App", "appsettings.json");
+            if (File.Exists(appPath))
+            {
+                yield return appPath;
+                yield break;
+            }
         }
     }
 

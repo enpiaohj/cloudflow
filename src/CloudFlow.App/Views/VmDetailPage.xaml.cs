@@ -15,6 +15,15 @@ public partial class VmDetailPage : UserControl
 
     private VmDetailViewModel Vm => (VmDetailViewModel)DataContext;
 
+    /// <summary>左键点击「⋯」→ 打开所在菜单（WPF 默认只响应右键，见 <see cref="RowMenu"/>）。</summary>
+    private void RowMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement button)
+        {
+            RowMenu.OpenFor(button);
+        }
+    }
+
     private void MenuDeallocate_Click(object sender, RoutedEventArgs e)
     {
         Vm.DeallocateFromMenu();
@@ -71,13 +80,5 @@ public partial class VmDetailPage : UserControl
         }
     }
 
-    private static NsgSecurityRule? GetRule(object sender)
-    {
-        if (sender is not FrameworkElement menuItem)
-        {
-            return null;
-        }
-        var menu = menuItem.Parent as ContextMenu ?? menuItem.TemplatedParent as ContextMenu;
-        return (menu?.PlacementTarget as FrameworkElement)?.Tag as NsgSecurityRule;
-    }
+    private static NsgSecurityRule? GetRule(object sender) => RowMenu.RowDataOf<NsgSecurityRule>(sender);
 }

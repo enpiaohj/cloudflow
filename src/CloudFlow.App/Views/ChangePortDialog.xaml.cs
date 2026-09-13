@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using CloudFlow.App.Themes;
 using CloudFlow.Modules.Network.Models;
 
 namespace CloudFlow.App.Views;
@@ -8,7 +9,7 @@ namespace CloudFlow.App.Views;
 /// Change Port 对话框（概念图 2，设计文档 §22）：
 /// 只改端口，Protocol / Source / 其他设置保持不变。
 /// </summary>
-public partial class ChangePortDialog : Window, INotifyPropertyChanged
+public partial class ChangePortDialog : CfDialogWindow, INotifyPropertyChanged
 {
     private string _newPortText = "";
     private string _errorText = "";

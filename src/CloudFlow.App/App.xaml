@@ -7,6 +7,12 @@
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Light" />
                 <ui:ControlsDictionary />
+                <!--
+                  这里**刻意不合并 CfPalette.*.xaml**：资源字典里的 Freezable 会被 WPF 冻结
+                  （po:Freeze="False" 在本 WPF 版本上实测无效），冻结的画刷改不了颜色。
+                  画刷改由 CfThemeManager.Initialize() 在 App.OnStartup 第一步安装成未冻结的实例，
+                  由此只有一份来源。详见该类的注释。
+                -->
                 <ResourceDictionary Source="Themes/CloudFlowTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Collections.ObjectModel;
 using CloudFlow.App.Infrastructure;
+using CloudFlow.Azure.Cost;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
 using CloudFlow.Modules.Compute.Models;
@@ -36,6 +37,7 @@ public partial class HomeViewModel : ObservableObject
 
     private readonly IVmInventoryService _inventory;
     private readonly IJobStore _jobStore;
+    private readonly ICostService _costService;
     private readonly ScopeContext _scopeContext;
     private readonly IShellNavigation _navigation;
 
@@ -69,22 +71,55 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<AttentionItem> _attentionItems = [];
 
+    /// <summary>空列表要给出说明，否则会被误读为加载失败。</summary>
+    public bool HasRecentOperations => RecentOperations.Count > 0;
+
+    /// <summary>
+    /// 「虚拟机」统计卡副标题。Demo 模式沿用概念图的"本周新增 3 台"；
+    /// 真实账户下没有创建时间数据，不编造增量，留空由 UI 折叠。
+    /// </summary>
+    public string TotalVmsDeltaText => _scopeContext.ActiveAccount is null ? "本周新增 3 台" : "";
+
+    /// <summary>「需要关注」统计卡副标题：来自真实注意项数量，不再写死。</summary>
+    public string AttentionSummary => _scopeContext.ActiveAccount is null
+        ? "1 台意外停机"
+        : AttentionItems.Count == 0 ? "未发现异常" : $"{AttentionItems.Count} 项待处理";
+
+    public bool HasAttentionItems => AttentionItems.Count > 0;
+
+    public string RecentOperationsEmptyText => _scopeContext.ActiveAccount is null
+        ? "暂无操作记录。"
+        : "当前账户暂无操作记录。执行启动 / 重启 / 快照 / 端口变更后会显示在这里。";
+
+    public string AttentionEmptyText => _scopeContext.ActiveAccount is null
+        ? "暂无注意项。"
+        : "未发现需要注意的项（当前仅根据虚拟机电源状态判断；健康检查与告警接入后会更完整）。";
+
     [ObservableProperty]
     private string _costAmount = "$482.21";
 
     [ObservableProperty]
+    private string _costSubtitle = "本月计算成本（估算）";
+
+    [ObservableProperty]
     private string _costDelta = "↓ 12% 对比上月";
+
+    /// <summary>是否有真实成本数据。没有时 UI 用中性色，避免把"尚未接入"显示成正面结论。</summary>
+    [ObservableProperty]
+    private bool _hasCostData = true;
 
     private bool _demoJobsSeeded;
 
     public HomeViewModel(
         IVmInventoryService inventory,
         IJobStore jobStore,
+        ICostService costService,
         ScopeContext scopeContext,
         IShellNavigation navigation)
     {
         _inventory = inventory;
         _jobStore = jobStore;
+        _costService = costService;
         _scopeContext = scopeContext;
         _navigation = navigation;
 
@@ -108,16 +143,106 @@ public partial class HomeViewModel : ObservableObject
 
         await SeedDemoJobsAsync();
 
-        var recent = _jobStore.GetAll().Take(6);
-        RecentOperations = [.. recent];
+        // 只显示当前账户的操作记录：混入 Demo / 其他账户的 Job 会被当成当前订阅发生过的事
+        RecentOperations = [.. ActiveAccountJobs.For(_scopeContext, _jobStore.GetAll()).Take(6)];
+        OnPropertyChanged(nameof(HasRecentOperations));
+        OnPropertyChanged(nameof(RecentOperationsEmptyText));
 
         BuildAttentionItems(vms);
+        OnPropertyChanged(nameof(HasAttentionItems));
+        OnPropertyChanged(nameof(AttentionEmptyText));
+        OnPropertyChanged(nameof(AttentionSummary));
+        OnPropertyChanged(nameof(TotalVmsDeltaText));
+
+        await UpdateCostInsightAsync();
     }
 
-    /// <summary>注意项（Demo 数据与概念图 1 一致；真实实现来自 Health/Alerts，P3）。</summary>
+    /// <summary>
+    /// 成本洞察（设计文档 Home）。
+    /// 拿不到数据时显示 "—" 并给出**真实原因**（限流 / 无权限），
+    /// 不用 0 或旧数字填充 —— 那会被当成当前账单。
+    /// </summary>
+    private async Task UpdateCostInsightAsync()
+    {
+        // 先切到中性态再发查询：Cost Management 限流时退避要几十秒，
+        // 这段窗口里若还显示字段初始化的演示金额，用户会把它当成真实账单。
+        if (_scopeContext.ActiveAccount is not null)
+        {
+            CostAmount = "—";
+            CostSubtitle = "本月成本";
+            CostDelta = "正在读取 Azure Cost Management…";
+            HasCostData = false;
+        }
+
+        var subscriptionId = _scopeContext.CurrentScope.SubscriptionIds.FirstOrDefault()
+            ?? _scopeContext.AvailableSubscriptions.FirstOrDefault()?.SubscriptionId
+            ?? "";
+
+        var (summary, failureReason) = await _costService.GetMonthToDateAsync(subscriptionId);
+
+        if (summary is null)
+        {
+            CostAmount = "—";
+            CostSubtitle = "本月成本";
+            CostDelta = failureReason ?? "成本数据不可用。";
+            HasCostData = false;
+            return;
+        }
+
+        CostAmount = FormatAmount(summary);
+        CostSubtitle = $"本月成本（{summary.PeriodText}）";
+        CostDelta = $"数据时间 {summary.RetrievedAt:HH:mm}";
+        HasCostData = true;
+    }
+
+    /// <summary>按币种格式化：金额与币种分开保存，显示时才拼，避免各处硬编码 "$"。</summary>
+    private static string FormatAmount(CostSummary summary) => summary.Currency switch
+    {
+        "USD" => $"${summary.Amount:N2}",
+        "CNY" => $"¥{summary.Amount:N2}",
+        _ => $"{summary.Amount:N2} {summary.Currency}"
+    };
+
+    /// <summary>
+    /// 注意项。
+    /// Demo 模式给出与概念图 1 一致的示例；
+    /// 真实账户下只从已读到的 VM 数据推导，绝不编造 VM 名或不存在的状态
+    /// （伪造条目会被当成真实告警，且点击后跳到不存在的资源）。
+    /// 真实实现应来自 Health / Alerts，属 P3。
+    /// </summary>
     private void BuildAttentionItems(IReadOnlyList<VmSummary> vms)
     {
         AttentionItems = [];
+
+        if (_scopeContext.ActiveAccount is not null)
+        {
+            foreach (var vm in vms.Where(vm => vm.HasWarning))
+            {
+                AttentionItems.Add(new AttentionItem
+                {
+                    Severity = "Error",
+                    Title = vm.Name,
+                    Description = "虚拟机状态异常",
+                    Age = "",
+                    VmName = vm.Name
+                });
+            }
+
+            // 已停止但未解除分配的 VM：计算资源仍保留分配，费用继续产生，是真实可操作的注意项
+            foreach (var vm in vms.Where(vm => vm.PowerState == VmPowerState.Stopped))
+            {
+                AttentionItems.Add(new AttentionItem
+                {
+                    Severity = "Warning",
+                    Title = vm.Name,
+                    Description = "已停止但未解除分配，计算资源仍计费",
+                    Age = "",
+                    VmName = vm.Name
+                });
+            }
+
+            return;
+        }
 
         var unexpected = vms.FirstOrDefault(vm => vm.Name == "DEV01");
         if (unexpected is not null)
@@ -159,7 +284,11 @@ public partial class HomeViewModel : ObservableObject
         });
     }
 
-    /// <summary>Demo 历史操作（概念图 Recent Operations 表）。真实接入后由持久化 Job 历史替代。</summary>
+    /// <summary>
+    /// Demo 历史操作（概念图 Recent Operations 表）。
+    /// 仅在未登录（Demo 模式）时写入：登录真实账户后仍往 Job 库塞演示记录，
+    /// 会让"任务 / 最近操作"看起来有数据但全是假的。
+    /// </summary>
     private async Task SeedDemoJobsAsync()
     {
         if (_demoJobsSeeded || _jobStore.GetAll().Count > 0)
@@ -169,8 +298,13 @@ public partial class HomeViewModel : ObservableObject
         }
         _demoJobsSeeded = true;
 
-        var account = "demo-account";
-        var tenant = MockAccountContext.DemoTenantId;
+        if (_scopeContext.ActiveAccount is not null)
+        {
+            return;
+        }
+
+        var account = DemoIdentity.AccountId;
+        var tenant = DemoIdentity.TenantId;
         var sub = MockVmInventoryService.SubProdChina;
 
         OperationJob Job(string op, string vmName, JobStatus status, int minutesAgo, string display)
@@ -206,7 +340,8 @@ public partial class HomeViewModel : ObservableObject
     {
         Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            RecentOperations = [.. _jobStore.GetAll().Take(6)];
+            RecentOperations = [.. ActiveAccountJobs.For(_scopeContext, _jobStore.GetAll()).Take(6)];
+            OnPropertyChanged(nameof(HasRecentOperations));
         });
     }
 

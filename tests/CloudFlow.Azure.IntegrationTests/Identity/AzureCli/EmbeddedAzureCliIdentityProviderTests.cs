@@ -92,6 +92,17 @@ public sealed class EmbeddedAzureCliIdentityProviderTests
     }
 
     [Fact]
+    public void 构造时不解析Runtime_避免未使用个人登录时阻塞应用启动()
+    {
+        var provider = new EmbeddedAzureCliIdentityProvider(
+            new FakeRunner(),
+            new FakeProfiles(),
+            new AzureCliRuntimeManager(new FakeRunner(), probePaths: ["C:\\missing\\az.cmd"]));
+
+        Assert.Equal(AuthenticationProviderType.EmbeddedAzureCli, provider.Type);
+    }
+
+    [Fact]
     public async Task SignIn_设备码流回调登录提示并解析账户()
     {
         var runner = new FakeRunner
@@ -178,7 +189,7 @@ public sealed class EmbeddedAzureCliIdentityProviderTests
         var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\\rt\\az.cmd");
         var context = new CloudCredentialContext
         {
-            AccountId = "azurecli:abc",
+            AccountId = "azurecli:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             TenantId = "tenant-1",
             SubscriptionId = "sub-1",
             ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
@@ -207,6 +218,22 @@ public sealed class EmbeddedAzureCliIdentityProviderTests
             TenantId = "t",
             SubscriptionId = "s",
             ProviderType = AuthenticationProviderType.EntraMsal
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => provider.GetCredentialAsync(context));
+    }
+
+    [Fact]
+    public async Task GetCredential_AccountId与ProfileId不一致时拒绝()
+    {
+        var provider = new EmbeddedAzureCliIdentityProvider(new FakeRunner(), new FakeProfiles(), "C:\\rt\\az.cmd");
+        var context = new CloudCredentialContext
+        {
+            AccountId = "azurecli:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+            ProviderProfileId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         };
 
         await Assert.ThrowsAsync<ArgumentException>(() => provider.GetCredentialAsync(context));

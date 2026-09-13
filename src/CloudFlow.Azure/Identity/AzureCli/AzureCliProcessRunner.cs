@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace CloudFlow.Azure.Identity.AzureCli;
@@ -54,10 +55,18 @@ public sealed class AzureCliProcessRunner : IAzureCliProcessRunner
             throw new AzureCliException("Azure CLI 进程启动失败。");
         }
 
+        // 把 CLI 进程树纳入 Job Object（KILL_ON_JOB_CLOSE）：
+        // 超时/取消已有显式终止路径，但 CloudFlow 自身被强杀（Stop-Process、崩溃）时
+        // 不会执行任何托管代码，只有内核能回收子树，否则会遗留 az login 孤儿进程与 CLI 会话。
+        var jobHandle = ChildProcessJob.TryAttach(process);
+
         try
         {
-            var stdoutTask = ReadStreamAsync(process.StandardOutput, invocation, timeoutCts.Token).ConfigureAwait(false);
-            var stderrTask = ReadStreamAsync(process.StandardError, invocation, timeoutCts.Token).ConfigureAwait(false);
+            var outputCallbackLock = new object();
+            var stdoutTask = ReadStreamAsync(
+                process.StandardOutput, invocation, outputCallbackLock, timeoutCts.Token).ConfigureAwait(false);
+            var stderrTask = ReadStreamAsync(
+                process.StandardError, invocation, outputCallbackLock, timeoutCts.Token).ConfigureAwait(false);
             var stdout = await stdoutTask;
             var stderr = await stderrTask;
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
@@ -73,6 +82,12 @@ public sealed class AzureCliProcessRunner : IAzureCliProcessRunner
         {
             await KillProcessTreeAsync(process).ConfigureAwait(false);
             throw;
+        }
+        finally
+        {
+            // 关闭 Job 句柄：子进程已退出（或已被终止）后无副作用；
+            // 若本进程先于子进程结束，则由内核负责回收子树。
+            ChildProcessJob.Close(jobHandle);
         }
     }
 
@@ -100,13 +115,17 @@ public sealed class AzureCliProcessRunner : IAzureCliProcessRunner
     private static async Task<string> ReadStreamAsync(
         StreamReader reader,
         AzureCliInvocation invocation,
+        object outputCallbackLock,
         CancellationToken cancellationToken)
     {
         var buffer = new StringBuilder();
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             buffer.AppendLine(line);
-            invocation.OnOutputLine?.Invoke(line);
+            lock (outputCallbackLock)
+            {
+                invocation.OnOutputLine?.Invoke(line);
+            }
         }
 
         return buffer.ToString();

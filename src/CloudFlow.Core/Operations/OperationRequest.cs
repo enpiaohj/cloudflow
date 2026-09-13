@@ -1,3 +1,5 @@
+using CloudFlow.Core.Identity;
+
 namespace CloudFlow.Core.Operations;
 
 /// <summary>
@@ -14,7 +16,20 @@ public sealed class OperationRequest
 
     public required string TenantId { get; init; }
 
+    /// <summary>
+    /// 账户的可读名称（DisplayName，缺失时回退 Username），仅用于展示与审计可读性。
+    /// 随请求一起传递而非由引擎反查 ScopeContext —— 身份必须完全来自请求，
+    /// 且 Job 落盘后即使账户被移除，历史记录仍应能说清是谁执行的。
+    /// </summary>
+    public string AccountDisplayName { get; init; } = "";
+
     public required string SubscriptionId { get; init; }
+
+    /// <summary>真实 Azure 操作使用的身份 Provider；Demo 操作不需要此值。</summary>
+    public AuthenticationProviderType? ProviderType { get; init; }
+
+    /// <summary>Provider 私有 Profile 标识；仅 EmbeddedAzureCli 身份使用。</summary>
+    public string? ProviderProfileId { get; init; }
 
     /// <summary>Azure Resource ID（资源唯一主键）。</summary>
     public required string ResourceId { get; init; }

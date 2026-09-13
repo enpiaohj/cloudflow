@@ -33,11 +33,25 @@ public sealed class MsalAuthConfigTests
         Assert.Equal("organizations", config.TenantId);
     }
 
+    /// <summary>
+    /// 默认配置<b>必须</b>是"未配置"状态，且默认值只能是占位符。
+    /// </summary>
+    /// <remarks>
+    /// 这条在准备发布 v0.1.0 时被<b>有意反转</b>：原断言是 <c>Assert.True(config.IsConfigured)</c>，
+    /// 即"内置一个可用的 Public Client ID"。而那个"可用"是靠把真实 App Registration ID
+    /// <b>硬编码进源码</b>实现的 —— 真实值会随仓库一起提交、并永久留在 Git 历史里。
+    /// 现在改为占位符，真实值只放被 gitignore 的 <c>appsettings.json</c>。
+    /// <para>
+    /// 反转后这条断言守的是<b>新要求</b>：默认配置里绝不能带任何真实 ClientId，
+    /// 未显式配置时必须如实判为"未配置"，而不是拿假 ID 去登录再返回看不懂的 AADSTS 错误。
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void 默认配置_提供内置PublicClientId()
+    public void 默认配置_不带真实ClientId_必须显式配置才能用()
     {
         var config = new MsalAuthConfig();
 
-        Assert.True(config.IsConfigured);
+        Assert.False(config.IsConfigured);
+        Assert.StartsWith("SET-YOUR", config.ClientId, StringComparison.OrdinalIgnoreCase);
     }
 }

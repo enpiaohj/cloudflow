@@ -37,10 +37,11 @@ public sealed class CloudArmClientFactoryTests
             Task.CompletedTask;
     }
 
-    private static CloudAccount NewAccount(AuthenticationProviderType type, string profileId) => new()
+    private static CloudCredentialContext NewContext(AuthenticationProviderType type, string profileId) => new()
     {
         AccountId = "acc-" + type,
-        Username = "user@example.com",
+        TenantId = "tenant-1",
+        SubscriptionId = "subscription-1",
         ProviderType = type,
         ProviderProfileId = profileId
     };
@@ -51,14 +52,22 @@ public sealed class CloudArmClientFactoryTests
         var msal = new FakeProvider(AuthenticationProviderType.EntraMsal);
         var cli = new FakeProvider(AuthenticationProviderType.EmbeddedAzureCli);
         var factory = new CloudArmClientFactory([msal, cli]);
-        var account = NewAccount(AuthenticationProviderType.EmbeddedAzureCli, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        var context = new CloudCredentialContext
+        {
+            AccountId = "acc-cli",
+            TenantId = "tenant-1",
+            SubscriptionId = "subscription-1",
+            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+            ProviderProfileId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        };
 
-        var client = await factory.CreateAsync(account, "tenant-1");
+        var client = await factory.CreateAsync(context);
 
         Assert.NotNull(client);
         Assert.NotNull(cli.LastContext);
-        Assert.Equal(account.AccountId, cli.LastContext.AccountId);
+        Assert.Equal("acc-cli", cli.LastContext.AccountId);
         Assert.Equal("tenant-1", cli.LastContext.TenantId);
+        Assert.Equal("subscription-1", cli.LastContext.SubscriptionId);
         Assert.Equal(AuthenticationProviderType.EmbeddedAzureCli, cli.LastContext.ProviderType);
         Assert.Equal("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", cli.LastContext.ProviderProfileId);
         Assert.Null(msal.LastContext);
@@ -70,6 +79,6 @@ public sealed class CloudArmClientFactoryTests
         var factory = new CloudArmClientFactory(Array.Empty<ICloudIdentityProvider>());
 
         await Assert.ThrowsAsync<NotSupportedException>(() =>
-            factory.CreateAsync(NewAccount((AuthenticationProviderType)999, "b"), "t"));
+            factory.CreateAsync(NewContext((AuthenticationProviderType)999, "b")));
     }
 }

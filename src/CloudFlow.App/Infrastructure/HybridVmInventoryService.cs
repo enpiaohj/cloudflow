@@ -1,5 +1,4 @@
 using CloudFlow.Azure.ResourceGraph;
-using CloudFlow.Core.Identity;
 using CloudFlow.Core.Scopes;
 using CloudFlow.Modules.Compute.Models;
 using CloudFlow.Modules.Compute.Services;
@@ -18,30 +17,26 @@ public sealed class HybridVmInventoryService : IVmInventoryService
 {
     private readonly MockVmInventoryService _mock;
     private readonly ResourceGraphVmInventoryService _real;
-    private readonly IAccountSessionManager _sessions;
+    private readonly ScopeContext _scopeContext;
     private readonly ILogger<HybridVmInventoryService> _logger;
 
     public HybridVmInventoryService(
         MockVmInventoryService mock,
         ResourceGraphVmInventoryService real,
-        IAccountSessionManager sessions,
+        ScopeContext scopeContext,
         ILogger<HybridVmInventoryService> logger)
     {
         _mock = mock;
         _real = real;
-        _sessions = sessions;
+        _scopeContext = scopeContext;
         _logger = logger;
     }
 
     public async Task<IReadOnlyList<VmSummary>> QueryAsync(ResourceScope scope, CancellationToken ct = default)
     {
-        if (_sessions.IsConfigured)
+        if (_scopeContext.ActiveAccount is not null)
         {
-            var session = await _sessions.GetActiveSessionAsync(ct).ConfigureAwait(false);
-            if (session is not null)
-            {
-                return await _real.QueryAsync(scope, ct).ConfigureAwait(false);
-            }
+            return await _real.QueryAsync(scope, ct).ConfigureAwait(false);
         }
 
         _logger.LogDebug("未登录 Azure，使用 Mock 演示数据");

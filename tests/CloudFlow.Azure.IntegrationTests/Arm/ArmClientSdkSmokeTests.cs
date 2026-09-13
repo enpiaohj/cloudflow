@@ -44,14 +44,21 @@ public sealed class ArmClientSdkSmokeTests
         };
 
         var subscriptions = await provider.GetSubscriptionsAsync(account);
-        var tenantId = subscriptions.FirstOrDefault()?.TenantId;
-        if (tenantId is null)
+        var selectedSubscription = subscriptions.FirstOrDefault();
+        if (selectedSubscription is null)
         {
             return; // Profile 未关联订阅：跳过
         }
 
         var factory = new CloudArmClientFactory([provider]);
-        var armClient = await factory.CreateAsync(account, tenantId);
+        var armClient = await factory.CreateAsync(new CloudCredentialContext
+        {
+            AccountId = account.AccountId,
+            TenantId = selectedSubscription.TenantId,
+            SubscriptionId = selectedSubscription.SubscriptionId,
+            ProviderType = account.ProviderType,
+            ProviderProfileId = account.ProviderProfileId
+        });
 
         var listed = new List<string>();
         await foreach (var subscription in armClient.GetSubscriptions().GetAllAsync())

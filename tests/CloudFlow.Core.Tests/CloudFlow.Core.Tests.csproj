@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CloudFlow.Core\CloudFlow.Core.csproj" />
+    <ProjectReference Include="..\..\src\CloudFlow.Data\CloudFlow.Data.csproj" />
   </ItemGroup>
 
 </Project>

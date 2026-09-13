@@ -49,21 +49,44 @@ public sealed class MultiIdentityIsolationTests
         }
 
         var profiles = new AzureCliProfileManager(runner, azCmd);
-        var profileId = profiles.GetProfileIds().FirstOrDefault();
-        if (profileId is null)
+        var cliProvider = new EmbeddedAzureCliIdentityProvider(runner, profiles, azCmd);
+
+        // 机器上可能存在多个 Profile（含登录未完成留下的空 Profile），
+        // 取第一个能发现到订阅的已登录 Profile；都不行则跳过。
+        CloudAccount? cliAccount = null;
+        IReadOnlyList<SubscriptionProfile> cliSubs = [];
+        foreach (var profileId in profiles.GetProfileIds())
         {
-            return; // 无个人 Profile：跳过
+            var candidate = new CloudAccount
+            {
+                AccountId = EmbeddedAzureCliIdentityProvider.AccountIdPrefix + profileId,
+                Username = "isolation@test",
+                ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+                ProviderProfileId = profileId
+            };
+
+            IReadOnlyList<SubscriptionProfile> discovered;
+            try
+            {
+                discovered = await cliProvider.GetSubscriptionsAsync(candidate);
+            }
+            catch (AzureCliException)
+            {
+                continue; // 该 Profile 未登录或不可用
+            }
+
+            if (discovered.Count > 0)
+            {
+                cliAccount = candidate;
+                cliSubs = discovered;
+                break;
+            }
         }
 
-        var cliProvider = new EmbeddedAzureCliIdentityProvider(runner, profiles, azCmd);
-        var cliAccount = new CloudAccount
+        if (cliAccount is null)
         {
-            AccountId = EmbeddedAzureCliIdentityProvider.AccountIdPrefix + profileId,
-            Username = "isolation@test",
-            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
-            ProviderProfileId = profileId
-        };
-        var cliSubs = await cliProvider.GetSubscriptionsAsync(cliAccount);
+            return; // 无已登录个人 Profile：跳过
+        }
 
         // ---- 订阅不串 ----
         Assert.NotEmpty(msalSubs);
@@ -74,8 +97,8 @@ public sealed class MultiIdentityIsolationTests
 
         // ---- ArmClient 不串：同一工厂按账户路由，枚举互不重叠 ----
         var factory = new CloudArmClientFactory(new ICloudIdentityProvider[] { msalProvider, cliProvider });
-        var msalClient = await factory.CreateAsync(msalAccount, msalSubs[0].TenantId);
-        var cliClient = await factory.CreateAsync(cliAccount, cliSubs[0].TenantId);
+        var msalClient = await factory.CreateAsync(Context(msalAccount, msalSubs[0]));
+        var cliClient = await factory.CreateAsync(Context(cliAccount, cliSubs[0]));
         Assert.NotSame(msalClient, cliClient);
 
         var msalArmIds = await ListSubscriptionIdsAsync(msalClient);
@@ -88,6 +111,15 @@ public sealed class MultiIdentityIsolationTests
         Assert.Subset(msalArmIds, msalSubIds);
         Assert.Subset(cliArmIds, cliSubIds);
     }
+
+    private static CloudCredentialContext Context(CloudAccount account, SubscriptionProfile subscription) => new()
+    {
+        AccountId = account.AccountId,
+        TenantId = subscription.TenantId,
+        SubscriptionId = subscription.SubscriptionId,
+        ProviderType = account.ProviderType,
+        ProviderProfileId = account.ProviderProfileId
+    };
 
     private static async Task<HashSet<string>> ListSubscriptionIdsAsync(global::Azure.ResourceManager.ArmClient client)
     {
