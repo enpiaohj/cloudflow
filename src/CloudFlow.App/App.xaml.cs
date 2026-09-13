@@ -155,6 +155,13 @@ public partial class App : Application
         services.AddSingleton<CloudFlow.Azure.Compute.ArmVmDeleteExecutor>();
         services.AddSingleton<IVmDeleteExecutor, VmDeleteExecutorRouter>();
 
+        // 创建虚拟机（§87）：Router 额外吃 SshCredentialService ——
+        // 密码方式创建时载荷只带凭据 Id，明文由本层解出（不落盘），Modules/Azure 层不认识凭据库
+        services.AddSingleton<MockVmProvisioningExecutor>();
+        services.AddSingleton<CloudFlow.Azure.Compute.ArmVmProvisioningExecutor>();
+        services.AddSingleton<IVmProvisioningExecutor, VmProvisioningExecutorRouter>();
+        services.AddSingleton<IVmProvisioningService, VmProvisioningService>();
+
         services.AddTransient<IOperationHandler, StartVmHandler>();
         services.AddTransient<IOperationHandler, RestartVmHandler>();
         services.AddTransient<IOperationHandler, PowerOffVmHandler>();
@@ -165,6 +172,7 @@ public partial class App : Application
         services.AddTransient<IOperationHandler, OpenPortHandler>();
         services.AddTransient<IOperationHandler, DeleteRuleHandler>();
         services.AddTransient<IOperationHandler, DeleteVmHandler>();
+        services.AddTransient<IOperationHandler, CreateVmHandler>();
 
         // ---- Modules：Compute（Demo / Mock）----
         services.AddSingleton<MockAccountContext>();
@@ -192,7 +200,7 @@ public partial class App : Application
         // 虚拟机规格目录（规格名 → 内存）：ARG 不返回内存，只能由规格推导；内部按 订阅+区域 缓存
         services.AddSingleton<IVmSizeCatalog, CloudFlow.Azure.Compute.ArmVmSizeCatalog>();
 
-        // 成本洞察：未登录时给演示读数，登录后走真实 Cost Management（限流/无权限时如实降级）
+        // 成本洞察：仅登录后读取真实 Cost Management；未登录明确显示“无数据”，绝不伪造账单金额。
         services.AddSingleton<CloudFlow.Azure.Cost.ArmCostService>();
         services.AddSingleton<CloudFlow.Azure.Cost.ICostService, HybridCostService>();
 

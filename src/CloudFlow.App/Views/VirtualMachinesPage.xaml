@@ -1,6 +1,7 @@
 <UserControl x:Class="CloudFlow.App.Views.VirtualMachinesPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
     <UserControl.Resources>
@@ -62,6 +63,8 @@
                         <TextBlock Text="{Binding ConnectActionText}" />
                     </Button>
                     <Button Style="{StaticResource Cf.PrimaryButton}" Height="36"
+                            automation:AutomationProperties.Name="创建虚拟机"
+                            automation:AutomationProperties.AutomationId="CreateVmButton"
                             Command="{Binding CreateVmCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="＋" FontWeight="Bold" />

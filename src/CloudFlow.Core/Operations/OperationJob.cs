@@ -63,7 +63,7 @@ public sealed class OperationJob
     ///
     /// **安全约束**：OperationRequest 的字段全是 string / enum / bool / 字符串字典，
     /// 不含 Token、凭据或 CloudAccessToken，所以它可以落盘。
-    /// 新增字段时必须重新核对这一点 —— 见 PendingRequestPersistabilityTests。
+    /// 新增字段时必须重新核对这一点 —— 见 JsonJobStorePendingRequestTests。
     ///
     /// 旧版本写入的 WaitingApproval Job 反序列化后这里是 null，这类 Job 无法恢复审批，
     /// UI 必须明说并给"重新提交"出口，而不是让用户点了"批准"才报错。

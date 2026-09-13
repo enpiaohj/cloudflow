@@ -96,17 +96,17 @@ public partial class HomeViewModel : ObservableObject
         : "未发现需要注意的项（当前仅根据虚拟机电源状态判断；健康检查与告警接入后会更完整）。";
 
     [ObservableProperty]
-    private string _costAmount = "$482.21";
+    private string _costAmount = "—";
 
     [ObservableProperty]
-    private string _costSubtitle = "本月计算成本（估算）";
+    private string _costSubtitle = "本月成本";
 
     [ObservableProperty]
-    private string _costDelta = "↓ 12% 对比上月";
+    private string _costDelta = "登录 Azure 后显示真实成本数据。";
 
     /// <summary>是否有真实成本数据。没有时 UI 用中性色，避免把"尚未接入"显示成正面结论。</summary>
     [ObservableProperty]
-    private bool _hasCostData = true;
+    private bool _hasCostData;
 
     private bool _demoJobsSeeded;
 

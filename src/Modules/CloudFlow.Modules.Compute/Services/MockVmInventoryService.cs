@@ -43,6 +43,17 @@ public sealed class MockVmInventoryService : IVmInventoryService
     public bool Remove(string resourceId) =>
         _vms.RemoveAll(vm => string.Equals(vm.ResourceId, resourceId, StringComparison.OrdinalIgnoreCase)) > 0;
 
+    /// <summary>
+    /// 往演示数据面加一台 VM（创建操作执行器用）。同一台（按 ResourceId）重复添加只保留第一次。
+    /// </summary>
+    public void Add(VmSummary vm)
+    {
+        if (FindById(vm.ResourceId) is null)
+        {
+            _vms.Add(vm);
+        }
+    }
+
     private static List<VmSummary> BuildDemoVms()
     {
         List<VmSummary> vms =

@@ -9,6 +9,7 @@ using CloudFlow.Data.Stores;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
 using CloudFlow.Modules.Compute.Models;
+using CloudFlow.Modules.Compute.Operations;
 using CloudFlow.Modules.Compute.Services;
 using CloudFlow.Terminal.Security;
 using CloudFlow.Terminal.Ssh;
@@ -35,6 +36,7 @@ public partial class VirtualMachinesViewModel : ObservableObject
 
     private readonly IVmInventoryService _inventory;
     private readonly IVmPowerService _power;
+    private readonly IVmProvisioningService _provisioning;
     private readonly IOperationEngine _engine;
     private readonly ScopeContext _scopeContext;
     private readonly IShellNavigation _navigation;
@@ -150,6 +152,7 @@ public partial class VirtualMachinesViewModel : ObservableObject
     public VirtualMachinesViewModel(
         IVmInventoryService inventory,
         IVmPowerService power,
+        IVmProvisioningService provisioning,
         IOperationEngine engine,
         ScopeContext scopeContext,
         IShellNavigation navigation,
@@ -161,6 +164,7 @@ public partial class VirtualMachinesViewModel : ObservableObject
     {
         _inventory = inventory;
         _power = power;
+        _provisioning = provisioning;
         _engine = engine;
         _scopeContext = scopeContext;
         _navigation = navigation;
@@ -773,12 +777,101 @@ public partial class VirtualMachinesViewModel : ObservableObject
     [RelayCommand]
     private void OpenDetail(VmSummary vm) => _navigation.NavigateToVmDetail(vm);
 
-    /// <summary>创建虚拟机（概念图保留按钮；预配能力不在 P1 运维范围，设计文档 §75/§80）。</summary>
+    /// <summary>
+    /// 标题行「创建虚拟机」：密码先进入 DPAPI 凭据库，持久化 OperationRequest 只保存凭据 Id。
+    /// </summary>
     [RelayCommand]
-    private void CreateVm() =>
-        MessageBox.Show(
-            "创建虚拟机属于预配（Provisioning）能力，不属于 P1 运维范围（设计文档 §75/§80）。\n按钮按 UI 概念图保留，将在后续版本实现。",
-            "创建虚拟机", MessageBoxButton.OK, MessageBoxImage.Information);
+    private async Task CreateVmAsync()
+    {
+        var subscriptions = _scopeContext.AvailableSubscriptions
+            .Select(subscription => new Views.ProvisioningSubscriptionOption(
+                subscription.SubscriptionId, subscription.DisplayName))
+            .ToList();
+
+        // Demo 模式没有 Azure SubscriptionProfile，退回从演示清单和当前 Scope 归纳的订阅。
+        foreach (var subscriptionId in _allVms.Select(vm => vm.SubscriptionId)
+                     .Concat(_scopeContext.CurrentScope.SubscriptionIds)
+                     .Where(id => !string.IsNullOrWhiteSpace(id))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (subscriptions.All(item => !string.Equals(
+                    item.SubscriptionId, subscriptionId, StringComparison.OrdinalIgnoreCase)))
+            {
+                subscriptions.Add(new Views.ProvisioningSubscriptionOption(subscriptionId, subscriptionId));
+            }
+        }
+
+        var resourceGroups = _allVms.Select(vm => vm.ResourceGroupName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var regions = _allVms.Select(vm => vm.Region)
+            .Where(region => !string.IsNullOrWhiteSpace(region))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(region => region, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var dialog = new Views.CreateVmWizardDialog(subscriptions, resourceGroups, regions)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() is not true || dialog.Result is not { } result)
+        {
+            return;
+        }
+
+        var parameters = new Dictionary<string, string>(result.Parameters, StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            SshCredential? passwordCredential = null;
+            if (result.Password is { Length: > 0 } password)
+            {
+                if (await _connectFlow.CredentialLibrary
+                        .IsNameTakenAsync(result.PasswordCredentialName).ConfigureAwait(false))
+                {
+                    InfoSeverity = "Failed";
+                    InfoText = $"创建虚拟机失败：凭据名称「{result.PasswordCredentialName}」已存在。";
+                    return;
+                }
+
+                passwordCredential = await _connectFlow.CredentialLibrary.CreateAsync(
+                    new SshCredential
+                    {
+                        Name = result.PasswordCredentialName!,
+                        Username = parameters[CreateVmHandler.PayloadAdminUsername],
+                        AuthType = SshAuthType.Password,
+                        Description = $"创建虚拟机 {parameters[CreateVmHandler.PayloadVmName]} 时保存的管理员密码"
+                    },
+                    secret: password,
+                    privateKeyBody: null).ConfigureAwait(false);
+                parameters[CreateVmHandler.PayloadCredentialId] = passwordCredential.Id.ToString();
+            }
+
+            InfoText = $"正在提交：创建虚拟机 {parameters[CreateVmHandler.PayloadVmName]}…";
+            InfoSeverity = "Validating";
+            var job = await _provisioning.CreateAsync(
+                result.SubscriptionId, result.ResourceGroupName, result.Region, parameters).ConfigureAwait(false);
+
+            // 成功创建后首次 SSH 连接可直接预选密码凭据。目标 ResourceId 由服务层在提交时预拼，
+            // 因此不需要等待 ARM 创建完成；若创建失败，这条无主映射不会暴露到任何 VM 上。
+            if (passwordCredential is not null)
+            {
+                await _connectFlow.CredentialLibrary
+                    .SetDefaultCredentialIdForVmAsync(job.ResourceId, passwordCredential.Id)
+                    .ConfigureAwait(false);
+            }
+
+            ShowJob(job);
+            PendingApprovalJob = job.Status == JobStatus.WaitingApproval ? job : null;
+        }
+        catch (Exception ex)
+        {
+            // Exception.Message 来自服务 / ARM，但绝不插入用户刚输入的密码。
+            InfoSeverity = "Failed";
+            InfoText = $"创建虚拟机失败：{ex.Message}";
+        }
+    }
 
     // ==== 行操作：全部经 Operation Engine（设计文档 §29）====
 
@@ -917,11 +1010,9 @@ public partial class VirtualMachinesViewModel : ObservableObject
                 ShowJob(job);
                 ApplyFilters();
 
-                // 删除会把 VM 从清单里移掉，而 ApplyFilters **只重算当前页切片、不重新查询** ——
-                // 不重新查一次的话，那台机器会继续留在列表里，看起来像"删了没生效"。
-                // 挂在全局 Job 事件上而不是某个调用点，是为了两条审批路径
-                //（列表页内联审批、任务中心审批）都覆盖得到。
-                if (job.OperationType == ComputeModule.OperationDelete)
+                // 创建 / 删除都会改变清单成员；ApplyFilters 只重算当前内存切片，
+                // 必须重新查询才能让新 VM 出现或被删 VM 消失。全局 Job 事件覆盖任务中心审批路径。
+                if (job.OperationType is ComputeModule.OperationDelete or ComputeModule.OperationCreate)
                 {
                     await RefreshAsync();
                 }

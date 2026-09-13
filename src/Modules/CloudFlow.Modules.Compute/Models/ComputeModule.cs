@@ -17,6 +17,9 @@ public sealed class ComputeModule : IResourceModule
     /// <summary>删除虚拟机（设计文档 v3.1 §87）。</summary>
     public const string OperationDelete = "vm.delete";
 
+    /// <summary>创建虚拟机（设计文档 v3.1 §87）。</summary>
+    public const string OperationCreate = "vm.create";
+
     public string ModuleId => "compute";
 
     public IReadOnlyList<string> ResourceTypes => ["Microsoft.Compute/virtualMachines"];
@@ -29,6 +32,7 @@ public sealed class ComputeModule : IResourceModule
         OperationDeallocate,
         OperationResize,
         OperationSnapshot,
-        OperationDelete
+        OperationDelete,
+        OperationCreate
     ];
 }
