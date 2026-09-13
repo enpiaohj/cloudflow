@@ -816,6 +816,32 @@ public partial class VirtualMachinesViewModel : ObservableObject
         await SubmitPowerAsync(() => _power.DeallocateAsync(vm), $"解除分配 {vm.Name}");
     }
 
+    /// <summary>
+    /// 行菜单「删除虚拟机」：确认目标与要连带删除的关联资源，然后提交。
+    /// </summary>
+    /// <remarks>
+    /// <b>删除一律会停在审批</b>：<c>DeleteVmHandler</c> 恒返回 <c>CannotBypass = true</c>，
+    /// 即使用户把设置里的审批档调成「关闭」也拦得住。所以这里不需要（也不应该）自己判断
+    /// 要不要审批 —— 那是引擎的事。
+    /// </remarks>
+    [RelayCommand]
+    private async Task DeleteAsync(VmSummary vm)
+    {
+        var dialog = new Views.DeleteVmDialog(vm)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() is not true || dialog.Result is null)
+        {
+            return;
+        }
+
+        await SubmitPowerAsync(
+            () => _power.DeleteAsync(vm, dialog.Result),
+            $"删除虚拟机 {vm.Name}");
+    }
+
     /// <summary>停在 WaitingApproval 的 Job（§25 [Continue] 入口）。</summary>
     [ObservableProperty]
     private OperationJob? _pendingApprovalJob;
@@ -883,13 +909,22 @@ public partial class VirtualMachinesViewModel : ObservableObject
 
     private void OnJobChanged(object? sender, OperationJob job)
     {
-        Application.Current?.Dispatcher.BeginInvoke(() =>
+        Application.Current?.Dispatcher.BeginInvoke(async () =>
         {
             // Job 完成后刷新行状态（Mock Handler 已改内存状态）
             if (job.Status is JobStatus.Succeeded or JobStatus.Failed)
             {
                 ShowJob(job);
                 ApplyFilters();
+
+                // 删除会把 VM 从清单里移掉，而 ApplyFilters **只重算当前页切片、不重新查询** ——
+                // 不重新查一次的话，那台机器会继续留在列表里，看起来像"删了没生效"。
+                // 挂在全局 Job 事件上而不是某个调用点，是为了两条审批路径
+                //（列表页内联审批、任务中心审批）都覆盖得到。
+                if (job.OperationType == ComputeModule.OperationDelete)
+                {
+                    await RefreshAsync();
+                }
             }
         });
     }

@@ -14,6 +14,9 @@
             <MenuItem Header="重启虚拟机" Tag="restart" Click="MenuPower_Click" />
             <MenuItem Header="关机（保留分配）" Tag="poweroff" Click="MenuPower_Click" />
             <MenuItem Header="停止并解除分配" Tag="deallocate" Click="MenuPower_Click" />
+            <!-- 删除与上面四项用分隔线隔开：它是不可逆的，不该混在"关机/重启"那组里 -->
+            <Separator />
+            <MenuItem Header="删除虚拟机" Click="MenuDelete_Click" />
         </ContextMenu>
     </UserControl.Resources>
 

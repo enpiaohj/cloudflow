@@ -90,6 +90,18 @@ public partial class VirtualMachinesPage : UserControl
     }
 
     /// <summary>
+    /// 行菜单「删除虚拟机」→ 确认框（含连带资源勾选）→ 提交。
+    /// <b>一律经审批</b>：DeleteVmHandler 恒返回 CannotBypass，设置里关掉审批档也拦得住。
+    /// </summary>
+    private void MenuDelete_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (RowMenu.RowDataOf<VmSummary>(sender) is { } vm)
+        {
+            Vm.DeleteCommand.Execute(vm);
+        }
+    }
+
+    /// <summary>
     /// 表头「本页全选」。走 Click 而不是命令绑定，理由同 XAML 里的注释：
     /// 表头内容的祖先链与数据行不同，从 Header 内部回绑 UserControl 是没有先例的写法。
     /// </summary>
