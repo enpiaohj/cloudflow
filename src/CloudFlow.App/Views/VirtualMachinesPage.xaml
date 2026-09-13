@@ -413,7 +413,8 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Style="{StaticResource Cf.SecondaryButton}" Width="30" Height="28" Padding="0"
-                        Command="{Binding PreviousPageCommand}" Content="‹" />
+                        Command="{Binding PreviousPageCommand}" Content="‹" ToolTip="上一页"
+                        automation:AutomationProperties.Name="上一页" />
                 <ItemsControl ItemsSource="{Binding PageNumbers}" Margin="6,0">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -442,7 +443,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <Button Style="{StaticResource Cf.SecondaryButton}" Width="30" Height="28" Padding="0"
-                        Command="{Binding NextPageCommand}" Content="›" />
+                        Command="{Binding NextPageCommand}" Content="›" ToolTip="下一页"
+                        automation:AutomationProperties.Name="下一页" />
             </StackPanel>
 
             <!-- 高度必须 ≥ WPF-UI ComboBox 模板的最小高度：28 会把文字纵向裁掉一半 -->

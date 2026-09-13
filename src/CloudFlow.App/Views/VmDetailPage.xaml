@@ -206,8 +206,10 @@
                             <TextBlock Text="重启" Margin="6,0,0,0" />
                         </StackPanel>
                     </Button>
+                    <!-- 与「停止并解除分配」（折叠进下方 … 菜单）用不同动词区分，避免同一按钮组里
+                         两个相近动作只靠"并解除分配"四个字分辨。 -->
                     <Button Style="{StaticResource Cf.DangerButton}" Margin="8,0,0,0"
-                            Command="{Binding PowerOffCommand}" Content="停止"
+                            Command="{Binding PowerOffCommand}" Content="关机"
                             />
                     <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
                             Command="{Binding OpenPortCommand}" CommandParameter="Inbound"
@@ -340,7 +342,8 @@
                                                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                                                             <Button Grid.Row="0" Grid.Column="2" Content="⧉" FontSize="12"
                                                                     Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                                    Margin="6,2,0,2" VerticalAlignment="Top" ToolTip="复制"
+                                                                    Margin="6,2,0,2" VerticalAlignment="Top"
+                                                                    ToolTip="{Binding Label, StringFormat=复制 {0}}"
                                                                     Visibility="{Binding CanCopy, Converter={StaticResource BoolToVisibility}}"
                                                                     Command="{Binding DataContext.CopyToClipboardCommand,
                                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -804,10 +807,11 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="磁盘" Style="{StaticResource Cf.SectionTitle}" VerticalAlignment="Center" />
-                            <Border Grid.Column="1" Style="{StaticResource Cf.Badge}" Margin="0,0,12,0">
+                            <!-- 快照数徽章右对齐；创建快照统一走每行「⋯」菜单（磁盘行菜单的 Cf.DiskRowMenu），
+                                 不再重复一个仅弹"尚未实现"的头部入口。 -->
+                            <Border Grid.Column="1" Style="{StaticResource Cf.Badge}">
                                 <!-- 前景必须显式：Badge 的配色绑定吃不到这里的 DataContext，
                                      这颗 TextBlock 不套 BadgeText 时前景落到继承黑（深色下蓝底黑字） -->
                                 <TextBlock FontSize="11.5" FontWeight="SemiBold"
@@ -815,9 +819,6 @@
                                     <Run Text="快照 " /><Run Text="{Binding SnapshotTotal, Mode=OneWay}" />
                                 </TextBlock>
                             </Border>
-                            <Button Grid.Column="2" Style="{StaticResource Cf.SecondaryButton}" Padding="10,5"
-                                    FontSize="12.5" Command="{Binding TakeSnapshotCommand}" Content="创建快照"
-                                    />
                         </Grid>
                         <DataGrid ItemsSource="{Binding Disks}" Style="{StaticResource Cf.DataGrid}" RowHeight="42"
                                   HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">

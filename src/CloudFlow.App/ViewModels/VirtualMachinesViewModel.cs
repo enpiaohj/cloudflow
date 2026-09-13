@@ -886,10 +886,11 @@ public partial class VirtualMachinesViewModel : ObservableObject
     [RelayCommand]
     private async Task PowerOffAsync(VmSummary vm)
     {
-        var confirmed = MessageBox.Show(
-            "关机\n\n虚拟机将停止，但计算资源仍保留分配。\n费用可能继续产生。\n\n是否继续？",
-            "关机", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirmed != MessageBoxResult.Yes)
+        var confirmed = Views.ConfirmDialog.Show(
+            "关机",
+            "虚拟机将停止，但计算资源仍保留分配。费用可能继续产生。",
+            "关机", isDanger: true);
+        if (!confirmed)
         {
             return;
         }
@@ -899,10 +900,11 @@ public partial class VirtualMachinesViewModel : ObservableObject
     [RelayCommand]
     private async Task DeallocateAsync(VmSummary vm)
     {
-        var confirmed = MessageBox.Show(
-            "停止并解除分配\n\n虚拟机将停止并释放计算资源。\n停止计算计费（磁盘与保留 IP 可能继续计费）。\n\n是否继续？",
-            "解除分配", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirmed != MessageBoxResult.Yes)
+        var confirmed = Views.ConfirmDialog.Show(
+            "解除分配",
+            "虚拟机将停止并释放计算资源，停止计算计费（磁盘与保留 IP 可能继续计费）。",
+            "停止并解除分配", isDanger: true);
+        if (!confirmed)
         {
             return;
         }

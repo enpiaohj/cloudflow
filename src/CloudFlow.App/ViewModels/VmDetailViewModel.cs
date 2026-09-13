@@ -673,10 +673,11 @@ public partial class VmDetailViewModel : ObservableObject
     [RelayCommand]
     private async Task PowerOffAsync()
     {
-        var confirmed = System.Windows.MessageBox.Show(
-            "关机\n\n虚拟机将停止，但计算资源仍保留分配。\n费用可能继续产生。\n\n是否继续？",
-            "关机", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirmed != MessageBoxResult.Yes)
+        var confirmed = Views.ConfirmDialog.Show(
+            "关机",
+            "虚拟机将停止，但计算资源仍保留分配。费用可能继续产生。",
+            "关机", isDanger: true);
+        if (!confirmed)
         {
             return;
         }
@@ -687,10 +688,11 @@ public partial class VmDetailViewModel : ObservableObject
     [RelayCommand]
     private async Task DeallocateAsync()
     {
-        var confirmed = System.Windows.MessageBox.Show(
-            "停止并解除分配\n\n虚拟机将停止并释放计算资源。\n停止计算计费（磁盘与保留 IP 可能继续计费）。\n\n是否继续？",
-            "解除分配", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirmed != MessageBoxResult.Yes)
+        var confirmed = Views.ConfirmDialog.Show(
+            "解除分配",
+            "虚拟机将停止并释放计算资源，停止计算计费（磁盘与保留 IP 可能继续计费）。",
+            "停止并解除分配", isDanger: true);
+        if (!confirmed)
         {
             return;
         }
@@ -830,10 +832,11 @@ public partial class VmDetailViewModel : ObservableObject
             return;
         }
 
-        var confirmed = System.Windows.MessageBox.Show(
-            $"删除规则“{rule.Name}”（端口 {rule.DestinationPort}）？\n该操作会先经过影响分析。",
-            "删除规则", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirmed != MessageBoxResult.Yes)
+        var confirmed = Views.ConfirmDialog.Show(
+            "删除规则",
+            $"确定要删除规则“{rule.Name}”（端口 {rule.DestinationPort}）吗？该操作会先经过影响分析。",
+            "删除", isDanger: true);
+        if (!confirmed)
         {
             return;
         }
@@ -889,11 +892,10 @@ public partial class VmDetailViewModel : ObservableObject
             return;
         }
 
-        var confirmed = System.Windows.MessageBox.Show(
-            $"将作废任务「{PendingApprovalJob.Display}」。\n\n作废后该任务不再执行，状态变为已取消，并写入审计日志。此操作不可撤销。",
+        var confirmed = Views.ConfirmDialog.Show(
             "作废任务",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.OK;
+            $"将作废任务「{PendingApprovalJob.Display}」。作废后该任务不再执行，状态变为已取消，并写入审计日志。此操作不可撤销。",
+            "作废", isDanger: true);
 
         if (!confirmed)
         {
@@ -1078,13 +1080,6 @@ public partial class VmDetailViewModel : ObservableObject
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
-
-    /// <summary>Create Snapshot（P1 Exit Gate 项，操作接入在下一迭代）。</summary>
-    [RelayCommand]
-    private void TakeSnapshot() =>
-        System.Windows.MessageBox.Show(
-            "快照操作属于 P1 Exit Gate（设计文档 §80），将在下一迭代实现（当前为演示模式）。",
-            "创建快照", MessageBoxButton.OK, MessageBoxImage.Information);
 
     [RelayCommand]
     private void CopyToClipboard(string? text)
