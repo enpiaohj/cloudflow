@@ -78,23 +78,40 @@
         </StackPanel>
 
         <!-- ===== 操作反馈 InfoBar ===== -->
-        <Border Grid.Row="1" CornerRadius="6" Padding="12,8" Margin="0,14,0,0"
+        <!-- 只负责"最近一次操作的即时反馈"，正在进行中的任务由顶栏"任务进行中"徽标承担——
+             所以这里必须能手动关掉，不然切页面再切回来还挂着上次的成功/失败文案，容易被
+             误当成"又出错了"。 -->
+        <Border Grid.Row="1" CornerRadius="8" Padding="12,8" Margin="0,14,0,0"
                 Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}"
                 Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
-                           Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
-                <!-- §25 Continue：停在 WaitingApproval 的 Job 必须有出口，否则重启会永远卡住 -->
-                <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
-                        Margin="14,0,0,0" FontSize="12"
-                        Command="{Binding ApproveCommand}"
-                        Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
-                <!-- 批量连接是串行的，探测+连接可能持续几十秒（不可达主机会各付一次 15s 超时）。
-                     没有出口的话用户只能干等 —— 这条与"批准执行"用的是同一个 InfoBar 插槽范式。 -->
-                <Button Content="取消连接" Padding="10,3" Margin="14,0,0,0" FontSize="12"
-                        Command="{Binding CancelConnectCommand}"
-                        Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisibility}}" />
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="{Binding InfoSeverity, Converter={StaticResource SeverityIcon}}"
+                                   FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                                   Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                    <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
+                               Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                    <!-- §25 Continue：停在 WaitingApproval 的 Job 必须有出口，否则重启会永远卡住 -->
+                    <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
+                            Margin="14,0,0,0" FontSize="12"
+                            Command="{Binding ApproveCommand}"
+                            Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
+                    <!-- 批量连接是串行的，探测+连接可能持续几十秒（不可达主机会各付一次 15s 超时）。
+                         没有出口的话用户只能干等 —— 这条与"批准执行"用的是同一个 InfoBar 插槽范式。 -->
+                    <Button Content="取消连接" Padding="10,3" Margin="14,0,0,0" FontSize="12"
+                            Command="{Binding CancelConnectCommand}"
+                            Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource Cf.IconButton}" Padding="4" Width="24" Height="24"
+                        Command="{Binding DismissInfoCommand}" ToolTip="关闭"
+                        automation:AutomationProperties.Name="关闭这条提示">
+                    <ui:SymbolIcon Symbol="Dismiss16" FontSize="12" />
+                </Button>
+            </Grid>
         </Border>
 
         <!-- ===== 筛选行 ===== -->
@@ -114,7 +131,7 @@
             <Border Grid.Column="0" Height="34"
                     Background="{DynamicResource Cf.CardBrush}"
                     BorderBrush="{DynamicResource Cf.BorderBrush}"
-                    BorderThickness="1" CornerRadius="6">
+                    BorderThickness="1" CornerRadius="8">
                 <ui:TextBox PlaceholderText="搜索虚拟机…"
                             Icon="{ui:SymbolIcon Search24}"
                             Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
@@ -130,7 +147,14 @@
                       SelectedItem="{Binding ResourceGroupFilter}" />
             <ComboBox Grid.Column="3" Width="150" Height="34" Margin="10,0,0,0"
                       ItemsSource="{Binding RegionOptions}"
-                      SelectedItem="{Binding RegionFilter}" />
+                      SelectedItem="{Binding RegionFilter}">
+                <!-- 只换显示：选中项仍是区域代码，筛选逻辑不变；"全部区域"原样通过转换器 -->
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource RegionName}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
 
             <Button Grid.Column="5" Style="{StaticResource Cf.IconButton}"
                     Command="{Binding RefreshCommand}"
@@ -295,7 +319,8 @@
                         </DataGridTemplateColumn>
 
                         <!-- vCPU 核数（规格值，与「大小 / 内存」同源，不是使用率） -->
-                        <DataGridTemplateColumn Header="vCPU" Width="54" MinWidth="54" CanUserResize="False">
+                        <!-- 62 而不是 54：表头内边距 12+12 之后 54 只剩 30px，"vCPU" 被裁成 "vCPL"（实测） -->
+                        <DataGridTemplateColumn Header="vCPU" Width="62" MinWidth="62" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding VCpuText}"
@@ -340,7 +365,7 @@
                         <DataGridTemplateColumn Header="区域" Width="1.0*" MinWidth="96">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Region}" FontSize="12.5"
+                                    <TextBlock Text="{Binding Region, Converter={StaticResource RegionName}}" FontSize="12.5"
                                                TextTrimming="CharacterEllipsis"
                                                ToolTip="{Binding Region}"
                                                VerticalAlignment="Center" />
@@ -375,29 +400,11 @@
                      骨架色取 Cf.BorderBrush，深浅主题自适应；纯 XAML 动画（Style.EventTrigger）。 -->
                 <Border Background="{DynamicResource Cf.LoadingScrimBrush}"
                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                    <!-- 占位条样式与资源页共用（Cf.SkeletonBar），三个列表页的加载态长得一样 -->
                     <StackPanel Margin="24,18" VerticalAlignment="Center">
-                        <StackPanel.Resources>
-                            <Style x:Key="PulseBar" TargetType="Rectangle">
-                                <Setter Property="Height" Value="12" />
-                                <Setter Property="RadiusX" Value="6" />
-                                <Setter Property="RadiusY" Value="6" />
-                                <Setter Property="Fill" Value="{DynamicResource Cf.BorderBrush}" />
-                                <Setter Property="Opacity" Value="0.6" />
-                                <Style.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="0.3" To="1" Duration="0:0:0.8" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Resources>
-                        <Rectangle Style="{StaticResource PulseBar}" Width="420" />
-                        <Rectangle Style="{StaticResource PulseBar}" Width="360" Margin="0,10,0,0" />
-                        <Rectangle Style="{StaticResource PulseBar}" Width="300" Margin="0,10,0,0" />
+                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="420" />
+                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="360" Margin="0,10,0,0" />
+                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="300" Margin="0,10,0,0" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -425,18 +432,44 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
+                            <!-- 当前页实心主色（概念图 1 的分页样式）。原来所有页码长得一样，
+                                 看不出自己在第几页。Background 不能写成元素本地值，否则压过样式触发器。 -->
                             <Button Command="{Binding DataContext.GoToPageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding}"
                                     Width="28" Height="28" Margin="2,0" Padding="0"
-                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
                                     FontSize="12.5" Content="{Binding}">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
                                         <Style.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
                                             </Trigger>
+                                            <!-- 放在悬停触发器之后：同时成立时后写的优先，当前页悬停也保持实心 -->
+                                            <DataTrigger Value="True">
+                                                <DataTrigger.Binding>
+                                                    <MultiBinding Converter="{StaticResource EqualsMulti}">
+                                                        <Binding />
+                                                        <Binding Path="DataContext.CurrentPage"
+                                                                 RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                    </MultiBinding>
+                                                </DataTrigger.Binding>
+                                                <Setter Property="Background" Value="{DynamicResource Cf.PrimaryBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Cf.OnPrimaryTextBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>

@@ -19,11 +19,15 @@ public sealed record JobRow(OperationJob Job, bool CanApprove)
 {
     public bool IsWaitingApproval => Job.Status == JobStatus.WaitingApproval;
 
+    /// <summary>"结果"列：执行中显示子步骤进度，失败显示原因，其余显示中文结果说明
+    /// （引擎写的是 <c>vm.create verified.</c> 这类审计用机器语，见 <see cref="JobPresentation"/>）。</summary>
+    public string ResultText => JobPresentation.ResultText(Job);
+
     public string ApproveText => CanApprove ? "批准" : "无法恢复审批";
 
     public string ApproveHint => CanApprove
-        ? "查看影响面并批准执行"
-        : "该任务提交于旧版本，没有保存待审批请求，重启后无法恢复审批。请在对应资源页面重新提交该操作。";
+        ? "查看影响范围并批准执行"
+        : "该任务由旧版本提交，未保存待审批请求，重启后无法恢复审批。请在对应资源页面重新提交该操作。";
 }
 
 /// <summary>
@@ -58,8 +62,10 @@ public partial class JobsViewModel : ObservableObject
     public bool HasJobs => Jobs.Count > 0;
 
     public string EmptyText => _scopeContext.ActiveAccount is null
-        ? "暂无操作记录。"
-        : $"当前账户（{_scopeContext.ActiveAccount.Username}）暂无操作记录。执行启动 / 重启 / 快照 / 端口变更后会显示在这里。";
+        ? "演示模式下暂无任务记录。"
+        : StatusFilter == "全部"
+            ? "对虚拟机、网络或资源执行的变更操作都会记录在这里，便于追踪与审计。"
+            : $"没有状态为「{StatusFilter}」的任务。";
 
     public JobsViewModel(IJobStore jobStore, IOperationEngine engine, ScopeContext scopeContext)
     {
@@ -118,7 +124,7 @@ public partial class JobsViewModel : ObservableObject
 
         var confirmed = Views.ConfirmDialog.Show(
             "作废任务",
-            $"将作废任务「{row.Job.Display}」。作废后该任务不再执行，状态变为已取消，并写入审计日志。此操作不可撤销。",
+            $"将作废任务「{row.Job.Display}」。作废后该任务不会再执行，状态变为已取消并记入审计日志。此操作不可撤销。",
             "作废", isDanger: true);
 
         if (!confirmed)

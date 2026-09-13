@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:CloudFlow.App.Controls"
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
     <UserControl.Resources>
         <!-- 行操作菜单：⋯ 按钮（左键）与整行右键共用同一份定义。
@@ -39,7 +40,7 @@
                                                TextWrapping="Wrap" ToolTip="{Binding ToolTip}"
                                                VerticalAlignment="Top" Margin="0,4"
                                                Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                                    <Button Grid.Column="2" Content="⧉" FontSize="12"
+                                    <Button Grid.Column="2" Style="{StaticResource Cf.CopyButton}" FontSize="12"
                                             Background="Transparent" BorderThickness="0" Cursor="Hand"
                                             Margin="6,2,0,2" VerticalAlignment="Top"
                                             ToolTip="{Binding Label, StringFormat=复制 {0}}"
@@ -177,7 +178,7 @@
                                ToolTip="{Binding ComputerName}">
                         <Run Text="{Binding VmSize, Mode=OneWay}" />
                         <Run Text="  ·  " />
-                        <Run Text="{Binding Region, Mode=OneWay}" />
+                        <Run Text="{Binding Region, Mode=OneWay, Converter={StaticResource RegionName}}" />
                         <Run Text="  ·  " />
                         <Run Text="{Binding ComputerName, Mode=OneWay}" />
                     </TextBlock>
@@ -196,7 +197,7 @@
                             <TextBlock Text="{Binding PublicIp, Converter={StaticResource NullableText}}"
                                        FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                            <Button Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
+                            <Button Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
                                     Cursor="Hand" Margin="6,0,0,0" ToolTip="复制公网 IP"
                                     Command="{Binding CopyToClipboardCommand}"
                                     CommandParameter="{Binding PublicIp}" />
@@ -216,7 +217,7 @@
                             <TextBlock Text="{Binding PrivateIp, Converter={StaticResource NullableText}}"
                                        FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                            <Button Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
+                            <Button Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
                                     Cursor="Hand" Margin="6,0,0,0" ToolTip="复制专用 IP"
                                     Command="{Binding CopyToClipboardCommand}"
                                     CommandParameter="{Binding PrivateIp}" />
@@ -251,7 +252,9 @@
                     </Button>
                     <!-- 与「停止并解除分配」（折叠进下方 … 菜单）用不同动词区分，避免同一按钮组里
                          两个相近动作只靠"并解除分配"四个字分辨。 -->
-                    <Button Style="{StaticResource Cf.DangerButton}" Margin="8,0,0,0"
+                    <!-- 描边 + 危险色文字，而不是实心红块：实心红在工具栏里的视觉权重压过了主操作"连接"，
+                         整行像在报警。真正的"确认关机"仍在确认框里用实心危险按钮。 -->
+                    <Button Style="{StaticResource Cf.DangerSubtleButton}" Margin="8,0,0,0"
                             Command="{Binding PowerOffCommand}" Content="关机"
                             />
                     <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
@@ -265,11 +268,12 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Deallocate 折叠进 More，避免按钮组过宽 -->
-                    <Button Content="…" FontSize="15" FontWeight="Bold"
-                            Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="8,0,0,0"
-                            Foreground="{DynamicResource Cf.TextSecondaryBrush}"
-                            VerticalAlignment="Center" Click="RowMenu_Click">
+                    <!-- 解除分配等低频动作折叠进"更多"，避免按钮组过宽。原来是一个写着 "…" 的透明文字按钮，
+                         和旁边描边按钮的高度、基线都对不上；换成与左侧刷新按钮同款的方形图标按钮。 -->
+                    <Button Style="{StaticResource Cf.IconButton}" Margin="8,0,0,0"
+                            ToolTip="更多操作" automation:AutomationProperties.Name="更多操作"
+                            Click="RowMenu_Click">
+                        <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
                         <Button.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="启动虚拟机" Click="MenuStart_Click" />
@@ -287,16 +291,20 @@
         <!-- ===== 操作反馈 + 审批 ===== -->
         <Grid Grid.Row="2" Margin="0,12,0,0"
               Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
-            <Border CornerRadius="6" Padding="12,8"
+            <Border Style="{StaticResource Cf.InfoBar}"
                     Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}">
                 <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="{Binding InfoSeverity, Converter={StaticResource SeverityIcon}}"
+                                   FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                                   Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
                     <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
                                Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
                     <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
                             Margin="14,0,0,0" FontSize="12"
                             Command="{Binding ApproveCommand}"
                             Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
-                    <Button Content="作废" Padding="10,3" FontSize="12" Margin="8,0,0,0"
+                    <Button Content="作废" Style="{StaticResource Cf.DangerSubtleButton}"
+                            Padding="10,3" FontSize="12" Margin="8,0,0,0"
                             ToolTip="作废此任务：不再执行，状态变为已取消并写入审计"
                             Command="{Binding RejectCommand}"
                             Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
@@ -425,7 +433,7 @@
                                                FontSize="12.5" TextWrapping="Wrap"
                                                ToolTip="{Binding PublicIpText}"
                                                Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                                    <Button Grid.Column="1" Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
+                                    <Button Grid.Column="1" Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
                                             Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
                                             ToolTip="复制公网 IP"
                                             Command="{Binding CopyToClipboardCommand}"
@@ -449,7 +457,7 @@
                                                TextWrapping="Wrap"
                                                ToolTip="{Binding PublicIpFqdn}"
                                                Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                                    <Button Grid.Column="1" Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
+                                    <Button Grid.Column="1" Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
                                             Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
                                             ToolTip="复制 DNS 名称"
                                             Command="{Binding CopyToClipboardCommand}"
@@ -470,7 +478,7 @@
                                                FontSize="12.5" TextWrapping="Wrap"
                                                ToolTip="{Binding PrivateIp}"
                                                Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                                    <Button Grid.Column="1" Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
+                                    <Button Grid.Column="1" Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
                                             Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
                                             ToolTip="复制专用 IP"
                                             Command="{Binding CopyToClipboardCommand}"
@@ -530,7 +538,7 @@
                         <!-- Inbound Rules -->
                         <StackPanel Grid.Column="1">
                             <!-- Shared NSG 警告横幅（设计文档 §25） -->
-                            <Border CornerRadius="6" Padding="14,10" Margin="0,0,0,12"
+                            <Border CornerRadius="8" Padding="14,10" Margin="0,0,0,12"
                                     Background="{DynamicResource Cf.Surface.WarningBrush}"
                                     Visibility="{Binding IsSharedSubnetNsg, Converter={StaticResource BoolToVisibility}}">
                                 <StackPanel Orientation="Horizontal">
@@ -758,7 +766,7 @@
                                         <TextBlock Text="{Binding OutboundIpText}" FontSize="13" FontWeight="SemiBold"
                                                    TextWrapping="Wrap" MaxWidth="520"
                                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                                        <Button Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
+                                        <Button Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
                                                 Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
                                                 ToolTip="复制出口 IP"
                                                 Command="{Binding CopyToClipboardCommand}"
@@ -767,7 +775,7 @@
                                     </StackPanel>
 
                                     <!-- 被更高优先级压制、但仍配置着的出站方式 -->
-                                    <Border CornerRadius="6" Padding="10,8" Margin="0,12,0,0"
+                                    <Border CornerRadius="8" Padding="10,8" Margin="0,12,0,0"
                                             Background="{Binding OutboundBadge, Converter={StaticResource StatusBg}}"
                                             Visibility="{Binding HasOutboundSuppressed, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="{Binding OutboundSuppressedText}" FontSize="11.5"
@@ -782,7 +790,7 @@
                                         <ItemsControl ItemsSource="{Binding OutboundNicRows}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border CornerRadius="6" Padding="10,8" Margin="0,0,0,6"
+                                                    <Border CornerRadius="8" Padding="10,8" Margin="0,0,0,6"
                                                             BorderThickness="1"
                                                             BorderBrush="{DynamicResource Cf.BorderBrush}">
                                                         <StackPanel>
@@ -866,7 +874,8 @@
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header="类型" Binding="{Binding Type}" Width="110" />
+                                <!-- 类型 / 状态在模型里是英文值（快照逻辑按它判断），只在显示时翻译 -->
+                                <DataGridTextColumn Header="类型" Binding="{Binding Type, Converter={StaticResource StatusText}}" Width="110" />
                                 <DataGridTextColumn Header="容量" Binding="{Binding Size}" Width="100" />
                                 <DataGridTextColumn Header="层级" Binding="{Binding Tier}" Width="180" />
                                 <DataGridTemplateColumn Header="快照数" Width="90">
@@ -876,7 +885,7 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="状态" Binding="{Binding Status}" Width="110" />
+                                <DataGridTextColumn Header="状态" Binding="{Binding Status, Converter={StaticResource StatusText}}" Width="110" />
                                 <DataGridTemplateColumn Width="44" CanUserResize="False"
                                                         CellStyle="{StaticResource Cf.GridCellCompact}">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -1015,10 +1024,11 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="14,14,14,16">
                         <TextBlock Text="活动" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
-                        <!-- 真实账户下该 VM 往往还没有任何操作记录，空表格会被误读为加载失败 -->
-                        <TextBlock Text="{Binding ActivityEmptyText}"
-                                   Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                   Visibility="{Binding HasActivity, Converter={StaticResource InverseBoolToVisibility}}" />
+                        <!-- 真实账户下该 VM 往往还没有任何操作记录，空表格会被误读为加载失败；
+                             与任务中心、首页同一个空状态组件，语气与版式一致 -->
+                        <controls:EmptyState Margin="0,32,0,24" Symbol="History24" Title="暂无活动记录"
+                                             Description="{Binding ActivityEmptyText}"
+                                             Visibility="{Binding HasActivity, Converter={StaticResource InverseBoolToVisibility}}" />
                         <DataGrid ItemsSource="{Binding ActivityJobs}" Style="{StaticResource Cf.DataGrid}"
                                   RowHeight="38" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                                   Visibility="{Binding HasActivity, Converter={StaticResource BoolToVisibility}}">

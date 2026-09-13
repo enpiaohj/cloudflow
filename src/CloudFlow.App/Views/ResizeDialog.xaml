@@ -16,15 +16,16 @@
       TextElement.Foreground 是继承属性，在这一层设一次即可覆盖全部后代。
     -->
 
-    <StackPanel Margin="24,20">
+    <StackPanel Margin="28,24">
 
-        <TextBlock Text="更改虚拟机规格" FontSize="18" FontWeight="SemiBold"
+        <TextBlock Text="更改虚拟机规格" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                   FontSize="18" FontWeight="SemiBold"
                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-        <TextBlock Text="更换虚拟机的 VM 规格（需要重启才能完全生效）。"
+        <TextBlock Text="更换虚拟机的规格（需要重启才能完全生效）。"
                    Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" />
 
         <TextBlock Text="当前规格" Style="{StaticResource Cf.Muted}" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0">
             <TextBlock Text="{Binding CurrentSize}" FontSize="13" />
         </Border>
@@ -34,7 +35,7 @@
                   ItemsSource="{Binding SizeOptions}"
                   SelectedItem="{Binding SelectedSize}" />
 
-        <TextBlock Text="注意：Resize 会短暂重启虚拟机；不同规格计费不同。"
+        <TextBlock Text="注意：更改规格会短暂重启虚拟机，不同规格计费不同。"
                    FontSize="11.5" Foreground="{DynamicResource Cf.WarningTextBrush}" Margin="0,12,0,0" TextWrapping="Wrap" />
 
         <TextBlock Text="{Binding ErrorText}" FontSize="11.5" Foreground="{DynamicResource Cf.ErrorTextBrush}" Margin="0,10,0,0"

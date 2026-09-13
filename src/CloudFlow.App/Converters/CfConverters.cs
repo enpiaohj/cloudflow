@@ -187,6 +187,46 @@ public sealed class CfResourceNameConverter : IValueConverter
 }
 
 /// <summary>
+/// 状态键 → 提示条图标（页面操作反馈横幅与 <c>InlineMessageBanner</c> 共用）。
+/// 与 <see cref="CfStatusBrushConverter"/> 同一套键：颜色说明"好/坏"，图标让色弱用户与扫一眼的人
+/// 不必靠颜色分辨是成功还是失败。
+/// </summary>
+public sealed class CfSeverityIconConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => (value?.ToString() ?? "") switch
+        {
+            "Succeeded" or "Success" => Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle20,
+            "Failed" or "Danger" or "Error" => Wpf.Ui.Controls.SymbolRegular.ErrorCircle20,
+            "Warning" or "WaitingApproval" => Wpf.Ui.Controls.SymbolRegular.Warning20,
+            _ => Wpf.Ui.Controls.SymbolRegular.Info20
+        };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Binding.DoNothing;
+}
+
+/// <summary>区域代码 → 中文显示名（见 <see cref="Infrastructure.AzureRegionCatalog"/>）；筛选下拉里的"全部区域"原样通过。</summary>
+public sealed class CfRegionNameConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Infrastructure.AzureRegionCatalog.DisplayName(value?.ToString());
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Binding.DoNothing;
+}
+
+/// <summary>两个绑定值按字符串相等 → true（分页器高亮"当前页"）。</summary>
+public sealed class CfEqualsMultiConverter : IMultiValueConverter
+{
+    public object Convert(object?[] values, Type targetType, object? parameter, CultureInfo culture)
+        => values.Length == 2 && string.Equals(values[0]?.ToString(), values[1]?.ToString(), StringComparison.Ordinal);
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>
 /// 状态/枚举 → 中文显示文本（VM 状态、Job 状态、NSG Action/Origin、风险等级）。
 /// 颜色转换器仍使用英文枚举键，本转换器只负责显示。
 /// </summary>
@@ -234,6 +274,12 @@ public sealed class CfStatusTextConverter : IValueConverter
         "Protected" => "受保护",
         "Unprotected" => "未关联 NSG",
         "Unknown" => "状态未知",
+        // 磁盘（模型里保留英文值供快照逻辑判断，只在显示时翻译）
+        "OS Disk" => "系统盘",
+        "Data Disk" => "数据盘",
+        "Attached" => "已挂载",
+        "Unattached" => "未挂载",
+        "Reserved" => "已保留",
         _ => key
     };
 }

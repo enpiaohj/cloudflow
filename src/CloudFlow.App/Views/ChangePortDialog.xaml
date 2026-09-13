@@ -16,17 +16,18 @@
       TextElement.Foreground 是继承属性，在这一层设一次即可覆盖全部后代。
     -->
 
-    <StackPanel Margin="24,20">
+    <StackPanel Margin="28,24">
 
         <!-- 标题（概念图 2 中央弹窗） -->
-        <TextBlock Text="更改端口" FontSize="18" FontWeight="SemiBold"
+        <TextBlock Text="更改端口" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                   FontSize="18" FontWeight="SemiBold"
                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
         <TextBlock Text="更新此入站规则的端口。"
                    Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" />
 
         <!-- Rule Name（只读） -->
         <TextBlock Text="规则名称" Style="{StaticResource Cf.Muted}" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0">
             <TextBlock Text="{Binding RuleName}" FontSize="13" />
         </Border>
@@ -40,7 +41,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
                 <TextBlock Text="当前端口" Style="{StaticResource Cf.Muted}" />
-                <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                         Padding="10,7" Margin="0,4,0,0">
                     <TextBlock Text="{Binding CurrentPort}" FontSize="13" />
                 </Border>
@@ -54,7 +55,7 @@
 
         <!-- Protocol（不可变，设计文档 §22 只改端口） -->
         <TextBlock Text="协议" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0">
             <TextBlock Text="{Binding Protocol}" FontSize="13" Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
         </Border>
@@ -62,7 +63,7 @@
 
         <!-- Source（不可变） -->
         <TextBlock Text="来源" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0">
             <TextBlock Text="{Binding Source}" FontSize="13" Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
         </Border>
@@ -70,7 +71,7 @@
 
         <!-- Priority -->
         <TextBlock Text="优先级" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0" HorizontalAlignment="Left" MinWidth="120">
             <TextBlock Text="{Binding Priority}" FontSize="13" />
         </Border>

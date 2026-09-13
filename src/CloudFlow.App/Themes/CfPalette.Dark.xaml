@@ -28,7 +28,9 @@
     <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FFC5C5C5" />
     <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF9A9A9A" />
 
-    <SolidColorBrush x:Key="Cf.OnPrimaryTextBrush" Color="#FFFFFFFF" />
+    <!-- 深色下主色提亮到 #479EF5，白字对比度只有约 2.8:1（主按钮"连接 / 创建虚拟机"发虚）；
+         改用近黑色，约 6.8:1，与 Windows 11 深色主题强调色按钮的做法一致。 -->
+    <SolidColorBrush x:Key="Cf.OnPrimaryTextBrush" Color="#FF0B1220" />
 
     <!-- 语义文本色：深底上一律提亮，否则 #C5221F 这类深红几乎不可读 -->
     <SolidColorBrush x:Key="Cf.ErrorTextBrush" Color="#FFFF99A4" />

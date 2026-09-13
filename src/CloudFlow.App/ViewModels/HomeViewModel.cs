@@ -88,12 +88,16 @@ public partial class HomeViewModel : ObservableObject
     public bool HasAttentionItems => AttentionItems.Count > 0;
 
     public string RecentOperationsEmptyText => _scopeContext.ActiveAccount is null
-        ? "暂无操作记录。"
-        : "当前账户暂无操作记录。执行启动 / 重启 / 快照 / 端口变更后会显示在这里。";
+        ? "演示模式下暂无操作记录。"
+        : "对资源执行启动、重启、快照或端口变更后，操作记录会显示在这里。";
 
+    /// <summary>
+    /// 注意项目前只按虚拟机电源状态判断（健康检查与告警尚未接入），
+    /// 所以空态只陈述"没有电源状态异常"，不说"一切正常"——那是这里判断不了的结论。
+    /// </summary>
     public string AttentionEmptyText => _scopeContext.ActiveAccount is null
-        ? "暂无注意项。"
-        : "未发现需要注意的项（当前仅根据虚拟机电源状态判断；健康检查与告警接入后会更完整）。";
+        ? "演示模式下暂无注意项。"
+        : "当前没有处于异常电源状态的虚拟机。";
 
     [ObservableProperty]
     private string _costAmount = "—";
@@ -101,14 +105,25 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private string _costSubtitle = "本月成本";
 
+    /// <summary>首页每次显示都会立即刷新并覆盖这句；初值只在第一次读取完成前可见。</summary>
     [ObservableProperty]
-    private string _costDelta = "登录 Azure 后显示真实成本数据。";
+    private string _costDelta = "正在读取成本数据…";
 
     /// <summary>是否有真实成本数据。没有时 UI 用中性色，避免把"尚未接入"显示成正面结论。</summary>
     [ObservableProperty]
     private bool _hasCostData;
 
+    [ObservableProperty]
+    private bool _isLoading;
+
     private bool _demoJobsSeeded;
+
+    /// <summary>
+    /// 冷启动、切换 Scope、切回首页三条路径都会各自触发一次 RefreshAsync，短时间内可能重叠
+    /// （比如切换账户时 Scope 变了两次）。用同一个 Task 让重叠调用等已经在跑的那次完成，
+    /// 而不是并发跑两次互相覆盖对方还没写完的统计数字。
+    /// </summary>
+    private Task? _refreshInFlight;
 
     public HomeViewModel(
         IVmInventoryService inventory,
@@ -128,7 +143,32 @@ public partial class HomeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task RefreshAsync()
+    public Task RefreshAsync()
+    {
+        if (_refreshInFlight is { IsCompleted: false } inFlight)
+        {
+            return inFlight;
+        }
+
+        var task = RefreshCoreAsync();
+        _refreshInFlight = task;
+        return task;
+    }
+
+    private async Task RefreshCoreAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            await RefreshDataAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task RefreshDataAsync()
     {
         var scope = _scopeContext.CurrentScope;
         var vms = await _inventory.QueryAsync(scope);

@@ -14,15 +14,17 @@
       按钮与应用其余全中文自定义对话框观感不一致）。破坏性/需要用户明确决定的操作
       一律走这里，取消按钮固定样式与语义，确认按钮文案由调用方给出（不是笼统的“确定”）。
     -->
-    <StackPanel Margin="24,20">
+    <StackPanel Margin="28,24">
 
-        <TextBlock Text="{Binding DialogTitle}" FontSize="18" FontWeight="SemiBold"
+        <TextBlock Text="{Binding DialogTitle}" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                   FontSize="18" FontWeight="SemiBold"
                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-        <TextBlock Text="{Binding Message}" Style="{StaticResource Cf.Muted}"
-                   Margin="0,8,0,0" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Message}" FontSize="13"
+                   Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                   Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="19" LineStackingStrategy="BlockLineHeight" />
 
         <!-- 按钮 -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,4">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,4">
             <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" IsCancel="True"
                     Click="Cancel_Click" />
             <Button Content="{Binding ConfirmButtonText}" Style="{StaticResource Cf.PrimaryButton}"

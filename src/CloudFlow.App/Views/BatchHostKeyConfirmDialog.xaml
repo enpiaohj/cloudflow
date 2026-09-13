@@ -10,7 +10,7 @@
         Background="{DynamicResource Cf.DialogBackgroundBrush}"
         TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
 
-    <Grid Margin="24,20">
+    <Grid Margin="28,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -18,7 +18,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock Text="确认新主机的密钥" FontSize="18" FontWeight="SemiBold"
+            <TextBlock Text="确认新主机的密钥" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                       FontSize="18" FontWeight="SemiBold"
                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
             <TextBlock x:Name="IntroText" Style="{StaticResource Cf.Muted}" Margin="0,6,0,0"
                        TextWrapping="Wrap" />
@@ -26,7 +27,7 @@
                        Text="信任后这些指纹会记录在本机，后续连接不再询问。若某台机器的指纹日后发生变化，仍会单独弹出强警告。" />
         </StackPanel>
 
-        <Border Grid.Row="1" CornerRadius="6" Padding="12,10" Margin="0,12,0,0"
+        <Border Grid.Row="1" CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
                 Background="{DynamicResource Cf.PageBackgroundBrush}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl x:Name="KeyList">

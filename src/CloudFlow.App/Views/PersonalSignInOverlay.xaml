@@ -13,7 +13,8 @@
                 <StackPanel Orientation="Horizontal">
                     <ui:SymbolIcon Symbol="Person24" FontSize="20"
                                    Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                    <TextBlock Text="登录个人 Microsoft 账户" FontSize="17" FontWeight="SemiBold"
+                    <TextBlock Text="登录个人 Microsoft 账户" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                               FontSize="17" FontWeight="SemiBold"
                                Margin="10,0,0,0" VerticalAlignment="Center"
                                Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                 </StackPanel>
@@ -66,7 +67,7 @@
                         <TextBlock Text="{Binding ErrorText}" FontSize="12.5" TextWrapping="Wrap"
                                    Foreground="{DynamicResource Cf.DangerTextBrush}" />
                     </Border>
-                    <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6"
+                    <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="8"
                             Background="{DynamicResource Cf.PageBackgroundBrush}">
                         <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto">
                             <TextBlock Text="{Binding LogText}" FontFamily="Consolas" FontSize="11.5"

@@ -1,17 +1,29 @@
 <UserControl x:Class="CloudFlow.App.Controls.InlineMessageBanner"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              x:Name="Root">
     <!--
-      就地提示条：Border + 一行文字，按 SeverityKey 走应用统一的状态配色（Cf.Status.*）。
+      就地提示条：状态图标 + 一段文字，按 SeverityKey 走应用统一的状态配色（Cf.Status.*）。
       收拢原来在 SettingsPage 三处、凭据对话框错误面板里各自重复的同一份 markup —— 以后要调
       提示条的外观（圆角/内边距/字号）只需要改这一个文件。
+      图标与页面顶部操作反馈横幅用同一个 SeverityIcon 转换器，两处的"成功 / 失败 / 提示"长得一样。
       Text 为空时自动收起，调用方不必再各自套一层 NonEmptyToVisibility。
     -->
-    <Border CornerRadius="6" Padding="12,8"
+    <Border CornerRadius="8" Padding="12,9"
             Background="{Binding SeverityKey, ElementName=Root, Converter={StaticResource StatusBg}}"
             Visibility="{Binding Text, ElementName=Root, Converter={StaticResource NonEmptyToVisibility}}">
-        <TextBlock Text="{Binding Text, ElementName=Root}" FontSize="12.5" TextWrapping="Wrap"
-                   Foreground="{Binding SeverityKey, ElementName=Root, Converter={StaticResource StatusFg}}" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ui:SymbolIcon Grid.Column="0" FontSize="16" Margin="0,1,10,0" VerticalAlignment="Top"
+                           Symbol="{Binding SeverityKey, ElementName=Root, Converter={StaticResource SeverityIcon}}"
+                           Foreground="{Binding SeverityKey, ElementName=Root, Converter={StaticResource StatusFg}}" />
+            <TextBlock Grid.Column="1" Text="{Binding Text, ElementName=Root}" FontSize="12.5" TextWrapping="Wrap"
+                       LineHeight="18" LineStackingStrategy="BlockLineHeight"
+                       Foreground="{Binding SeverityKey, ElementName=Root, Converter={StaticResource StatusFg}}" />
+        </Grid>
     </Border>
 </UserControl>

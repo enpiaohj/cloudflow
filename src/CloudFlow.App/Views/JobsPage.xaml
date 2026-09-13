@@ -1,7 +1,8 @@
 <UserControl x:Class="CloudFlow.App.Views.JobsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:CloudFlow.App.Controls">
 
     <Grid Margin="28,22,28,24">
         <Grid.RowDefinitions>
@@ -12,7 +13,7 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="任务" Style="{StaticResource Cf.PageTitle}" />
-            <TextBlock Text="平台所有写操作的统一操作总线 —— 每条操作均经验证与审计。"
+            <TextBlock Text="所有变更操作的执行记录。每项操作都经过校验、影响评估与结果验证，并记入审计日志。"
                        Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -23,6 +24,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <ComboBox Grid.Column="0" Width="180" Height="34"
+                      ToolTip="按状态筛选"
                       ItemsSource="{Binding StatusOptions}"
                       SelectedItem="{Binding StatusFilter}" />
             <Button Grid.Column="2" Style="{StaticResource Cf.IconButton}"
@@ -67,12 +69,13 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="结果" Binding="{Binding Job.Summary}" Width="1.3*" MinWidth="160">
+                    <!-- 结果：成功显示结果说明，失败显示失败原因，执行中显示子步骤（见 JobPresentation） -->
+                    <DataGridTextColumn Header="结果" Binding="{Binding ResultText}" Width="1.3*" MinWidth="160">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="FontSize" Value="12.5" />
                                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                <Setter Property="ToolTip" Value="{Binding Job.Summary}" />
+                                <Setter Property="ToolTip" Value="{Binding ResultText}" />
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
@@ -94,8 +97,8 @@
                                             CommandParameter="{Binding}" />
                                     <!-- 作废：等待审批的 Job 的出口 —— 批不了的旧 Job 也能关掉，
                                          不再永久挂在列表里。 -->
-                                    <Button Content="作废"
-                                            ToolTip="作废此任务：不再执行，状态变为已取消并写入审计"
+                                    <Button Content="作废" Style="{StaticResource Cf.DangerSubtleButton}"
+                                            ToolTip="作废此任务：不再执行，状态变为已取消并记入审计日志"
                                             Visibility="{Binding IsWaitingApproval, Converter={StaticResource BoolToVisibility}}"
                                             Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                             Command="{Binding DataContext.RejectCommand,
@@ -108,10 +111,10 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-                <!-- 真实账户下尚无任何写操作时不能只给空表，否则会被误读为加载失败 -->
-                <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Cf.Muted}"
-                           TextWrapping="Wrap" Margin="12,16,12,16"
-                           Visibility="{Binding HasJobs, Converter={StaticResource InverseBoolToVisibility}}" />
+                <!-- 没有任务时不能只给空表，否则会被误读为加载失败 -->
+                <controls:EmptyState Margin="0,24" Symbol="TaskListLtr24" Title="暂无任务"
+                                     Description="{Binding EmptyText}"
+                                     Visibility="{Binding HasJobs, Converter={StaticResource InverseBoolToVisibility}}" />
             </Grid>
         </Border>
     </Grid>

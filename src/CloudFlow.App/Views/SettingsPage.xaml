@@ -13,7 +13,7 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="设置" Style="{StaticResource Cf.PageTitle}" />
-            <TextBlock Text="外观、审批、列表与本地数据。改动立即生效并保存在本机。"
+            <TextBlock Text="管理账户、连接凭据与应用偏好。所有更改即时生效，并仅保存在本机。"
                        Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -67,14 +67,16 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="账户" Style="{StaticResource Cf.SectionTitle}" />
+                            <TextBlock Grid.Column="0" Text="账户" Style="{StaticResource Cf.SectionTitle}"
+                                       VerticalAlignment="Center" />
                             <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Padding="12,6" Margin="0,0,8,0"
                                     Command="{Binding SignInCommand}"
                                     Content="{Binding SignInButtonText}" />
                             <Button Grid.Column="2" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6" Margin="0,0,8,0"
                                     Command="{Binding AddPersonalAccountCommand}"
                                     Content="添加个人 Microsoft 账户" />
-                            <Button Grid.Column="3" Padding="12,6"
+                            <!-- 原来这个按钮没有套样式，落到 WPF-UI 默认按钮上，高度、圆角都和旁边两个不一样 -->
+                            <Button Grid.Column="3" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6"
                                     Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibility}}"
                                     Command="{Binding SignOutCommand}"
                                     Content="移除当前账户" />
@@ -89,7 +91,8 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding Label}" FontSize="13" VerticalAlignment="Center" />
-                                        <Button Grid.Column="1" Padding="10,4"
+                                        <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}"
+                                                Padding="10,4" FontSize="12"
                                                 Command="{Binding DataContext.RemoveAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding Account}"
                                                 Content="移除" />
@@ -101,12 +104,12 @@
                         <controls:InlineMessageBanner Margin="0,10,0,0"
                                                        SeverityKey="{Binding MessageSeverity}"
                                                        Text="{Binding MessageText}" />
-                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="登录状态仅保存在此设备的 Windows 保护存储中。工作或学校账户使用 Microsoft 登录页；个人 Microsoft 账户使用设备码登录（CloudFlow 内置运行环境，无需安装任何组件）。移除账户仅清除本机 CloudFlow 缓存，不影响 Microsoft 账户本身。" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Text="登录状态仅保存在本机的 Windows 受保护存储中。工作或学校账户通过 Microsoft 登录页登录；个人 Microsoft 账户通过设备码登录，无需额外安装组件。移除账户只会清除本机缓存，不影响 Microsoft 账户本身。" />
 
                         <!-- 登录服务：原本是独立一张卡，但它回答的是「这个账户是怎么登进来的」，
                              和上面是一件事。拆成两张卡时用户要在两处找「我的账户信息」。 -->
-                        <Border Height="1" Margin="0,14" Background="{DynamicResource Cf.BorderBrush}" />
+                        <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
 
                         <TextBlock Text="登录服务" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
                         <Grid>
@@ -119,20 +122,26 @@
                                 <RowDefinition Height="32" />
                                 <RowDefinition Height="32" />
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="状态" Style="{StaticResource Cf.Subtitle}" />
+                            <!-- 标签与值一律垂直居中：原来标签贴行顶、徽章居中，同一行错开了几像素 -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="状态" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
                             <!-- 显示中文、配色用英文键：本地值覆盖 Cf.Badge / Cf.BadgeText 的默认绑定 -->
                             <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Cf.Badge}"
                                     Background="{Binding AuthStatusKey, Converter={StaticResource StatusBg}}">
                                 <TextBlock Text="{Binding AuthStatusText}" Style="{StaticResource Cf.BadgeText}"
                                            Foreground="{Binding AuthStatusKey, Converter={StaticResource StatusFg}}" />
                             </Border>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="应用标识" Style="{StaticResource Cf.Subtitle}" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ClientIdDisplay}" FontSize="13" />
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="登录范围" Style="{StaticResource Cf.Subtitle}" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TenantIdDisplay}" FontSize="13" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="应用标识" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ClientIdDisplay}" FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="登录范围" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TenantIdDisplay}" FontSize="13"
+                                       VerticalAlignment="Center" />
                         </Grid>
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Text="应用标识为公开客户端标识，不保存密码、Token 或 Client Secret。" />
+                                   Text="应用标识是公开的客户端 ID。CloudFlow 不会保存密码、访问令牌或客户端密钥。" />
                     </StackPanel>
                 </Border>
 
@@ -163,15 +172,18 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="凭据管理" Style="{StaticResource Cf.SectionTitle}" />
+                            <TextBlock Grid.Column="0" Text="凭据管理" Style="{StaticResource Cf.SectionTitle}"
+                                       VerticalAlignment="Center" />
                             <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6"
                                     Command="{Binding NewCredentialCommand}" Content="新建凭据…" />
                         </Grid>
 
-                        <!-- 空态给的是"下一步做什么"，不是"暂无数据" -->
-                        <TextBlock Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                   Text="还没有凭据。点右上「新建凭据…」添加；也可以在连接虚拟机时选「新建 / 临时输入…」并勾选「存入凭据库」。"
-                                   Visibility="{Binding HasNoCredentials, Converter={StaticResource BoolToVisibility}}" />
+                        <!-- 空态给的是"下一步做什么"，不是"暂无数据"。
+                             里面的「新建 / 临时输入…」必须与连接框下拉首项的文案一致（CredentialUiStaticTests 断言）。 -->
+                        <controls:EmptyState Compact="True" Margin="0,18,0,12"
+                                             Symbol="Key24" Title="尚未保存凭据"
+                                             Description="可点击右上角「新建凭据…」添加，也可以在连接虚拟机时选择「新建 / 临时输入…」并勾选「存入凭据库」。"
+                                             Visibility="{Binding HasNoCredentials, Converter={StaticResource BoolToVisibility}}" />
 
                         <ItemsControl ItemsSource="{Binding Credentials}" Margin="0,4,0,0">
                             <ItemsControl.ItemTemplate>
@@ -208,10 +220,12 @@
                                                        Visibility="{Binding Description, Converter={StaticResource NonEmptyToVisibility}}" />
                                         </StackPanel>
 
-                                        <Button Grid.Column="1" Padding="10,4" VerticalAlignment="Top" Content="编辑"
+                                        <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}"
+                                                Padding="10,4" FontSize="12" VerticalAlignment="Top" Content="编辑"
                                                 Command="{Binding DataContext.EditCredentialCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
-                                        <Button Grid.Column="2" Padding="10,4" Margin="8,0,0,0" VerticalAlignment="Top"
+                                        <Button Grid.Column="2" Style="{StaticResource Cf.DangerSubtleButton}"
+                                                Padding="10,4" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Top"
                                                 Content="删除"
                                                 Command="{Binding DataContext.DeleteCredentialCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
@@ -225,7 +239,7 @@
                                                        Text="{Binding CredentialMessageText}" />
 
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Text="密码与私钥以 Windows 当前用户加密（DPAPI）存放在本机保险库，其他 Windows 账户与其他机器无法解密。凭据不绑定主机，可在任意虚拟机的连接框里选用。" />
+                                   Text="密码与私钥使用 Windows 当前用户身份加密（DPAPI）后保存在本机，其他 Windows 账户或其他设备均无法解密。凭据不绑定主机，可在任意虚拟机的连接窗口中选用。" />
                     </StackPanel>
                 </Border>
 
@@ -239,7 +253,8 @@
                                 <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="主题" Style="{StaticResource Cf.Subtitle}" />
+                            <TextBlock Grid.Column="0" Text="主题" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
                             <!-- 裸 ComboBox + MinHeight 34：WPF-UI 的模板会给内容区留内边距，
                                  高度给不够时选中的文字会被裁掉下半截（VirtualMachinesPage 上踩过一次） -->
                             <ComboBox Grid.Column="1" MinHeight="34" MaxWidth="240" FontSize="13"
@@ -248,7 +263,7 @@
                                       SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
                         </Grid>
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="「跟随系统」会跟随 Windows 的浅色 / 深色设置，并在系统切换时立即跟随。" />
+                                   Text="选择「跟随系统」时，将随 Windows 的浅色 / 深色设置自动切换。" />
                     </StackPanel>
                 </Border>
 
@@ -262,21 +277,19 @@
                                 <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="审批策略" Style="{StaticResource Cf.Subtitle}" />
+                            <TextBlock Grid.Column="0" Text="审批策略" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
                             <ComboBox Grid.Column="1" MinHeight="34" FontSize="13"
                                       HorizontalAlignment="Left" Width="240"
                                       ItemsSource="{Binding ApprovalPolicyOptions}"
                                       SelectedItem="{Binding SelectedApprovalPolicy, Mode=TwoWay}" />
                         </Grid>
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="关闭＝风险类操作直接执行；仅高危＝只有高危操作停下来确认；所有写操作＝任何写操作都停下来确认。" />
-                        <!-- 这一条不是注释，是产品约束：设计文档 §25 的共享子网 NSG 影响面确认由引擎强制，不读这个设置 -->
-                        <Border CornerRadius="6" Padding="12,8" Margin="0,8,0,0"
-                                Background="{DynamicResource Cf.Surface.WarningBrush}">
-                            <TextBlock TextWrapping="Wrap" FontSize="12.5"
-                                       Foreground="{DynamicResource Cf.WarningStrongTextBrush}"
-                                       Text="共享子网 NSG 的影响面确认（设计文档 §25）始终启用，不受此设置影响 —— 无论选哪一档，改动会影响子网内其他虚拟机时都必须先确认。" />
-                        </Border>
+                                   Text="关闭：操作提交后直接执行。仅高危：重启、关机等高危操作需先确认。所有写操作：任何变更执行前都需确认。" />
+                        <!-- 这一条不是注释，是产品约束：共享子网 NSG 的影响面确认（设计文档 §25）与删除类操作的
+                             CannotBypass 由引擎强制，不读这个设置。界面上只说行为，不引用设计文档编号。 -->
+                        <controls:InlineMessageBanner Margin="0,10,0,0" SeverityKey="Warning"
+                                                       Text="以下确认始终启用，不受此设置影响：删除虚拟机、资源组或单个资源；以及会影响同一子网内其他虚拟机的网络安全组变更。" />
                     </StackPanel>
                 </Border>
 
@@ -308,7 +321,7 @@
                                       SelectedItem="{Binding SelectedPageSize, Mode=TwoWay}" />
                         </Grid>
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="自动刷新只在虚拟机列表页可见时计时，切到别的页面会停表 —— 没有人在看的列表不应该继续消耗订阅调用额度。列表页内仍可临时调整每页条数。" />
+                                   Text="自动刷新仅在虚拟机列表页可见时进行，切换到其他页面即暂停，以节省 Azure API 调用配额。列表页内也可临时调整每页条数。" />
                     </StackPanel>
                 </Border>
 
@@ -321,9 +334,9 @@
                                          IsChecked="{Binding AutoDetectPublicIp, Mode=TwoWay}" />
                         <!-- 这是应用唯一的对外请求，必须写在开关旁边而不是藏在「关于」里 -->
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="开启后，打开端口对话框时 CloudFlow 会向 https://api.ipify.org 发送一次 HTTPS 请求（失败时回退 https://icanhazip.com），以确定本机当前的出口 IP，用于「我的当前 IP」一键填入来源。这是本应用唯一的对外请求。关闭后需手动填写来源地址。" />
+                                   Text="开启后，新建入站规则时 CloudFlow 会向 https://api.ipify.org 发起一次 HTTPS 请求（失败时改用 https://icanhazip.com），获取本机当前的公网出口 IP，用于一键填入「我的当前 IP」。这是本应用唯一的对外网络请求；关闭后需手动填写来源地址。" />
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                   Text="该地址来自当前出口链路（本机代理 / 出口主机），链路变化后会改变，不是这台电脑的固定地址。" />
+                                   Text="该地址取决于当前的网络出口（如代理或网关），网络环境变化后可能不同，并非本机的固定地址。" />
                     </StackPanel>
                 </Border>
 
@@ -334,12 +347,12 @@
                         <TextBlock Text="本地数据" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
 
                         <TextBlock Text="数据目录" Style="{StaticResource Cf.Subtitle}" />
-                        <Grid Margin="0,4,0,0">
+                        <Grid Margin="0,6,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" CornerRadius="6" Padding="10,7"
+                            <Border Grid.Column="0" CornerRadius="8" Padding="10,7"
                                     Background="{DynamicResource Cf.PageBackgroundBrush}"
                                     BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1">
                                 <TextBlock Text="{Binding DataDirectory}" FontSize="12.5"
@@ -350,14 +363,14 @@
                                     Padding="12,7" Content="打开目录" Command="{Binding OpenDataFolderCommand}" />
                         </Grid>
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="账户登录缓存（Windows 保护存储）、已保存的 Scope、任务历史与审计日志都在这里。设置文件 settings.json 也在其中，删掉即回到默认值。" />
+                                   Text="此目录保存账户登录缓存、已保存的 Scope、任务历史、审计日志与设置文件（settings.json）。删除 settings.json 即可恢复默认设置。" />
 
-                        <Border Height="1" Margin="0,14" Background="{DynamicResource Cf.BorderBrush}" />
+                        <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
 
                         <TextBlock Text="危险区" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Cf.ErrorTextBrush}" />
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                   Text="只清除本机保存的任务历史。不会删除账户登录状态、已保存的 Scope，也不会删除审计日志 audit.jsonl —— 审计是操作记录，与界面上的历史列表是两回事。" />
+                                   Text="仅清除本机保存的任务历史，不影响账户登录状态、已保存的 Scope 与审计日志（audit.jsonl）。" />
                         <Button Style="{StaticResource Cf.DangerButton}" Padding="12,7" Margin="0,10,0,0"
                                 HorizontalAlignment="Left" Content="清除本地任务历史"
                                 Command="{Binding ClearJobHistoryCommand}" />
@@ -377,8 +390,8 @@
                         <!-- 披露按开关实际状态生成，不写死"不上报任何遥测"就完事 -->
                         <TextBlock Text="{Binding NetworkDisclosure}" Style="{StaticResource Cf.Muted}"
                                    Margin="0,8,0,0" TextWrapping="Wrap" />
-                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                   Text="产品设计基准：docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.1.md" />
+                        <!-- 原来这里还有一行"产品设计基准：docs/01-产品设计/…"，那是给开发者看的仓库路径，
+                             不该出现在用户界面上，已移除。 -->
                     </StackPanel>
                 </Border>
             </StackPanel>

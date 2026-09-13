@@ -13,6 +13,7 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  Background="{DynamicResource Cf.PageBackgroundBrush}"
+                 FontFamily="{DynamicResource Cf.FontFamily}"
         TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
     <!--
       与几个对话框同理：TextBlock 的默认前景是黑色，凡是没写 Foreground 的地方
@@ -32,6 +33,12 @@
         <DataTemplate DataType="{x:Type vm:JobsViewModel}">
             <views:JobsPage />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ResourceGroupsViewModel}">
+            <views:ResourceGroupsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AllResourcesViewModel}">
+            <views:AllResourcesPage />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
             <views:SettingsPage />
         </DataTemplate>
@@ -46,11 +53,15 @@
         </Grid.RowDefinitions>
 
         <!-- ===================== 顶栏（概念图 1：logo + Scope + Search + 工具 + Account） ===================== -->
+        <!-- 高度 52→56、加一层极轻的向下阴影：顶栏在视觉上"浮"在页面内容之上，
+             比单纯一条 1px 底边线更有分层感——同一栋楼的一楼和二楼，不是一张纸上画了条线。 -->
         <Border Grid.Row="0"
-                Height="52"
+                Height="56"
                 Background="{DynamicResource Cf.TopBarBrush}"
                 BorderBrush="{DynamicResource Cf.BorderBrush}"
                 BorderThickness="0,0,0,1"
+                Effect="{StaticResource Cf.Elevation.Bar}"
+                Panel.ZIndex="1"
                 MouseLeftButtonDown="TopBar_MouseLeftButtonDown"
                 Visibility="{Binding Terminal.IsFullScreen,
                                      Converter={StaticResource InverseBoolToVisibility}}">
@@ -64,12 +75,17 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Logo -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,10,0" VerticalAlignment="Center">
-                    <ui:SymbolIcon Symbol="Cloud24" FontSize="22" Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                    <TextBlock Text="CloudFlow" FontSize="16" FontWeight="Bold"
+                <!-- Logo：图标收进一个圆角色块里做成"应用标记"，而不是让图标裸露在留白里——
+                     一个小色块比一个裸图标更像"经过设计的产品身份"，也是大多数专业桌面软件
+                     （Slack / Notion / Linear）左上角的通行做法。 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="20,0,10,0" VerticalAlignment="Center">
+                    <Border Width="28" Height="28" CornerRadius="7" Background="{DynamicResource Cf.PrimaryBrush}">
+                        <ui:SymbolIcon Symbol="Cloud24" Filled="True" FontSize="16" Foreground="{DynamicResource Cf.OnPrimaryTextBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="CloudFlow" FontSize="15.5" FontWeight="SemiBold"
                                Foreground="{DynamicResource Cf.TextPrimaryBrush}"
-                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                               Margin="10,0,0,0" VerticalAlignment="Center" />
                     <!-- 版本号紧随产品名，取自程序集 InformationalVersion（见 AppInfo） -->
                     <TextBlock Text="{x:Static infra:AppInfo.Version}" FontSize="11.5"
                                Foreground="{DynamicResource Cf.TextMutedBrush}"
@@ -88,7 +104,7 @@
                         HorizontalAlignment="Left" VerticalAlignment="Center"
                         Background="{DynamicResource Cf.PageBackgroundBrush}"
                         BorderBrush="{DynamicResource Cf.BorderBrush}"
-                        BorderThickness="1" CornerRadius="6">
+                        BorderThickness="1" CornerRadius="8">
                     <ui:TextBox PlaceholderText="搜索资源、虚拟机…"
                                 Icon="{ui:SymbolIcon Search24}"
                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
@@ -107,27 +123,94 @@
                   设置页不需要刷新 Azure 数据，所以不再有"某个页面没有刷新入口"的问题。
                 -->
 
-                <!-- 终端会话入口：面板收起后底部不留任何残留，这里是唯一的回入口。
-                     没有会话时按钮一并消失（HasTabs），所以不存在"点开是空面板"的死路。
-                     角标用自绘 Border 而不是 Cf.Badge：那个走的是状态枚举的 StatusBg 转换器，
-                     会话数是个整数，套上去只会得到错误的配色。 -->
-                <Button Grid.Column="3" Height="34" Margin="4,0,6,0" Padding="8,0"
-                        Style="{StaticResource Cf.TopBarButton}"
-                        ToolTip="{Binding Terminal.TabsTip}"
-                        Command="{Binding Terminal.ToggleExpandedCommand}"
-                        Visibility="{Binding Terminal.HasTabs, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <ui:SymbolIcon Symbol="WindowConsole20" FontSize="17"
-                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
-                        <Border MinWidth="18" Height="18" CornerRadius="9" Margin="6,0,0,0"
-                                Padding="5,0"
-                                Background="{DynamicResource Cf.PrimaryBrush}">
-                            <TextBlock Text="{Binding Terminal.Tabs.Count}" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </StackPanel>
-                </Button>
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <!-- 任务进行中徽标：创建/删除虚拟机这类操作的子步骤进度（资源组→网络→网卡→
+                         虚拟机）之前只有触发它的那个对话框能看到——切走页面或者对话框已经关闭
+                         （比如走"批准执行"那条路径）就彻底看不见了。这个入口订阅全局 Job 状态，
+                         不管在哪个页面、有没有对话框开着都能看。没有任务在跑时按钮整个消失，
+                         不留一个空徽标占地方。 -->
+                    <Button x:Name="RunningJobsButton" Height="34" Margin="4,0,0,0" Padding="8,0"
+                            Style="{StaticResource Cf.TopBarButton}"
+                            ToolTip="{Binding RunningJobs.Tip}"
+                            Click="RunningJobsButton_Click"
+                            Visibility="{Binding RunningJobs.HasRunning, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Clock20" FontSize="17"
+                                           Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                            <Border MinWidth="18" Height="18" CornerRadius="9" Margin="6,0,0,0"
+                                    Padding="5,0"
+                                    Background="{DynamicResource Cf.PrimaryBrush}">
+                                <TextBlock Text="{Binding RunningJobs.Rows.Count}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Cf.OnPrimaryTextBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 终端会话入口：面板收起后底部不留任何残留，这里是唯一的回入口。
+                         没有会话时按钮一并消失（HasTabs），所以不存在"点开是空面板"的死路。
+                         角标用自绘 Border 而不是 Cf.Badge：那个走的是状态枚举的 StatusBg 转换器，
+                         会话数是个整数，套上去只会得到错误的配色。 -->
+                    <Button Height="34" Margin="4,0,6,0" Padding="8,0"
+                            Style="{StaticResource Cf.TopBarButton}"
+                            ToolTip="{Binding Terminal.TabsTip}"
+                            Command="{Binding Terminal.ToggleExpandedCommand}"
+                            Visibility="{Binding Terminal.HasTabs, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="WindowConsole20" FontSize="17"
+                                           Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                            <Border MinWidth="18" Height="18" CornerRadius="9" Margin="6,0,0,0"
+                                    Padding="5,0"
+                                    Background="{DynamicResource Cf.PrimaryBrush}">
+                                <TextBlock Text="{Binding Terminal.Tabs.Count}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Cf.OnPrimaryTextBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- 任务进行中弹层：列出所有未结束的 Job 和它们当前的子步骤说明。
+                     StaysOpen=False 且不设 PlacementTarget 之外的自定义逻辑——跟账户菜单不同，
+                     这里没有"贴边溢出"的顾虑（按钮离窗口右边缘还有终端+账户两个按钮的宽度）。 -->
+                <Popup x:Name="RunningJobsPopup"
+                       DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
+                       PlacementTarget="{Binding ElementName=RunningJobsButton}"
+                       Placement="Bottom"
+                       StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                    <Border MinWidth="280" MaxWidth="360" Margin="0,6,0,0"
+                            Background="{DynamicResource Cf.CardBrush}"
+                            BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1"
+                            CornerRadius="12"
+                            Effect="{StaticResource Cf.Elevation.Popup}">
+                        <StackPanel Margin="4">
+                            <TextBlock Text="任务进行中" Style="{StaticResource Cf.Muted}" Margin="10,8,0,4" />
+
+                            <ItemsControl ItemsSource="{Binding RunningJobs.Rows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="10,7">
+                                            <TextBlock Text="{Binding Display}" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Cf.Muted}"
+                                                       Margin="0,2,0,0" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Height="1" Margin="10,6" Background="{DynamicResource Cf.BorderBrush}" />
+
+                            <Button Style="{StaticResource Cf.MenuRow}" Padding="10,8"
+                                    Command="{Binding ViewRunningJobsCommand}"
+                                    Click="RunningJobsMenuAction_Click">
+                                <TextBlock Text="查看全部任务" FontSize="13"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
                 <!-- 账户：头像 + 展示名 → 账户菜单（切换 / 添加 / 管理） -->
                 <Button Grid.Column="4" x:Name="AccountMenuButton"
@@ -171,10 +254,8 @@
                     <Border MinWidth="300" MaxWidth="380" Margin="10"
                             Background="{DynamicResource Cf.CardBrush}"
                             BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1"
-                            CornerRadius="8">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.16" Color="#FF1B1F2A" />
-                        </Border.Effect>
+                            CornerRadius="12"
+                            Effect="{StaticResource Cf.Elevation.Popup}">
                         <StackPanel Margin="4">
                             <TextBlock Text="切换账户" Style="{StaticResource Cf.Muted}" Margin="10,8,0,4" />
 
@@ -338,20 +419,45 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                        <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="17"
-                                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                        <!-- 选中态图标/文字一并转主色 + 文字加粗：光靠背景那一层浅色底
+                                             不够确认"我现在在哪个页面"，尤其和悬停态的底色很接近时。 -->
+                                        <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="17">
+                                            <ui:SymbolIcon.Style>
+                                                <Style TargetType="ui:SymbolIcon">
+                                                    <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:SymbolIcon.Style>
+                                        </ui:SymbolIcon>
                                         <TextBlock Text="{Binding Label}" FontSize="13"
-                                                   Margin="10,0,0,0" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                                   Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </StackPanel>
 
-                                    <!-- 分组展开箭头 -->
+                                    <!-- 分组展开箭头。默认值必须写在样式 Setter 里而不是元素上：
+                                         元素上的本地值优先级高于样式触发器，原来写成 Symbol="ChevronRight24"
+                                         时触发器永远改不动它——分组展开后箭头仍朝右。 -->
                                     <ui:SymbolIcon Grid.Column="1" FontSize="12" VerticalAlignment="Center"
-                                                   Symbol="ChevronRight24"
                                                    Foreground="{DynamicResource Cf.TextMutedBrush}"
                                                    Visibility="{Binding IsGroup, Converter={StaticResource BoolToVisibility}}">
                                         <ui:SymbolIcon.Style>
                                             <Style TargetType="ui:SymbolIcon">
+                                                <Setter Property="Symbol" Value="ChevronRight24" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                                                         <Setter Property="Symbol" Value="ChevronDown24" />

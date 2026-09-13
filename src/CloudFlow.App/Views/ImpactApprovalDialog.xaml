@@ -16,23 +16,24 @@
       TextElement.Foreground 是继承属性，在这一层设一次即可覆盖全部后代。
     -->
 
-    <StackPanel Margin="24,20">
+    <StackPanel Margin="28,24">
 
-        <TextBlock Text="影响分析" FontSize="18" FontWeight="SemiBold"
+        <TextBlock Text="影响分析" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                   FontSize="18" FontWeight="SemiBold"
                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-        <TextBlock Text="该操作会影响其他资源，请确认后再继续。"
-                   Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" />
+        <TextBlock Text="该操作会影响其他资源，请确认后再继续。" FontSize="13"
+                   Foreground="{DynamicResource Cf.TextSecondaryBrush}" Margin="0,6,0,16" />
 
         <!-- 操作 -->
         <TextBlock Text="操作" Style="{StaticResource Cf.Muted}" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
-                Padding="10,7" Margin="0,4,0,0">
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
+                Padding="10,8" Margin="0,4,0,0">
             <TextBlock Text="{Binding OperationText}" FontSize="13" TextWrapping="Wrap" />
         </Border>
 
         <!-- 目标资源（Azure Resource ID 是唯一主键） -->
         <TextBlock Text="目标资源" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
-        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0">
             <TextBlock Text="{Binding ResourceId}" FontSize="11.5" TextWrapping="Wrap"
                        Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
@@ -41,7 +42,7 @@
         <!-- 影响面 -->
         <TextBlock Text="影响面" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
         <Border Background="{DynamicResource Cf.Surface.WarningBrush}" BorderBrush="{DynamicResource Cf.Surface.WarningBorderBrush}" BorderThickness="1"
-                CornerRadius="6" Padding="12,9" Margin="0,4,0,0">
+                CornerRadius="8" Padding="12,9" Margin="0,4,0,0">
             <StackPanel>
                 <TextBlock Text="{Binding ImpactText}" FontSize="12.5" TextWrapping="Wrap"
                            Foreground="{DynamicResource Cf.WarningStrongTextBrush}" />
@@ -51,15 +52,48 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Text="选择“取消”不会执行任何变更；Job 会保留在任务中心的待审批状态。"
+        <TextBlock Text="选择“取消”不会执行任何变更，该任务会保留在任务中心的待审批状态。"
                    Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,8,0,0"
                    TextWrapping="Wrap" />
 
+        <!-- 破坏半径更大的操作（如删除资源组）额外要求输入确认文本才能继续 -->
+        <StackPanel Visibility="{Binding RequiresConfirmText, Converter={StaticResource BoolToVisibility}}"
+                    Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding ConfirmHint}" Style="{StaticResource Cf.Muted}"
+                           VerticalAlignment="Center" TextWrapping="Wrap" />
+                <!-- 名称本身可能很长/含随机后缀，手动照抄容易打错——提供"复制"到剪贴板，
+                     仍要求用户主动粘贴+看一眼再继续，不是"点一下就自动填好绕过确认"。 -->
+                <Button Grid.Column="1" Content="复制" Style="{StaticResource Cf.SecondaryButton}"
+                        Padding="10,3" FontSize="12" Margin="8,0,0,0"
+                        Click="CopyConfirmText_Click" ToolTip="复制到剪贴板" />
+            </Grid>
+            <TextBox x:Name="ConfirmTextBox" Height="32" Margin="0,4,0,0"
+                     TextChanged="ConfirmTextBox_Changed" />
+        </StackPanel>
+
+        <ProgressBar x:Name="SubmittingBar" Height="2" Margin="0,14,0,0"
+                     IsIndeterminate="True" Visibility="Collapsed" />
+        <Border x:Name="SubmittingPanel" CornerRadius="8" Padding="10,6" Margin="0,10,0,0"
+                Background="{DynamicResource Cf.PageBackgroundBrush}" Visibility="Collapsed">
+            <TextBlock x:Name="SubmittingText" Style="{StaticResource Cf.Muted}"
+                       FontSize="11.5" TextWrapping="Wrap" />
+        </Border>
+        <Border x:Name="ErrorPanel" CornerRadius="8" Padding="10,6" Margin="0,10,0,0"
+                Background="{DynamicResource Cf.Status.Danger.Bg}" Visibility="Collapsed">
+            <TextBlock x:Name="ErrorText" Foreground="{DynamicResource Cf.Status.Danger.Fg}"
+                       FontSize="11.5" TextWrapping="Wrap" />
+        </Border>
+
         <!-- 按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,4">
-            <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" IsCancel="True"
-                    Click="Cancel_Click" />
-            <Button Content="继续" Style="{StaticResource Cf.PrimaryButton}"
+            <Button x:Name="CancelButton" Content="取消" Style="{StaticResource Cf.SecondaryButton}"
+                    IsCancel="True" Click="Cancel_Click" />
+            <Button x:Name="ContinueButton" Content="继续" Style="{StaticResource Cf.PrimaryButton}"
                     Margin="10,0,0,0" IsDefault="True" Click="Continue_Click" />
         </StackPanel>
     </StackPanel>

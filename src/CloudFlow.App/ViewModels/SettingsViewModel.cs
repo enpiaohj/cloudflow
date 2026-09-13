@@ -43,12 +43,14 @@ public partial class SettingsViewModel : ObservableObject
     private static readonly SettingsSection[] AllSections =
     [
         new("account", "账户", SymbolRegular.Person24),
-        new("credentials", "凭据管理", SymbolRegular.LockClosedKey24),
+        // 图标码位必须在 U+FFFF 以内：LockClosedKey24（U+F00E1）/ HardDrive24（U+F0306）会被
+        // WPF-UI 3.0.5 截断成 16 位，渲染成"á"和一个孤立的变音符（XamlSymbolLiteralTests 有码位检查）。
+        new("credentials", "凭据管理", SymbolRegular.Key24),
         new("appearance", "外观", SymbolRegular.PaintBrush24),
         new("approval", "操作与审批", SymbolRegular.ShieldCheckmark24),
         new("lists", "列表与刷新", SymbolRegular.ArrowClockwise24),
         new("network", "网络", SymbolRegular.Globe24),
-        new("local", "本地数据", SymbolRegular.HardDrive24),
+        new("local", "本地数据", SymbolRegular.Database24),
         new("about", "关于", SymbolRegular.Info24)
     ];
 
@@ -258,11 +260,11 @@ public partial class SettingsViewModel : ObservableObject
     /// 而这是用户唯一能知道这件事的地方。
     /// </summary>
     public string NetworkDisclosure => AutoDetectPublicIp
-        ? "CloudFlow 不使用遥测、崩溃上报或使用统计，不会向 Anthropic、Microsoft 或任何第三方发送使用数据。"
-          + "唯一的对外请求是「自动查询我的公网 IP」：打开端口对话框时向 https://api.ipify.org 发送一次 HTTPS 请求"
-          + "以确定本机出口 IP（失败时回退 https://icanhazip.com）。可在上面的「网络」卡里关闭。"
-        : "CloudFlow 不使用遥测、崩溃上报或使用统计，不会向 Anthropic、Microsoft 或任何第三方发送使用数据。"
-          + "「自动查询我的公网 IP」当前已关闭，应用不会发出任何对外请求；打开端口对话框时需手动填写来源地址。";
+        ? "CloudFlow 不收集遥测、崩溃报告或使用统计，不会向 Microsoft 或任何第三方发送使用数据。"
+          + "唯一的对外请求来自「自动查询我的公网 IP」：新建入站规则时向 https://api.ipify.org 发起一次 HTTPS 请求"
+          + "以获取本机出口 IP（失败时改用 https://icanhazip.com），可在「网络」设置中关闭。"
+        : "CloudFlow 不收集遥测、崩溃报告或使用统计，不会向 Microsoft 或任何第三方发送使用数据。"
+          + "「自动查询我的公网 IP」已关闭，应用不会发出任何对外请求；新建入站规则时需手动填写来源地址。";
 
     partial void OnAutoDetectPublicIpChanged(bool value)
     {

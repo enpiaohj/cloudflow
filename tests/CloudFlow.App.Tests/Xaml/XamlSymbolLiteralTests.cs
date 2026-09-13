@@ -72,15 +72,91 @@ public sealed class XamlSymbolLiteralTests
         Assert.True(literalCount > 0, "未扫描到任何 Symbol 字面量，扫描逻辑大概率失效了。");
     }
 
-    private static HashSet<string> SymbolRegularNames()
+    /// <summary>
+    /// 图标码位必须在基本多文种平面（≤ U+FFFF）内。
+    ///
+    /// 为什么需要它：WPF-UI 3.0.5 的 <c>SymbolIcon</c> 把枚举值当成单个 <c>char</c> 使用，
+    /// 码位高于 U+FFFF 的 1436 个成员会被截断成低 16 位——<c>LockClosedKey24</c>（U+F00E1）
+    /// 显示成 "á"，<c>HardDrive24</c>（U+F0306）显示成一个孤立的变音符。名字合法、字体里也有字形，
+    /// 编译和上一条测试都拦不住，只能在界面上看到乱码（设置页分节条曾因此出现两个乱码图标）。
+    /// XAML 字面量与 C# 里的 <c>SymbolRegular.Xxx</c> 引用都要检查。
+    /// </summary>
+    [Fact]
+    public void 所有用到的Symbol码位必须在基本多文种平面内()
+    {
+        var type = SymbolRegularType();
+        var problems = new List<string>();
+        var scanned = 0;
+
+        foreach (var (file, line, name) in UsedSymbols())
+        {
+            if (!Enum.IsDefined(type, name))
+            {
+                continue; // 名字本身不合法由上一条测试负责报
+            }
+
+            scanned++;
+            var codePoint = Convert.ToInt32(Enum.Parse(type, name), System.Globalization.CultureInfo.InvariantCulture);
+            if (codePoint > 0xFFFF)
+            {
+                problems.Add($"{Relative(file)}:{line}  {name} = U+{codePoint:X5}");
+            }
+        }
+
+        Assert.True(scanned > 0, "未扫描到任何 Symbol 引用，扫描逻辑大概率失效了。");
+        Assert.True(problems.Count == 0,
+            "以下 Symbol 的码位高于 U+FFFF，会被 WPF-UI 截断成错误字符显示（请换一个码位在基本平面内的图标）：" +
+            Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
+    private static readonly Regex CSharpSymbolPattern = new("SymbolRegular\\.([A-Za-z][A-Za-z0-9]*)", RegexOptions.Compiled);
+
+    /// <summary>XAML 的 <c>Symbol="Xxx"</c> 字面量 + C# 的 <c>SymbolRegular.Xxx</c> 引用。</summary>
+    private static IEnumerable<(string File, int Line, string Name)> UsedSymbols()
+    {
+        foreach (var file in XamlFiles())
+        {
+            var lines = File.ReadAllLines(file);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                foreach (Match match in SymbolAttributePattern.Matches(lines[index]))
+                {
+                    var value = match.Groups[1].Value;
+                    if (!value.StartsWith('{'))
+                    {
+                        yield return (file, index + 1, value);
+                    }
+                }
+            }
+        }
+
+        var sourceRoot = Path.Combine(RepositoryRoot(), "src");
+        var csharpFiles = Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+
+        foreach (var file in csharpFiles)
+        {
+            var lines = File.ReadAllLines(file);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                foreach (Match match in CSharpSymbolPattern.Matches(lines[index]))
+                {
+                    yield return (file, index + 1, match.Groups[1].Value);
+                }
+            }
+        }
+    }
+
+    private static HashSet<string> SymbolRegularNames() => [.. Enum.GetNames(SymbolRegularType())];
+
+    private static Type SymbolRegularType()
     {
         var assemblyPath = ResolveWpfUiAssembly();
 
         // 只反射取枚举成员，不触碰任何 WPF 类型，因此不需要 WindowsDesktop 框架引用
-        var type = Assembly.LoadFrom(assemblyPath).GetType("Wpf.Ui.Controls.SymbolRegular")
-                   ?? throw new InvalidOperationException($"{assemblyPath} 中未找到 Wpf.Ui.Controls.SymbolRegular。");
-
-        return [.. Enum.GetNames(type)];
+        return Assembly.LoadFrom(assemblyPath).GetType("Wpf.Ui.Controls.SymbolRegular")
+               ?? throw new InvalidOperationException($"{assemblyPath} 中未找到 Wpf.Ui.Controls.SymbolRegular。");
     }
 
     /// <summary>

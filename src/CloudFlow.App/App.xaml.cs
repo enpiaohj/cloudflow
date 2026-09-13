@@ -162,6 +162,25 @@ public partial class App : Application
         services.AddSingleton<CloudFlow.Azure.Compute.ArmVmDeleteExecutor>();
         services.AddSingleton<IVmDeleteExecutor, VmDeleteExecutorRouter>();
 
+        // 删除资源组（"资源"页——清理创建虚拟机流程按需新建、但删除虚拟机时刻意不连带删除
+        // 的网络类残留：虚拟网络/子网/资源组本身）：同一套 Handler+Executor+Router 模式
+        services.AddSingleton<CloudFlow.Modules.Network.Services.MockResourceGroupDeleteExecutor>();
+        services.AddSingleton<CloudFlow.Azure.Resources.ArmResourceGroupDeleteExecutor>();
+        services.AddSingleton<
+            CloudFlow.Modules.Network.Services.IResourceGroupDeleteExecutor, ResourceGroupDeleteExecutorRouter>();
+        services.AddSingleton<
+            CloudFlow.Modules.Network.Services.IResourceGroupService,
+            CloudFlow.Modules.Network.Services.ResourceGroupService>();
+
+        // 删除单个资源（"所有资源"页——比删资源组更细的粒度，只删这一件，不连带整个资源组）
+        services.AddSingleton<CloudFlow.Modules.Network.Services.MockResourceDeleteExecutor>();
+        services.AddSingleton<CloudFlow.Azure.Resources.ArmResourceDeleteExecutor>();
+        services.AddSingleton<
+            CloudFlow.Modules.Network.Services.IResourceDeleteExecutor, ResourceDeleteExecutorRouter>();
+        services.AddSingleton<
+            CloudFlow.Modules.Network.Services.IResourceService,
+            CloudFlow.Modules.Network.Services.ResourceService>();
+
         // 创建虚拟机（§87）：Router 额外吃 SshCredentialService ——
         // 密码方式创建时载荷只带凭据 Id，明文由本层解出（不落盘），Modules/Azure 层不认识凭据库
         services.AddSingleton<MockVmProvisioningExecutor>();
@@ -180,6 +199,8 @@ public partial class App : Application
         services.AddTransient<IOperationHandler, DeleteRuleHandler>();
         services.AddTransient<IOperationHandler, DeleteVmHandler>();
         services.AddTransient<IOperationHandler, CreateVmHandler>();
+        services.AddTransient<IOperationHandler, CloudFlow.Modules.Network.Operations.DeleteResourceGroupHandler>();
+        services.AddTransient<IOperationHandler, CloudFlow.Modules.Network.Operations.DeleteResourceHandler>();
 
         // ---- Modules：Compute（Demo / Mock）----
         services.AddSingleton<MockAccountContext>();
@@ -206,6 +227,20 @@ public partial class App : Application
 
         // 虚拟机规格目录（规格名 → 内存）：ARG 不返回内存，只能由规格推导；内部按 订阅+区域 缓存
         services.AddSingleton<IVmSizeCatalog, CloudFlow.Azure.Compute.ArmVmSizeCatalog>();
+
+        // 区域目录（创建虚拟机向导用）：内部按订阅缓存，未登录/查询失败时返回空列表，
+        // 由调用方回退到 Demo 清单——与 IVmSizeCatalog 同一条纪律，只读，不做 Hybrid 包装。
+        services.AddSingleton<IRegionCatalog, CloudFlow.Azure.Compute.ArmRegionCatalog>();
+
+        // 资源组目录（创建虚拟机向导用）：列出订阅下全部资源组（不止有 VM 的那些），翻页取全；
+        // 同上一条纪律，未登录/查询失败时退回按已知虚拟机反推。
+        services.AddSingleton<IResourceGroupCatalog, CloudFlow.Azure.Compute.ArmResourceGroupCatalog>();
+
+        // 镜像目录（创建虚拟机向导用）：查镜像的 Hyper-V 世代，用来提醒"这个镜像和规格搭不上"。
+        services.AddSingleton<IVmImageCatalog, CloudFlow.Azure.Compute.ArmVmImageCatalog>();
+
+        // 创建虚拟机向导的预估月费：走 Azure 公开零售价目表，不需要登录，Demo 模式下也能查。
+        services.AddSingleton<IVmPriceCatalog, CloudFlow.Azure.Compute.AzureRetailVmPriceCatalog>();
 
         // 成本洞察：仅登录后读取真实 Cost Management；未登录明确显示“无数据”，绝不伪造账单金额。
         services.AddSingleton<CloudFlow.Azure.Cost.ArmCostService>();
@@ -246,6 +281,7 @@ public partial class App : Application
         // 终端会话面板：SSH 会话的唯一所有者。必须单例 —— 会话要跨页面存活，
         // 挂在 Transient 的 VmDetailViewModel 上时旧实例的清理永远够不到上一条会话。
         services.AddSingleton<TerminalPanelViewModel>();
+        services.AddSingleton<RunningJobsViewModel>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<IShellNavigation>(sp => sp.GetRequiredService<ShellViewModel>());
         // 个人账户设备码登录：由 Shell 持有，供顶栏账户菜单与设置页共用
@@ -253,6 +289,8 @@ public partial class App : Application
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<VirtualMachinesViewModel>();
         services.AddSingleton<JobsViewModel>();
+        services.AddSingleton<ResourceGroupsViewModel>();
+        services.AddSingleton<AllResourcesViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<VmDetailViewModel>();
         services.AddSingleton<MainWindow>();

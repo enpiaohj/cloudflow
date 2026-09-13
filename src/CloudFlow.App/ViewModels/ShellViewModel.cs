@@ -28,6 +28,8 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     private HomeViewModel Home => _services.GetRequiredService<HomeViewModel>();
     private VirtualMachinesViewModel Vms => _services.GetRequiredService<VirtualMachinesViewModel>();
     private JobsViewModel Jobs => _services.GetRequiredService<JobsViewModel>();
+    private ResourceGroupsViewModel ResourceGroups => _services.GetRequiredService<ResourceGroupsViewModel>();
+    private AllResourcesViewModel AllResources => _services.GetRequiredService<AllResourcesViewModel>();
     private SettingsViewModel Settings => _services.GetRequiredService<SettingsViewModel>();
 
     public ShellViewModel(
@@ -39,11 +41,13 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         ISubscriptionDiscoveryService subscriptionDiscovery,
         CloudAccountDirectory directory,
         PersonalSignInViewModel personalSignIn,
-        TerminalPanelViewModel terminal)
+        TerminalPanelViewModel terminal,
+        RunningJobsViewModel runningJobs)
     {
         _services = services;
         PersonalSignIn = personalSignIn;
         Terminal = terminal;
+        RunningJobs = runningJobs;
         _scopeContext = scopeContext;
         _savedScopeStore = savedScopeStore;
         _activeAccountStore = activeAccountStore;
@@ -59,11 +63,22 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             IsGroup = true
         };
 
+        var resourcesGroup = new NavItemViewModel
+        {
+            PageKey = "resources",
+            Label = "资源",
+            Symbol = SymbolRegular.Box24,
+            IsGroup = true
+        };
+
         NavItems =
         [
             new() { PageKey = "home", Label = "首页", Symbol = SymbolRegular.Home24 },
             computeGroup,
             new() { PageKey = "vms", Label = "虚拟机", Symbol = SymbolRegular.Desktop24, IsChild = true, Parent = computeGroup },
+            resourcesGroup,
+            new() { PageKey = "allresources", Label = "所有资源", Symbol = SymbolRegular.List24, IsChild = true, Parent = resourcesGroup },
+            new() { PageKey = "resourcegroups", Label = "资源组", Symbol = SymbolRegular.Folder24, IsChild = true, Parent = resourcesGroup },
             new() { PageKey = "jobs", Label = "任务", Symbol = SymbolRegular.Clock24 },
             new() { PageKey = "sep1", IsSeparator = true, IsEnabled = false },
             new() { PageKey = "settings", Label = "设置", Symbol = SymbolRegular.Settings24 }
@@ -79,6 +94,9 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     /// <summary>底部终端会话面板。应用级唯一，SSH 会话归它所有 —— 因此切页面不会中断连接。</summary>
     public TerminalPanelViewModel Terminal { get; }
+
+    /// <summary>顶栏"任务进行中"徽标：不管当前在哪个页面都能看到正在跑的操作和子步骤进度。</summary>
+    public RunningJobsViewModel RunningJobs { get; }
 
     [ObservableProperty]
     private object? _current;
@@ -258,6 +276,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         {
             case "home":
                 Current = Home;
+                _ = Home.RefreshAsync();
                 break;
             case "vms":
                 Current = Vms;
@@ -266,6 +285,14 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             case "jobs":
                 Current = Jobs;
                 _ = Jobs.RefreshAsync();
+                break;
+            case "resourcegroups":
+                Current = ResourceGroups;
+                _ = ResourceGroups.RefreshAsync();
+                break;
+            case "allresources":
+                Current = AllResources;
+                _ = AllResources.RefreshAsync();
                 break;
             case "settings":
                 Current = Settings;
@@ -580,6 +607,10 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         // 所以必须显式停表，否则在看详情时后台仍在刷列表
         Vms.SetPageActive(false);
     }
+
+    /// <summary>顶栏"任务进行中"徽标弹层里的"查看全部"——就是导航到任务中心。</summary>
+    [RelayCommand]
+    private void ViewRunningJobs() => NavigateJobs();
 
     public void NavigateJobs()
     {

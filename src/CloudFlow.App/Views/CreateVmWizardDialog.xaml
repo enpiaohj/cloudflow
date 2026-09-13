@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:themes="clr-namespace:CloudFlow.App.Themes"
         Title="创建虚拟机"
-        Width="680" Height="650"
+        Width="820" Height="680"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="ToolWindow"
@@ -11,7 +11,7 @@
         TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
 
     <!-- 固定高度 + 内容区滚动：向导第二步有公钥 / 密码输入，不能把按钮行挤出小屏。 -->
-    <Grid Margin="24,20">
+    <Grid Margin="28,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -20,9 +20,10 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock Text="创建虚拟机" FontSize="18" FontWeight="SemiBold"
+            <TextBlock Text="创建虚拟机" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                       FontSize="18" FontWeight="SemiBold"
                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-            <TextBlock Text="创建 VM、网卡及可选公网 IP；资源组 / 虚拟网络 / 子网不存在时会按填写的信息自动新建，已存在则直接复用，不会改动其配置。仍不创建 NSG。"
+            <TextBlock Text="创建虚拟机、网卡及可选公网 IP。资源组、虚拟网络与子网不存在时将按填写的信息自动创建，已存在则直接复用且不改动其配置，本向导仍不创建 NSG。"
                        Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -37,7 +38,7 @@
                 <Border x:Name="BasicStepBadge" Width="24" Height="24" CornerRadius="12"
                         Background="{DynamicResource Cf.PrimaryBrush}">
                     <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
-                               Foreground="White" />
+                               Foreground="{DynamicResource Cf.OnPrimaryTextBrush}" />
                 </Border>
                 <TextBlock Text="基本信息" Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" />
             </StackPanel>
@@ -70,13 +71,18 @@
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="资源组" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
-                        <ComboBox Grid.Column="1" x:Name="ResourceGroupBox" MinHeight="34" IsEditable="True" FontSize="13" />
+                        <!-- IsTextSearchEnabled=False：默认开着时，输入前缀命中已有项会被 WPF 自动补全成
+                             那一项的大小写，导致"打算新建一个大写名字的资源组"却被悄悄改成小写。这个框
+                             主要是用来输入全新名字的，不需要这个自动补全。 -->
+                        <ComboBox Grid.Column="1" x:Name="ResourceGroupBox" MinHeight="34" IsEditable="True" FontSize="13"
+                                  IsTextSearchEnabled="False" />
                     </Grid>
 
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="区域" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
-                        <ComboBox Grid.Column="1" x:Name="RegionBox" MinHeight="34" IsEditable="True" FontSize="13" />
+                        <ComboBox Grid.Column="1" x:Name="RegionBox" MinHeight="34" IsEditable="True" FontSize="13"
+                                  MaxDropDownHeight="320" />
                     </Grid>
 
                     <Grid Margin="0,12,0,0">
@@ -85,30 +91,36 @@
                         <TextBox Grid.Column="1" x:Name="VmNameBox" FontSize="13" Padding="8,6"
                                  TextChanged="VmNameBox_TextChanged" />
                     </Grid>
-                    <TextBlock Text="名称只能包含字母、数字和连字符；Windows VM 最多 15 个字符。"
+                    <TextBlock Text="名称只能包含字母、数字和连字符；Windows 虚拟机最多 15 个字符。"
                                Style="{StaticResource Cf.Muted}" FontSize="11" Margin="112,4,0,0" />
 
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="镜像" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
-                        <ComboBox Grid.Column="1" x:Name="ImageBox" MinHeight="34" FontSize="13"
+                        <ComboBox Grid.Column="1" x:Name="ImageBox" MinHeight="34" FontSize="13" IsEditable="True"
                                   SelectionChanged="ImageBox_SelectionChanged">
                             <ComboBoxItem Tag="Canonical:ubuntu-24_04-lts:server:latest" Content="Ubuntu Server 24.04 LTS" />
                             <ComboBoxItem Tag="Canonical:ubuntu-22_04-lts:server:latest" Content="Ubuntu Server 22.04 LTS" />
+                            <ComboBoxItem Tag="Debian:debian-12:12:latest" Content="Debian 12" />
+                            <ComboBoxItem Tag="RedHat:RHEL:9-lvm:latest" Content="Red Hat Enterprise Linux 9" />
                             <ComboBoxItem Tag="MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure:latest" Content="Windows Server 2022 Datacenter" />
+                            <ComboBoxItem Tag="MicrosoftWindowsServer:WindowsServer:2019-datacenter:latest" Content="Windows Server 2019 Datacenter" />
+                            <ComboBoxItem Tag="MicrosoftWindowsDesktop:Windows-11:win11-23h2-ent:latest" Content="Windows 11 Enterprise" />
                         </ComboBox>
                     </Grid>
+                    <TextBlock Text="下拉未列出的系统可直接输入 publisher:offer:sku:version 格式的镜像 URN。"
+                               Style="{StaticResource Cf.Muted}" FontSize="11" Margin="112,4,0,0" />
+                    <TextBlock x:Name="ImageCompatibilityText" Text="" Style="{StaticResource Cf.Muted}" FontSize="11"
+                               Margin="112,4,0,0" TextWrapping="Wrap" />
 
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="规格" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
-                        <ComboBox Grid.Column="1" x:Name="VmSizeBox" MinHeight="34" FontSize="13">
-                            <ComboBoxItem Content="Standard_B1s" />
-                            <ComboBoxItem Content="Standard_B2s" />
-                            <ComboBoxItem Content="Standard_B2ms" />
-                            <ComboBoxItem Content="Standard_D2s_v5" />
-                        </ComboBox>
+                        <ComboBox Grid.Column="1" x:Name="VmSizeBox" MinHeight="34" FontSize="13" IsEditable="True"
+                                  MaxDropDownHeight="320" />
                     </Grid>
+                    <TextBlock x:Name="PriceEstimateText" Text="" Style="{StaticResource Cf.Muted}" FontSize="11"
+                               Margin="112,4,0,0" TextWrapping="Wrap" />
 
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -127,7 +139,8 @@
                         <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="虚拟网络" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
-                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="VirtualNetworkBox" FontSize="12.5" Padding="8,6" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="VirtualNetworkBox" FontSize="12.5" Padding="8,6"
+                                 TextChanged="VirtualNetworkBox_TextChanged" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0"
                                    TextWrapping="Wrap" Text="名称（不存在会在目标资源组下新建），或粘贴完整 Resource ID 复用其它资源组下的虚拟网络。" />
                     </Grid>
@@ -199,9 +212,11 @@
         <Grid Grid.Row="3" Margin="0,16,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="上一步" x:Name="BackButton" Padding="14,6" Margin="0,0,10,0"
+                <Button Content="上一步" x:Name="BackButton" Style="{StaticResource Cf.SecondaryButton}"
+                        Padding="14,6" Margin="0,0,10,0"
                         Visibility="Collapsed" Click="Back_Click" />
-                <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" Padding="14,6" Margin="0,0,10,0" IsCancel="True" />
+                <Button Content="取消" x:Name="CancelButton" Style="{StaticResource Cf.SecondaryButton}"
+                        Padding="14,6" Margin="0,0,10,0" IsCancel="True" />
                 <Button Content="下一步" x:Name="NextButton" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
                         IsDefault="True" Click="Next_Click" />
                 <Button Content="创建" x:Name="CreateButton" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
@@ -209,9 +224,11 @@
             </StackPanel>
         </Grid>
 
-        <!-- 就地校验错误，避免系统 MessageBox 覆盖输入内容且不跟随主题。 -->
+        <!-- 就地校验错误，避免系统 MessageBox 覆盖输入内容且不跟随主题。
+             点"创建"通过校验后对话框立即关闭，真正的提交在关闭之后于后台跑——
+             这里只负责本地表单校验的报错，不再有"正在提交"这种中间态。 -->
         <Border x:Name="ErrorPanel" Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Center"
-                MaxWidth="350" CornerRadius="6" Padding="10,6"
+                MaxWidth="350" CornerRadius="8" Padding="10,6"
                 Background="{DynamicResource Cf.Status.Danger.Bg}" Visibility="Collapsed">
             <TextBlock x:Name="ErrorText" Foreground="{DynamicResource Cf.Status.Danger.Fg}"
                        FontSize="11.5" TextWrapping="Wrap" />

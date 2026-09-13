@@ -318,8 +318,8 @@ public partial class VmDetailViewModel : ObservableObject
     public bool HasActivity => ActivityJobs.Count > 0;
 
     public string ActivityEmptyText => _scopeContext.ActiveAccount is null
-        ? "暂无活动记录。平台上的写操作执行后会显示在这里。"
-        : "当前账户在此虚拟机上还没有操作记录。执行启动 / 重启 / 快照 / 端口变更后会显示在这里。";
+        ? "演示模式下暂无活动记录。"
+        : "对这台虚拟机执行启动、重启、快照或端口变更后，操作记录会显示在这里。";
 
     partial void OnActivityJobsChanged(ObservableCollection<OperationJob> value)
         => OnPropertyChanged(nameof(HasActivity));
@@ -464,7 +464,7 @@ public partial class VmDetailViewModel : ObservableObject
             Row("订阅", _vm.SubscriptionName),
             Row("订阅 ID", _vm.SubscriptionId, copy: true),
             Row("资源组", _vm.ResourceGroupName),
-            Row("区域", _vm.Region)));
+            Row("区域", CloudFlow.App.Infrastructure.AzureRegionCatalog.DisplayNameWithCode(_vm.Region))));
 
         sections.Add(Section("大小",
             Row("大小", detail?.VmSize ?? _vm.VmSize),
@@ -985,13 +985,7 @@ public partial class VmDetailViewModel : ObservableObject
     private void ShowJob(OperationJob job)
     {
         InfoSeverity = job.Status.ToString();
-        InfoText = job.Status switch
-        {
-            JobStatus.Succeeded => $"{job.Display} —— 成功（已验证）。",
-            JobStatus.Failed => $"{job.Display} —— 失败：{job.Error}",
-            JobStatus.WaitingApproval => $"{job.Display} —— 等待审批。",
-            _ => $"{job.Display} —— {CfStatusTextConverter.Map(job.Status.ToString())}…"
-        };
+        InfoText = JobPresentation.Feedback(job);
 
         // 终态后联动刷新活动与磁盘快照计数
         if (job.Status is JobStatus.Succeeded or JobStatus.Failed)

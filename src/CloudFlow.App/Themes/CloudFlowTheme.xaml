@@ -27,18 +27,64 @@
     <cvc:CfNotRunningToVisibilityConverter x:Key="NotRunningToVisibility" />
     <cvc:CfSectionVisibilityConverter x:Key="SectionVisible" />
 
+    <!-- ===== 字体 ===== -->
+    <!--
+      Segoe UI Variable 是 Windows 11 原生字体族（Settings / File Explorer / Widgets 都在用），
+      字重过渡更细腻、数字更紧凑，比经典 Segoe UI 更"现代应用"。Windows 10 上没有这款字体时
+      WPF 会自动回退到列表里的下一项，不会出现缺字方块——纯粹的渐进增强，没有兼容性代价。
+      Display 变体的字面尺寸是为大号标题优化的（比 Text 变体在大字号下更疏朗），只给 PageTitle 用。
+    -->
+    <FontFamily x:Key="Cf.FontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="Cf.FontFamily.Display">Segoe UI Variable Display, Segoe UI Variable Text, Segoe UI</FontFamily>
+
+    <!-- 全应用默认字体：一处设置，靠 FontFamily 的继承性覆盖所有子元素（Window 与
+         CfDialogWindow 都是普通 Window，隐式样式按运行时类型逐级向上找，两边都吃得到）。 -->
+    <Style TargetType="Window">
+        <Setter Property="FontFamily" Value="{StaticResource Cf.FontFamily}" />
+    </Style>
+
+    <!-- ===== 阴影（分层立体感） =====
+         只用在"浮在页面之上"的表面（卡片 / 弹层 / 对话框），不用在按钮等内联控件上——
+         2024 年后的专业工具类软件（Linear / Vercel / Raycast）普遍是"平面按钮 + 分层卡片"的组合，
+         到处加阴影反而显得廉价。数值刻意很轻（Opacity ≤ 0.10）：够分层，不够"浮夸"。 -->
+    <DropShadowEffect x:Key="Cf.Elevation.Card" Color="#1B1F2A" Direction="270"
+                       BlurRadius="24" ShadowDepth="1.5" Opacity="0.06" RenderingBias="Quality" />
+    <DropShadowEffect x:Key="Cf.Elevation.CardHover" Color="#1B1F2A" Direction="270"
+                       BlurRadius="30" ShadowDepth="4" Opacity="0.10" RenderingBias="Quality" />
+    <DropShadowEffect x:Key="Cf.Elevation.Bar" Color="#1B1F2A" Direction="270"
+                       BlurRadius="16" ShadowDepth="2" Opacity="0.05" RenderingBias="Quality" />
+    <DropShadowEffect x:Key="Cf.Elevation.Popup" Color="#1B1F2A" Direction="270"
+                       BlurRadius="28" ShadowDepth="6" Opacity="0.14" RenderingBias="Quality" />
+    <DropShadowEffect x:Key="Cf.Elevation.Dialog" Color="#10131C" Direction="270"
+                       BlurRadius="44" ShadowDepth="12" Opacity="0.22" RenderingBias="Quality" />
+
     <!-- ===== 卡片 ===== -->
     <Style x:Key="Cf.Card" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Cf.BorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="18" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="Effect" Value="{StaticResource Cf.Elevation.Card}" />
     </Style>
 
-    <!-- ===== 文本 ===== -->
+    <!-- 可交互卡片（首页统计卡等）：悬停时阴影加深、边框转向主色一角，给出"这里能点"的反馈。 -->
+    <Style x:Key="Cf.InteractiveCard" TargetType="Border" BasedOn="{StaticResource Cf.Card}">
+        <Setter Property="Cursor" Value="Hand" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Effect" Value="{StaticResource Cf.Elevation.CardHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Cf.PrimaryBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ===== 文本 =====
+         尺寸整体比原来收紧一档（26→24，Subtitle/Muted 加一点行高）：更大的字号不等于更有
+         "产品感"，专业工具软件的标题通常比想象中克制，靠字重和留白建立层级，而不是字号本身。 -->
     <Style x:Key="Cf.PageTitle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontFamily" Value="{StaticResource Cf.FontFamily.Display}" />
+        <Setter Property="FontSize" Value="24" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
     </Style>
@@ -52,6 +98,8 @@
     <Style x:Key="Cf.Subtitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+        <Setter Property="LineHeight" Value="19" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
     </Style>
 
     <Style x:Key="Cf.Muted" TargetType="TextBlock">
@@ -60,8 +108,9 @@
     </Style>
 
     <Style x:Key="Cf.StatNumber" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="28" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontFamily" Value="{StaticResource Cf.FontFamily.Display}" />
+        <Setter Property="FontSize" Value="30" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
     </Style>
 
@@ -105,24 +154,31 @@
         <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>
 
-    <!-- ===== 按钮 ===== -->
+    <!-- ===== 按钮 =====
+         圆角从 6 提到 8（与卡片的 12 保持同一套"越大的面越圆"的比例关系），
+         按下态额外压一档不透明度——之前只有悬停和禁用两种反馈，点下去和悬停在视觉上
+         没有任何区别，专业软件的按钮通常都有这一下"按实了"的反馈。 -->
     <Style x:Key="Cf.PrimaryButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource Cf.PrimaryBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource Cf.OnPrimaryTextBrush}" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="Padding" Value="16,8" />
         <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.PrimaryHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.85" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.5" />
@@ -136,10 +192,11 @@
     <Style x:Key="Cf.SecondaryButton" TargetType="Button" BasedOn="{StaticResource Cf.PrimaryButton}">
         <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8"
                             BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -147,6 +204,10 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Cf.TextMutedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.75" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.5" />
@@ -157,7 +218,7 @@
         </Setter>
     </Style>
 
-    <!-- 纯图标按钮（刷新等）。固定方形而不是沿用 14,7 内边距：图标没有文字基线，
+    <!-- 纯图标按钮（刷新等）。固定方形而不是沿用文字按钮内边距：图标没有文字基线，
          按文字按钮的内边距会得到一个偏扁的框，和旁边的方形按钮对不齐。 -->
     <Style x:Key="Cf.IconButton" TargetType="Button" BasedOn="{StaticResource Cf.SecondaryButton}">
         <Setter Property="Width" Value="34" />
@@ -170,13 +231,16 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.DangerHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.85" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.5" />
@@ -199,7 +263,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter
                             HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -208,6 +272,9 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.7" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.5" />
@@ -250,6 +317,137 @@
         </Setter>
     </Style>
 
+    <!-- ===== 文字链接（"查看全部"这类次要跳转） =====
+         之前这类按钮各页面各写一份裸 Button（Transparent 背景、无悬停反馈），
+         点上去和普通文字没有区别。收成一份共享样式，悬停有底色反馈。 -->
+    <Style x:Key="Cf.LinkButton" TargetType="Button" BasedOn="{StaticResource Cf.TopBarButton}">
+        <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+
+    <!-- ===== 提示条图标 / 分页高亮 ===== -->
+    <cvc:CfSeverityIconConverter x:Key="SeverityIcon" />
+    <cvc:CfEqualsMultiConverter x:Key="EqualsMulti" />
+    <cvc:CfRegionNameConverter x:Key="RegionName" />
+
+    <!-- ===== 次级危险动作（如详情页的"关机"） =====
+         描边按钮 + 危险色文字，悬停才铺浅红底。实心红块只留给确认框里的最终"删除 / 确认"——
+         工具栏里放一块实心红，视觉权重压过了真正的主操作"连接"，整行像在报警。 -->
+    <Style x:Key="Cf.DangerSubtleButton" TargetType="Button" BasedOn="{StaticResource Cf.SecondaryButton}">
+        <Setter Property="Foreground" Value="{DynamicResource Cf.ErrorTextBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8"
+                            BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.Surface.DangerBrush}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Cf.Surface.DangerBorderBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== 复制按钮 =====
+         原来是一个写着 "⧉" 字符的透明按钮：这个字符不在界面字体里，渲染成系统回退字体里的一个
+         小方框，大小、基线都和旁边的文字对不上。图标画在模板里而不是 Content 里，
+         调用方只写 Command / ToolTip 即可。 -->
+    <Style x:Key="Cf.CopyButton" TargetType="Button">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                        <ui:SymbolIcon x:Name="glyph" Symbol="Copy16" FontSize="13"
+                                       Foreground="{DynamicResource Cf.TextMutedBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+                            <Setter TargetName="glyph" Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.7" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== 页头 ===== -->
+    <Style x:Key="Cf.BreadcrumbText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextMutedBrush}" />
+    </Style>
+
+    <Style x:Key="Cf.BreadcrumbCurrent" TargetType="TextBlock" BasedOn="{StaticResource Cf.BreadcrumbText}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+    </Style>
+
+    <!-- 列表页搜索框外壳（ui:TextBox 本身不带与卡片一致的描边与圆角） -->
+    <Style x:Key="Cf.SearchField" TargetType="Border">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Cf.BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <!-- 页面级操作反馈横幅的外壳（背景由各页按严重程度绑定） -->
+    <Style x:Key="Cf.InfoBar" TargetType="Border">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,8" />
+    </Style>
+
+    <!-- 首页指标卡的标签（数字上方的一行小字） -->
+    <Style x:Key="Cf.KpiLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+    </Style>
+
+    <!-- 骨架屏占位条：呼吸动画，比"加载中…"文字更有位置感；取 BorderBrush 深浅主题自适应。
+         原来只在虚拟机列表页内联定义，资源页也要用，提到这里共享。 -->
+    <Style x:Key="Cf.SkeletonBar" TargetType="Rectangle">
+        <Setter Property="Height" Value="12" />
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Fill" Value="{DynamicResource Cf.BorderBrush}" />
+        <Setter Property="Opacity" Value="0.6" />
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0.3" To="1" Duration="0:0:0.8" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ===== 导航 ===== -->
     <!--
       右键菜单 / ToolTip 的隐式主题化。这三类都是 Popup 型表面，默认用 WPF 系统色
@@ -287,7 +485,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="bd" Background="Transparent" CornerRadius="7" Padding="12,9">
+                    <Border x:Name="bd" Background="Transparent" CornerRadius="8" Padding="12,9">
                         <ContentPresenter />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -315,6 +513,21 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <!--
+              分组折叠时，子项只在 DataTemplate 内部把内容 Grid 收起来（见 MainWindow.xaml），
+              但这个 ListBoxItem 容器本身（连同模板里 12,9 的 Border Padding）还在占位——
+              折叠的子项越多，行间就会多出一截看起来"什么都没有"的空白。
+              这里直接把整个容器收起来，折叠状态下不占任何高度。
+            -->
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsChild}" Value="True" />
+                    <Condition Binding="{Binding Parent.IsExpanded}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Collapsed" />
+            </MultiDataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!--
@@ -337,7 +550,7 @@
                             <RowDefinition Height="2" />
                         </Grid.RowDefinitions>
                         <Border x:Name="bd" Grid.Row="0" Background="Transparent"
-                                CornerRadius="6,6,0,0" Padding="12,7">
+                                CornerRadius="8,8,0,0" Padding="12,7">
                             <ContentPresenter />
                         </Border>
                         <Border x:Name="bar" Grid.Row="1" Background="Transparent" CornerRadius="1" />
@@ -447,7 +660,7 @@
     <Style x:Key="Cf.DataGrid" TargetType="DataGrid">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="RowHeight" Value="42" />
+        <Setter Property="RowHeight" Value="46" />
         <Setter Property="HeadersVisibility" Value="Column" />
         <Setter Property="GridLinesVisibility" Value="None" />
         <Setter Property="AutoGenerateColumns" Value="False" />

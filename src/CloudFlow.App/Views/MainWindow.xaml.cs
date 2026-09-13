@@ -105,6 +105,17 @@ public partial class MainWindow : FluentWindow
     /// <summary>账户菜单项执行后立即收起菜单，避免在点击处留下悬空菜单。</summary>
     private void AccountMenuAction_Click(object sender, RoutedEventArgs e) => AccountMenuPopup.IsOpen = false;
 
+    /// <summary>顶栏"任务进行中"徽标：打开正在跑的任务列表（同一个"等鼠标抬起再开"的理由）。</summary>
+    private void RunningJobsButton_Click(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(
+            new Action(() => RunningJobsPopup.IsOpen = true),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    /// <summary>"查看全部任务"点击后收起弹层，避免留下悬空菜单。</summary>
+    private void RunningJobsMenuAction_Click(object sender, RoutedEventArgs e) => RunningJobsPopup.IsOpen = false;
+
     /// <summary>顶栏空白区域拖拽移动窗口（ExtendsContentIntoTitleBar）。</summary>
     private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
