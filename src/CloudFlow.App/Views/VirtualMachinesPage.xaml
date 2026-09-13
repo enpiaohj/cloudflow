@@ -54,8 +54,10 @@
                     <!-- 批量连接入口。放标题行是因为筛选行已经排满（766/768px），
                          往那里塞会把刷新按钮挤出视口。
                          未选中时**可见但禁用**，不隐藏 —— 隐藏会让人以为没有这个功能。
-                         文案随勾选台数变：1 台是「连接」，2 台以上是「批量连接 (N)」。 -->
-                    <Button Style="{StaticResource Cf.PrimaryButton}" Height="36" Padding="14,0"
+                         文案随勾选台数变：1 台是「连接」，2 台以上是「批量连接 (N)」。
+                         次要样式而不是主色：这页真正的主操作是"创建虚拟机"，两个同款主色
+                         按钮并排会互相抢注意力，且这一个大多数时候是禁用态。 -->
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Height="36" Padding="14,0"
                             Margin="0,0,10,0"
                             Command="{Binding ConnectSelectedCommand}"
                             IsEnabled="{Binding HasChecked}"

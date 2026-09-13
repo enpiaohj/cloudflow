@@ -175,7 +175,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="上一步" x:Name="BackButton" Padding="14,6" Margin="0,0,10,0"
                         Visibility="Collapsed" Click="Back_Click" />
-                <Button Content="取消" Padding="14,6" Margin="0,0,10,0" IsCancel="True" />
+                <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" Padding="14,6" Margin="0,0,10,0" IsCancel="True" />
                 <Button Content="下一步" x:Name="NextButton" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
                         IsDefault="True" Click="Next_Click" />
                 <Button Content="创建" x:Name="CreateButton" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
