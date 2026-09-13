@@ -24,9 +24,9 @@ public partial class VmDetailPage : UserControl
         }
     }
 
-    private void MenuDeallocate_Click(object sender, RoutedEventArgs e)
+    private async void MenuDeallocate_Click(object sender, RoutedEventArgs e)
     {
-        Vm.DeallocateFromMenu();
+        await Vm.DeallocateFromMenuAsync();
     }
 
     private async void MenuStart_Click(object sender, RoutedEventArgs e)

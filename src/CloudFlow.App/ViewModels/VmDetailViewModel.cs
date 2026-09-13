@@ -1098,9 +1098,9 @@ public partial class VmDetailViewModel : ObservableObject
     [RelayCommand]
     private void BackToVms() => _navigation.NavigateVirtualMachines();
 
-    /// <summary>供 code-behind 菜单使用：Deallocate。</summary>
-    public async void DeallocateFromMenu()
-    {
-        await DeallocateCommand.ExecuteAsync(null);
-    }
+    /// <summary>
+    /// 供 code-behind 菜单使用：Deallocate。返回 <see cref="Task"/> 而不是 <c>async void</c>——
+    /// 调用方（真正的 WPF 事件处理器）才是异常兜底的正确落点，这里只做转发。
+    /// </summary>
+    public Task DeallocateFromMenuAsync() => DeallocateCommand.ExecuteAsync(null);
 }

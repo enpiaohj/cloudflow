@@ -65,13 +65,13 @@ public sealed class OperationEngine : IOperationEngine
                 $"No handler registered for operation '{request.OperationType}'.").ConfigureAwait(false);
         }
 
-        try
+        return await GuardAsync(job, request.OperationType, async () =>
         {
             // ---- Validate ----
             await handler.ValidateAsync(request, ct).ConfigureAwait(false);
 
             // ---- Impact Analysis ----
-            SetStatus(job, JobStatus.AnalyzingImpact);
+            await SetStatusAsync(job, JobStatus.AnalyzingImpact, ct).ConfigureAwait(false);
             var impact = await handler.AnalyzeImpactAsync(request, ct).ConfigureAwait(false);
 
             // ---- Permission（审批）----
@@ -95,21 +95,7 @@ public sealed class OperationEngine : IOperationEngine
             }
 
             return await RunAsync(job, request, handler, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return await FailAsync(job, "Operation canceled.").ConfigureAwait(false);
-        }
-        catch (CloudFlowException ex)
-        {
-            _logger.LogWarning(ex, "Job {JobId} failed at {Operation}", job.JobId, request.OperationType);
-            return await FailAsync(job, ex.Message).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Job {JobId} unexpected failure at {Operation}", job.JobId, request.OperationType);
-            return await FailAsync(job, ex.Message).ConfigureAwait(false);
-        }
+        }).ConfigureAwait(false);
     }
 
     public async Task<OperationJob> ApproveAsync(Guid jobId, CancellationToken ct = default)
@@ -184,18 +170,18 @@ public sealed class OperationEngine : IOperationEngine
     private async Task<OperationJob> RunAsync(
         OperationJob job, OperationRequest request, IOperationHandler handler, CancellationToken ct)
     {
-        try
+        return await GuardAsync(job, request.OperationType, async () =>
         {
             // ---- Execute ----
-            SetStatus(job, JobStatus.Running);
+            await SetStatusAsync(job, JobStatus.Running, ct).ConfigureAwait(false);
             var requestId = await handler.ExecuteAsync(request, ct).ConfigureAwait(false);
             job.RequestId = requestId;
 
             // ---- Azure 侧完成（真实实现为 LRO 轮询，Mock 直接通过）----
-            SetStatus(job, JobStatus.WaitingAzure);
+            await SetStatusAsync(job, JobStatus.WaitingAzure, ct).ConfigureAwait(false);
 
             // ---- Verify ----
-            SetStatus(job, JobStatus.Verifying);
+            await SetStatusAsync(job, JobStatus.Verifying, ct).ConfigureAwait(false);
             var verified = await handler.VerifyAsync(request, requestId, ct).ConfigureAwait(false);
 
             if (!verified)
@@ -206,6 +192,19 @@ public sealed class OperationEngine : IOperationEngine
 
             job.Summary = $"{request.OperationType} verified.";
             return await CompleteAsync(job, JobStatus.Succeeded).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Submit/Run 两段共用的失败兜底：取消 → Canceled；已知业务异常 → 记警告；
+    /// 未知异常 → 记错误。统一在这里，避免两段各写一份容易再次分叉的 try/catch。
+    /// </summary>
+    private async Task<OperationJob> GuardAsync(
+        OperationJob job, string operationType, Func<Task<OperationJob>> action)
+    {
+        try
+        {
+            return await action().ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -213,11 +212,12 @@ public sealed class OperationEngine : IOperationEngine
         }
         catch (CloudFlowException ex)
         {
+            _logger.LogWarning(ex, "Job {JobId} failed at {Operation}", job.JobId, operationType);
             return await FailAsync(job, ex.Message).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Job {JobId} failed during execution", job.JobId);
+            _logger.LogError(ex, "Job {JobId} unexpected failure at {Operation}", job.JobId, operationType);
             return await FailAsync(job, ex.Message).ConfigureAwait(false);
         }
     }
@@ -226,10 +226,14 @@ public sealed class OperationEngine : IOperationEngine
         _handlers.FirstOrDefault(h =>
             string.Equals(h.OperationType, operationType, StringComparison.OrdinalIgnoreCase));
 
-    private void SetStatus(OperationJob job, JobStatus status)
+    /// <summary>
+    /// 状态流转必须真正 await 落盘，不能用 GetAwaiter().GetResult() 同步阻塞 ——
+    /// 那样做既有 UI 线程死锁风险，也无法把 CancellationToken 透传给 Store。
+    /// </summary>
+    private async Task SetStatusAsync(OperationJob job, JobStatus status, CancellationToken ct)
     {
         job.Status = status;
-        _jobStore.UpdateAsync(job).GetAwaiter().GetResult();
+        await _jobStore.UpdateAsync(job, ct).ConfigureAwait(false);
         Notify(job);
     }
 

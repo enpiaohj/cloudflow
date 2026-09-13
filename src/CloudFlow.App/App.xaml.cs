@@ -52,6 +52,13 @@ public partial class App : Application
                 CloudFlow.Data.Stores.CloudFlowPaths.WriteCrashLog("AppDomain.UnhandledException", ex);
             }
         };
+        // 未被 await/观测的 Task 异常（常见于 fire-and-forget 的异步命令）只落日志、不弹窗：
+        // 触发时机与当前 UI 操作已经脱节，弹窗只会打扰用户；SetObserved 避免终结器线程再抛一次。
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            CloudFlow.Data.Stores.CloudFlowPaths.WriteCrashLog("TaskScheduler.UnobservedTaskException", args.Exception);
+            args.SetObserved();
+        };
 
         Services = BuildServices();
 
