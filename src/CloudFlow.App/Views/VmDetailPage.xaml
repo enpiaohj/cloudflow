@@ -352,23 +352,40 @@
                 -->
                 <TabItem Header="摘要" IsSelected="True">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
-                        <Grid Margin="14,14,14,16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <ItemsControl Grid.Column="0" ItemsSource="{Binding OverviewSectionsLeft}"
-                                          ItemTemplate="{StaticResource Cf.OverviewSectionCard}" />
-                            <ItemsControl Grid.Column="2" ItemsSource="{Binding OverviewSectionsRight}"
-                                          ItemTemplate="{StaticResource Cf.OverviewSectionCard}" />
-                        </Grid>
+                        <StackPanel>
+                            <!-- 切进 Tab 的一瞬间 ARM 详情还没读回来，没有这个提示容易被当成"卡住了"
+                                 而不是"在读"。三处（摘要/磁盘/性能）都是这个小尺寸旋转图标的样式。 -->
+                            <StackPanel Orientation="Horizontal" Margin="14,10,0,0"
+                                        Visibility="{Binding IsLoadingOverview, Converter={StaticResource BoolToVisibility}}">
+                                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                               Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                            </StackPanel>
+                            <Grid Margin="14,14,14,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ItemsControl Grid.Column="0" ItemsSource="{Binding OverviewSectionsLeft}"
+                                              ItemTemplate="{StaticResource Cf.OverviewSectionCard}" />
+                                <ItemsControl Grid.Column="2" ItemsSource="{Binding OverviewSectionsRight}"
+                                              ItemTemplate="{StaticResource Cf.OverviewSectionCard}" />
+                            </Grid>
+                        </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
                 <!-- ============ Network（P1 核心特色） ============ -->
                 <TabItem Header="网络">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="14,10,0,0"
+                                    Visibility="{Binding IsLoadingNetwork, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                        </StackPanel>
                         <Grid Margin="14,14,14,16">
                         <Grid.ColumnDefinitions>
                             <!-- 摘要列收窄，把宽度让给规则表（列多，窄了会挤掉「来源」列） -->
@@ -599,7 +616,7 @@
                                                         <Button Style="{StaticResource Cf.TopBarButton}"
                                                                 Width="26" Height="26" Padding="0"
                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                ToolTip="更多操作" Tag="{Binding}"
+                                                                ToolTip="更多操作" automation:AutomationProperties.Name="更多操作" Tag="{Binding}"
                                                                 Click="RowMenu_Click">
                                                             <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
                                                             <Button.ContextMenu>
@@ -684,7 +701,7 @@
                                                         <Button Style="{StaticResource Cf.TopBarButton}"
                                                                 Width="26" Height="26" Padding="0"
                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                ToolTip="更多操作" Tag="{Binding}"
+                                                                ToolTip="更多操作" automation:AutomationProperties.Name="更多操作" Tag="{Binding}"
                                                                 Click="RowMenu_Click">
                                                             <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
                                                             <Button.ContextMenu>
@@ -800,6 +817,7 @@
                             </Border>
                         </StackPanel>
                     </Grid>
+                        </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
@@ -807,6 +825,12 @@
                 <TabItem Header="磁盘">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="14,14,14,16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    Visibility="{Binding IsLoadingDisks, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                        </StackPanel>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -860,7 +884,7 @@
                                             <Button Style="{StaticResource Cf.TopBarButton}"
                                                     Width="26" Height="26" Padding="0"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    ToolTip="更多操作" Tag="{Binding}"
+                                                    ToolTip="更多操作" automation:AutomationProperties.Name="更多操作" Tag="{Binding}"
                                                     Click="RowMenu_Click">
                                                 <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
                                                 <Button.ContextMenu>
@@ -880,6 +904,12 @@
                 <TabItem Header="性能">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="14,14,14,16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    Visibility="{Binding IsLoadingPerformance, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                        </StackPanel>
                         <TextBlock Text="使用率" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
                         <!-- 全部为 Host 指标，无需在 VM 内启用诊断扩展 -->
                         <!-- WrapPanel：窄窗口下指标卡自动 2 列（每卡固定 230 宽） -->

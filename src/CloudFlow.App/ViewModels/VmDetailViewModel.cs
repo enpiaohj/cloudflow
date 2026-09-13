@@ -65,6 +65,10 @@ public partial class VmDetailViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<OverviewSection> _overviewSections = [];
 
+    /// <summary>摘要 Tab 是否正在读取 ARM 详情（切进 Tab 的一瞬间没有这个会被误读成"卡住了"）。</summary>
+    [ObservableProperty]
+    private bool _isLoadingOverview;
+
     /// <summary>摘要 Tab 左栏（见 <see cref="OnOverviewSectionsChanged"/> 的按行数贪心分配）。</summary>
     public IReadOnlyList<OverviewSection> OverviewSectionsLeft { get; private set; } = [];
 
@@ -255,9 +259,15 @@ public partial class VmDetailViewModel : ObservableObject
     [ObservableProperty]
     private int _snapshotTotal;
 
+    [ObservableProperty]
+    private bool _isLoadingDisks;
+
     // ---- Performance（设计文档 §27：Azure Monitor 主机指标，实时读取，无数据时显示 "—"）----
     // 默认 "—" 而不是演示数字：性能页展示的是"这台机器现在多忙"，
     // 用 Mock 数值冒充会被当成真实读数。
+    [ObservableProperty]
+    private bool _isLoadingPerformance;
+
     [ObservableProperty]
     private string _cpuText = "—";
 
@@ -413,6 +423,7 @@ public partial class VmDetailViewModel : ObservableObject
     {
         OverviewSections = BuildOverviewSections(null);
 
+        IsLoadingOverview = true;
         try
         {
             var detail = await _detailService.GetAsync(_vm.ResourceId);
@@ -430,6 +441,10 @@ public partial class VmDetailViewModel : ObservableObject
         {
             InfoSeverity = "Failed";
             InfoText = $"虚拟机详情读取失败：{ex.Message}";
+        }
+        finally
+        {
+            IsLoadingOverview = false;
         }
     }
 
@@ -631,6 +646,7 @@ public partial class VmDetailViewModel : ObservableObject
 
     private async Task LoadDisksAsync()
     {
+        IsLoadingDisks = true;
         try
         {
             var disks = await _diskService.GetDisksAsync(_vm.ResourceId);
@@ -645,6 +661,10 @@ public partial class VmDetailViewModel : ObservableObject
             InfoSeverity = "Failed";
             InfoText = $"磁盘信息读取失败：{ex.Message}";
         }
+        finally
+        {
+            IsLoadingDisks = false;
+        }
     }
 
     /// <summary>
@@ -653,6 +673,7 @@ public partial class VmDetailViewModel : ObservableObject
     /// </summary>
     private async Task LoadMetricsAsync()
     {
+        IsLoadingPerformance = true;
         try
         {
             var metrics = await _metrics.GetForVmAsync(_vm.ResourceId);
@@ -683,6 +704,10 @@ public partial class VmDetailViewModel : ObservableObject
             VmCachedIopsText = VmCachedBandwidthText = VmUncachedIopsText = VmUncachedBandwidthText = "—";
             NetworkInText = NetworkOutText = DiskReadText = DiskWriteText = "—";
             MetricsNote = $"性能指标读取失败：{ex.Message}";
+        }
+        finally
+        {
+            IsLoadingPerformance = false;
         }
     }
 

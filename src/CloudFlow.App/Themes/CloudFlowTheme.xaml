@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:cvc="clr-namespace:CloudFlow.App.Converters"
                     xmlns:behaviors="clr-namespace:CloudFlow.App.Behaviors"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:compute="clr-namespace:CloudFlow.Modules.Compute.Models;assembly=CloudFlow.Modules.Compute">
 
     <!--
@@ -419,6 +420,28 @@
     <!-- 紧凑单元格：列较多时给内容让出宽度（必须在 Cf.GridCell 之后定义） -->
     <Style x:Key="Cf.GridCellCompact" TargetType="DataGridCell" BasedOn="{StaticResource Cf.GridCell}">
         <Setter Property="Padding" Value="6,0" />
+    </Style>
+
+    <!-- 持续旋转的小图标，配合 IsLoadingXxx 的 Visibility 绑定用作轻量加载指示（不做整屏遮罩，
+         详情页的几个 Tab 是并行独立加载的，遮罩会互相打架）。RenderTransform 是 Freezable，
+         WPF 会给每个应用了该样式的实例各自克隆一份，互不干扰地独立旋转。 -->
+    <Style x:Key="Cf.SpinningIcon" TargetType="ui:SymbolIcon">
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <RotateTransform Angle="0" />
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
+                                         From="0" To="360" Duration="0:0:0.9" RepeatBehavior="Forever" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="Cf.DataGrid" TargetType="DataGrid">
