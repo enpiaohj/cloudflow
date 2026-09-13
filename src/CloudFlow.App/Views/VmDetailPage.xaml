@@ -305,7 +305,7 @@
                   每行采用固定标签 / 自适应值 / 复制按钮三列，长 Resource ID 在受限值列里换行。
                   复制命令从 UserControl DataContext 取，避免嵌套 ItemsControl 把命令绑定到分组对象上。
                 -->
-                <TabItem Header="摘要">
+                <TabItem Header="摘要" IsSelected="True">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
                         <ItemsControl ItemsSource="{Binding OverviewSections}" Margin="14,14,14,16">
                             <ItemsControl.ItemsPanel>
@@ -363,7 +363,7 @@
                 </TabItem>
 
                 <!-- ============ Network（P1 核心特色） ============ -->
-                <TabItem Header="网络" IsSelected="True">
+                <TabItem Header="网络">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid Margin="14,14,14,16">
                         <Grid.ColumnDefinitions>
