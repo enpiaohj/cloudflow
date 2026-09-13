@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-当前版本：**v0.1.0**（首个正式发布）。首个交付模块：**Compute / Virtual Machine Operations Center**。
+当前版本：**v0.3.0**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口。
 
 - 产品设计基准：`docs/01-产品设计/20260913-CloudFlow 云资源智能运维平台产品设计文档 v3.2.md`
   （**架构冲突时以该文档为准**；范围变更走「另存新文件 + 升版号」，见文档的修订记录）
