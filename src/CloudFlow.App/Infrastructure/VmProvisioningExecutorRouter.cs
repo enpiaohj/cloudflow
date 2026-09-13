@@ -33,13 +33,14 @@ public sealed class VmProvisioningExecutorRouter(
     public Task<string?> CreateAsync(
         OperationRequest request,
         Func<CancellationToken, Task<string?>>? resolvePassword,
+        Func<string, CancellationToken, Task> reportProgress,
         CancellationToken ct = default)
     {
         // Handler 传来的委托恒为 null（它不认识凭据库）；真实解析能力由本类补上。
         // 只有载荷确实以密码方式创建时才构造闭包 —— SSH 方式不解密任何东西。
         resolvePassword ??= BuildPasswordResolver(request);
 
-        return For(request).CreateAsync(request, resolvePassword, ct);
+        return For(request).CreateAsync(request, resolvePassword, reportProgress, ct);
     }
 
     public Task<bool> VmReadyAsync(OperationRequest request, CancellationToken ct = default) =>

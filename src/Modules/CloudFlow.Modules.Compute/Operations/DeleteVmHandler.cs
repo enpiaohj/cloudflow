@@ -90,7 +90,11 @@ public sealed class DeleteVmHandler(
         };
     }
 
-    public async Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct)
+    public Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct) =>
+        ExecuteAsync(request, static (_, _) => Task.CompletedTask, ct);
+
+    public async Task<string?> ExecuteAsync(
+        OperationRequest request, Func<string, CancellationToken, Task> reportProgress, CancellationToken ct)
     {
         // ① 存在性以真实读回为准 —— 载荷说"它存在"不算数
         if (!await executor.VmExistsAsync(request, ct).ConfigureAwait(false))
@@ -113,13 +117,27 @@ public sealed class DeleteVmHandler(
         logger.LogInformation("执行 {Operation}：{ResourceId}，连带删除 {Count} 项",
             OperationType, request.ResourceId, toDelete.Count);
 
-        // ④ 再删连带资源
+        await reportProgress(
+            toDelete.Count > 0 ? "虚拟机已删除，正在清理关联资源…" : "虚拟机已删除。", ct).ConfigureAwait(false);
+
+        // ④ 再删连带资源——逐个尝试，某一件失败不能让后面的也没机会删（曾经的真实 bug：
+        //    执行器只捕获 RequestFailedException，别的异常会直接冒出这个循环，
+        //    让排在它后面、本该删的资源全部落空）。
         var failed = new List<string>();
         foreach (var resource in toDelete)
         {
-            if (!await executor.DeleteLinkedAsync(request, resource, ct).ConfigureAwait(false))
+            var (success, reason) = await executor.DeleteLinkedAsync(request, resource, ct).ConfigureAwait(false);
+            if (success)
             {
-                failed.Add(resource.DisplayName);
+                await reportProgress($"已删除 {resource.DisplayName}", ct).ConfigureAwait(false);
+            }
+            else
+            {
+                var text = string.IsNullOrWhiteSpace(reason)
+                    ? resource.DisplayName
+                    : $"{resource.DisplayName}（{reason}）";
+                failed.Add(text);
+                await reportProgress($"清理 {text} 失败", ct).ConfigureAwait(false);
             }
         }
 

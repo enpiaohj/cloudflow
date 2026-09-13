@@ -164,17 +164,29 @@ public sealed class PowerOffVmHandler(IVmPowerExecutor executor, ILogger<PowerOf
         $"关机将停止虚拟机 {VmDisplayName(request)}，计算资源仍保留分配，费用可能继续产生。";
 }
 
-/// <summary>vm.deallocate：Running → Deallocated，释放计算资源并停止计算计费。</summary>
+/// <summary>vm.deallocate：Running 或 Stopped → Deallocated，释放计算资源并停止计算计费。</summary>
 public sealed class DeallocateVmHandler(IVmPowerExecutor executor, ILogger<DeallocateVmHandler> logger)
     : VmPowerHandlerBase(ComputeModule.OperationDeallocate, VmPowerAction.Deallocate, executor, logger)
 {
-    protected override VmPowerState? RequiredStateBefore => VmPowerState.Running;
-
     protected override VmPowerState StateAfter => VmPowerState.Deallocated;
 
     protected override string Describe(OperationRequest request) =>
         $"解除分配将释放虚拟机 {VmDisplayName(request)} 的计算资源并停止计算计费" +
         "（磁盘与保留 IP 可能继续计费）。";
+
+    /// <summary>
+    /// Running 和 Stopped 都可以直接解除分配——之前误把这里当成跟 Restart/PowerOff 一样
+    /// 只能从 Running 发起，但 Azure 本身允许对"已停止但仍占用计算资源"的虚拟机直接解除分配，
+    /// 不要求先重新启动再关机。只有已经是 Deallocated 时才没有意义（真实报过的 bug）。
+    /// </summary>
+    protected override void ValidateState(OperationRequest request, VmPowerState current)
+    {
+        if (current == VmPowerState.Deallocated)
+        {
+            throw new OperationValidationException(
+                $"虚拟机“{VmDisplayName(request)}”已解除分配，无需重复操作。");
+        }
+    }
 }
 
 /// <summary>

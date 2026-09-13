@@ -66,9 +66,9 @@ public sealed class MockVmDeleteExecutor(MockVmInventoryService inventory) : IVm
     /// 一致性由这一点保证：VM 一旦移出，<see cref="GetLinkedResourcesAsync"/> 就返回空列表，
     /// Verify 的"连带资源已消失"自然成立。真实路径见 <c>ArmVmDeleteExecutor</c>。
     /// </summary>
-    public Task<bool> DeleteLinkedAsync(
+    public Task<(bool Success, string? Reason)> DeleteLinkedAsync(
         OperationRequest request, VmLinkedResource resource, CancellationToken ct = default) =>
-        Task.FromResult(true);
+        Task.FromResult<(bool, string?)>((true, null));
 
     public Task<bool> VmExistsAsync(OperationRequest request, CancellationToken ct = default) =>
         Task.FromResult(inventory.FindById(request.ResourceId) is not null);

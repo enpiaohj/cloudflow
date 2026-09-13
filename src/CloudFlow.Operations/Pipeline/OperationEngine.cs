@@ -174,7 +174,9 @@ public sealed class OperationEngine : IOperationEngine
         {
             // ---- Execute ----
             await SetStatusAsync(job, JobStatus.Running, ct).ConfigureAwait(false);
-            var requestId = await handler.ExecuteAsync(request, ct).ConfigureAwait(false);
+            var requestId = await handler
+                .ExecuteAsync(request, (note, progressCt) => ReportProgressAsync(job, note, progressCt), ct)
+                .ConfigureAwait(false);
             job.RequestId = requestId;
 
             // ---- Azure 侧完成（真实实现为 LRO 轮询，Mock 直接通过）----
@@ -233,6 +235,21 @@ public sealed class OperationEngine : IOperationEngine
     private async Task SetStatusAsync(OperationJob job, JobStatus status, CancellationToken ct)
     {
         job.Status = status;
+        // 阶段切换时清空上一阶段留下的子步骤说明，避免"资源组就绪"这种 Create 阶段的文案
+        // 残留到 Verify 阶段还显示着。
+        job.ProgressNote = null;
+        await _jobStore.UpdateAsync(job, ct).ConfigureAwait(false);
+        Notify(job);
+    }
+
+    /// <summary>
+    /// 供 <see cref="IOperationHandler"/> 的 Execute 子步骤上报进度用——只更新
+    /// <see cref="OperationJob.ProgressNote"/>，不改变 <see cref="JobStatus"/>，
+    /// 复用与状态切换同一条广播（<see cref="IJobStore.JobChanged"/> + 引擎自身的 <see cref="JobUpdated"/>）。
+    /// </summary>
+    private async Task ReportProgressAsync(OperationJob job, string note, CancellationToken ct)
+    {
+        job.ProgressNote = note;
         await _jobStore.UpdateAsync(job, ct).ConfigureAwait(false);
         Notify(job);
     }

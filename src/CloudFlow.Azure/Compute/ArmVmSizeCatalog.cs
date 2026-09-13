@@ -130,7 +130,9 @@ public sealed class ArmVmSizeCatalog : IVmSizeCatalog
                     ? parsed
                     : null;
 
-                result[name] = new VmSizeInfo(gb * 1024, cores, perCore);
+                var hyperVGenerations = capabilities.GetValueOrDefault("HyperVGenerations");
+
+                result[name] = new VmSizeInfo(gb * 1024, cores, perCore, hyperVGenerations);
             }
 
             _logger.LogInformation(

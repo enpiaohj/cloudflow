@@ -46,6 +46,14 @@ public sealed class OperationJob
     public string? Summary { get; set; }
 
     /// <summary>
+    /// Execute 阶段内部子步骤的人类可读说明（如创建虚拟机时的"资源组就绪"→"网卡已创建"），
+    /// <b>纯展示用，不是新状态</b>——权威状态仍然只看 <see cref="Status"/>。
+    /// 每次 <see cref="Status"/> 切换阶段时清空，避免上一阶段的文案残留到下一阶段。
+    /// 没有 Handler 主动上报时保持 null，界面就不显示这一行，不影响其它操作。
+    /// </summary>
+    public string? ProgressNote { get; set; }
+
+    /// <summary>
     /// 影响分析预估的受影响资源数（§25）。等待审批时由 Engine 从 ImpactAssessment 写入；
     /// 只有 Summary 是文字，界面需要数字单独呈现"会影响多少东西"。
     /// </summary>

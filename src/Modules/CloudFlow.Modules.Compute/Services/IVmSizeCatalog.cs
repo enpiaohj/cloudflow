@@ -8,7 +8,13 @@ namespace CloudFlow.Modules.Compute.Services;
 /// null = SKU 未返回该能力，**不等于 1** —— 界面显示 "—" 而不是编一个数字。
 /// 注意这个值确实会变：`Standard_B1s` 是 1，`Standard_B2als_v2` 是 2（已实测），不能按规格系列假设。
 /// </param>
-public readonly record struct VmSizeInfo(int MemoryMb, int VCpus, int? VCpusPerCore = null);
+/// <param name="HyperVGenerations">
+/// SKU 能力 <c>HyperVGenerations</c>，如 "V1"、"V1,V2"。null = SKU 未返回该能力。
+/// 创建虚拟机选规格时用于提醒"这个规格不支持 Gen2，配 Gen2 镜像会被 Azure 拒绝"——
+/// 老规格系列（如 A 系列）常常只支持 V1，配现在市面上大多数默认 Gen2 的新镜像会直接 400。
+/// </param>
+public readonly record struct VmSizeInfo(
+    int MemoryMb, int VCpus, int? VCpusPerCore = null, string? HyperVGenerations = null);
 
 /// <summary>
 /// 虚拟机规格目录：按区域提供「规格名 → 规格值」。

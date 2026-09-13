@@ -65,11 +65,12 @@ public sealed class RealVmDeleteHandlerTests
             return Task.FromResult<string?>("req-1");
         }
 
-        public Task<bool> DeleteLinkedAsync(
+        public Task<(bool Success, string? Reason)> DeleteLinkedAsync(
             OperationRequest request, VmLinkedResource resource, CancellationToken ct = default)
         {
             Calls.Add($"delete-linked:{resource.ResourceId}");
-            return Task.FromResult(!FailingLinkedIds.Contains(resource.ResourceId));
+            var failing = FailingLinkedIds.Contains(resource.ResourceId);
+            return Task.FromResult<(bool, string?)>((!failing, failing ? "模拟失败" : null));
         }
 
         public Task<bool> VmExistsAsync(OperationRequest request, CancellationToken ct = default) =>

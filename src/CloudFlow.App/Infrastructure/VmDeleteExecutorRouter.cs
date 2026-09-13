@@ -25,7 +25,7 @@ public sealed class VmDeleteExecutorRouter(
     public Task<string?> DeleteVmAsync(OperationRequest request, CancellationToken ct = default) =>
         For(request).DeleteVmAsync(request, ct);
 
-    public Task<bool> DeleteLinkedAsync(
+    public Task<(bool Success, string? Reason)> DeleteLinkedAsync(
         OperationRequest request, VmLinkedResource resource, CancellationToken ct = default) =>
         For(request).DeleteLinkedAsync(request, resource, ct);
 

@@ -88,6 +88,34 @@ public class OperationEngineTests
         }
     }
 
+    /// <summary>
+    /// 覆写了带进度回调的 <c>ExecuteAsync</c> 重载——验证引擎会调用新重载而不是旧的，
+    /// 且每次上报都会更新 <see cref="OperationJob.ProgressNote"/> 并触发 <see cref="OperationEngine.JobUpdated"/>。
+    /// </summary>
+    private sealed class ProgressReportingHandler : IOperationHandler
+    {
+        public string OperationType => "test.op";
+
+        public Task ValidateAsync(OperationRequest request, CancellationToken ct) => Task.CompletedTask;
+
+        public Task<ImpactAssessment> AnalyzeImpactAsync(OperationRequest request, CancellationToken ct) =>
+            Task.FromResult(ImpactAssessment.None);
+
+        public Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct) =>
+            throw new InvalidOperationException("引擎应该调用带 reportProgress 的重载，不是这个旧签名。");
+
+        public async Task<string?> ExecuteAsync(
+            OperationRequest request, Func<string, CancellationToken, Task> reportProgress, CancellationToken ct)
+        {
+            await reportProgress("step-1", ct);
+            await reportProgress("step-2", ct);
+            return "req-progress";
+        }
+
+        public Task<bool> VerifyAsync(OperationRequest request, string? requestId, CancellationToken ct) =>
+            Task.FromResult(true);
+    }
+
     private sealed class RecordingAudit : IAuditLog
     {
         public List<AuditRecord> Records { get; } = [];
@@ -229,6 +257,39 @@ public class OperationEngineTests
 
         // Validating → AnalyzingImpact → Running → WaitingAzure → Verifying → Succeeded
         Assert.True(updates >= 5);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_Handler覆写带进度的Execute重载_ProgressNote实时更新且触发JobUpdated()
+    {
+        var handler = new ProgressReportingHandler();
+        var (engine, _, _) = Build(handler);
+
+        var notes = new List<string?>();
+        engine.JobUpdated += (_, job) => notes.Add(job.ProgressNote);
+
+        var final = await engine.SubmitAsync(Request());
+
+        Assert.Equal("req-progress", final.RequestId);
+        Assert.Contains("step-1", notes);
+        Assert.Contains("step-2", notes);
+        // Verify 阶段切换会清空上一阶段的 ProgressNote，不能让 Execute 的文案残留到最终状态。
+        Assert.Null(final.ProgressNote);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_Handler不覆写新Execute重载_行为与之前完全一致()
+    {
+        // 默认接口方法的回归门禁：电源操作/Resize/网络规则等只实现旧签名的 Handler
+        // 不应该因为接口新增了一个重载就出任何问题。
+        var handler = new RecordingHandler();
+        var (engine, _, _) = Build(handler);
+
+        var job = await engine.SubmitAsync(Request());
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(["validate", "impact", "execute", "verify"], handler.Steps);
+        Assert.Null(job.ProgressNote);
     }
 
     [Fact]

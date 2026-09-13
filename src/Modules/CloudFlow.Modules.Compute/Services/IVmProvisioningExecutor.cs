@@ -24,9 +24,15 @@ public interface IVmProvisioningExecutor
     /// 能力以委托形式注入：Modules 与 Azure 层都不需要认识凭据库，依赖方向不倒挂；
     /// 明文在执行器内即取即用，不保存、不记日志。
     /// </param>
+    /// <param name="reportProgress">
+    /// 子步骤进度上报（资源组→虚拟网络/子网→公网 IP→网卡→虚拟机），喂给
+    /// <see cref="CloudFlow.Core.Operations.OperationJob.ProgressNote"/>——纯展示用，
+    /// 失败不影响创建流程本身，调用方不需要处理这个委托抛出的异常（它不应该抛）。
+    /// </param>
     Task<string?> CreateAsync(
         OperationRequest request,
         Func<CancellationToken, Task<string?>>? resolvePassword,
+        Func<string, CancellationToken, Task> reportProgress,
         CancellationToken ct = default);
 
     /// <summary>该请求指向的虚拟机是否已存在且预配成功。Verify 用。</summary>

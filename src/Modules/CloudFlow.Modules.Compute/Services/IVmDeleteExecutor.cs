@@ -37,13 +37,17 @@ public interface IVmDeleteExecutor
     Task<string?> DeleteVmAsync(OperationRequest request, CancellationToken ct = default);
 
     /// <summary>
-    /// 删除一件连带资源。返回 <c>false</c> 表示它<b>仍然存在</b>（删除失败）；<c>404</c> 视为成功。
+    /// 删除一件连带资源。<c>Success=false</c> 表示它<b>仍然存在</b>（删除失败），<paramref name="ct"/>
+    /// 未取消时 <c>Reason</c> 给出人能读的失败原因；<c>404</c> 视为成功。
     /// </summary>
     /// <remarks>
-    /// 返回布尔而不是抛异常：失败要由 Handler 汇总成一句「虚拟机已删，但这些还在」，
+    /// 返回元组而不是抛异常：失败要由 Handler 汇总成一句「虚拟机已删，但这些还在（原因）」，
     /// 而抛出 Azure 的异常类型会把 Provider 细节漏进本该与 Provider 无关的 Handler。
+    /// <b>实现方必须捕获所有非取消异常</b>（不止 <c>RequestFailedException</c>）——
+    /// 调用方会在一个循环里对多件资源各调一次，某一件抛出未捕获异常会中断循环，
+    /// 让它后面本该尝试删除的资源也没删，这正是本方法存在的意义。
     /// </remarks>
-    Task<bool> DeleteLinkedAsync(
+    Task<(bool Success, string? Reason)> DeleteLinkedAsync(
         OperationRequest request, VmLinkedResource resource, CancellationToken ct = default);
 
     /// <summary>

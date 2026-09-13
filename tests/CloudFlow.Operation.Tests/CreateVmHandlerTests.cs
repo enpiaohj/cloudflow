@@ -169,6 +169,7 @@ public sealed class CreateVmHandlerTests
         public Task<string?> CreateAsync(
             OperationRequest request,
             Func<CancellationToken, Task<string?>>? resolvePassword,
+            Func<string, CancellationToken, Task> reportProgress,
             CancellationToken ct = default)
         {
             LastRequest = request;

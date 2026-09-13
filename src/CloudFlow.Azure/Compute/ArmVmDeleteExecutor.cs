@@ -110,13 +110,13 @@ public sealed class ArmVmDeleteExecutor(
         return requestId;
     }
 
-    public async Task<bool> DeleteLinkedAsync(
+    public async Task<(bool Success, string? Reason)> DeleteLinkedAsync(
         OperationRequest request, VmLinkedResource resource, CancellationToken ct = default)
     {
         if (!ResourceIdentifier.TryParse(resource.ResourceId, out var resourceId) || resourceId is null)
         {
             logger.LogWarning("连带资源 {ResourceId} 的 ID 无效，跳过", resource.ResourceId);
-            return false;
+            return (false, "资源 ID 无效");
         }
 
         var armClient = await CreateClientAsync(request, ct).ConfigureAwait(false);
@@ -125,20 +125,32 @@ public sealed class ArmVmDeleteExecutor(
         {
             await DeleteByKindAsync(armClient, resourceId, resource.Kind, ct).ConfigureAwait(false);
             logger.LogInformation("ARM delete linked {ResourceId}", resource.ResourceId);
-            return true;
+            return (true, null);
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
             // 已经不在了 = 目标已达成（可能上一轮删过，或 Azure 侧自行清理）
-            return true;
+            return (true, null);
         }
         catch (RequestFailedException ex)
         {
-            // 返回 false 而不是抛：调用方（Handler）要把它汇总成一句
-            // 「虚拟机已删，但这些还在」——而抛出 Azure 的异常类型会把 Provider 细节
+            // 返回失败而不是抛：调用方（Handler）要把它汇总成一句
+            // 「虚拟机已删，但这些还在（原因）」——而抛出 Azure 的异常类型会把 Provider 细节
             // 漏进本该与 Provider 无关的 Handler。
             logger.LogWarning(ex, "连带删除 {ResourceId} 失败", resource.ResourceId);
-            return false;
+            return (false, AzureErrorMessages.Summarize(ex));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // 之前这里只捕获 RequestFailedException：一个超时/SDK 瞬时错误这类非 ARM 异常
+            // 会直接从这里冒出去，中断 Handler 里"逐个删连带资源"的循环，让排在它后面、
+            // 本该删的资源也没删——这正是用户反馈"删除有残留"的真实成因，不是设计如此。
+            logger.LogWarning(ex, "连带删除 {ResourceId} 异常（非 ARM 拒绝）", resource.ResourceId);
+            return (false, ex.Message);
         }
     }
 

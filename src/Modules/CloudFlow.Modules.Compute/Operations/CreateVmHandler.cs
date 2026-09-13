@@ -279,7 +279,11 @@ public sealed partial class CreateVmHandler(
         };
     }
 
-    public async Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct)
+    public Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct) =>
+        ExecuteAsync(request, static (_, _) => Task.CompletedTask, ct);
+
+    public async Task<string?> ExecuteAsync(
+        OperationRequest request, Func<string, CancellationToken, Task> reportProgress, CancellationToken ct)
     {
         logger.LogInformation("执行 {Operation}：{Name} @ {Vnet}/{Subnet}",
             OperationType,
@@ -289,7 +293,7 @@ public sealed partial class CreateVmHandler(
 
         // 密码本体不经过这里：resolvePassword 委托由 App 层路由器在组装执行器时注入，
         // Handler 传 null（它不认识凭据库，也不该认识）。
-        return await executor.CreateAsync(request, resolvePassword: null, ct).ConfigureAwait(false);
+        return await executor.CreateAsync(request, resolvePassword: null, reportProgress, ct).ConfigureAwait(false);
     }
 
     public async Task<bool> VerifyAsync(OperationRequest request, string? requestId, CancellationToken ct) =>

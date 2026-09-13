@@ -29,12 +29,23 @@ public sealed class MockVmProvisioningExecutor(MockVmInventoryService inventory)
     public async Task<string?> CreateAsync(
         OperationRequest request,
         Func<CancellationToken, Task<string?>>? resolvePassword,
+        Func<string, CancellationToken, Task> reportProgress,
         CancellationToken ct = default)
     {
-        await Task.Delay(SimulatedLatencyMs, ct).ConfigureAwait(false);
-
         var p = request.Payload;
         var name = p[CreateVmHandler.PayloadVmName];
+
+        // 演示数据面没有真实的分步 ARM 调用，把一次延时拆成几段、配几句和真实执行器同名的
+        // 进度文案——Demo 模式下也能看到"资源组就绪→网络就绪→创建中"这套 UI 效果。
+        var step = SimulatedLatencyMs / 3;
+        await Task.Delay(step, ct).ConfigureAwait(false);
+        await reportProgress("资源组已就绪", ct).ConfigureAwait(false);
+
+        await Task.Delay(step, ct).ConfigureAwait(false);
+        await reportProgress("虚拟网络/子网已就绪", ct).ConfigureAwait(false);
+
+        await Task.Delay(SimulatedLatencyMs - 2 * step, ct).ConfigureAwait(false);
+        await reportProgress("网卡已创建，正在创建虚拟机…", ct).ConfigureAwait(false);
 
         // 与真实执行器同一语义：不存在则视为"这次新建"，存在则复用——Demo 模式下没有真实
         // ARM 调用，这里只需要让这个资源组名此后"看起来"已存在即可。
