@@ -46,3 +46,8 @@ releases/**
 # ===== 操作系统 =====
 Thumbs.db
 .DS_Store
+
+# ===== Claude Code 本地工作目录 =====
+# 含 UI 验证截图与诊断脚本，截图会拍到真实 Azure 环境（公网 IP / 订阅名 / 账户邮箱），不入库。
+# 若之后要共享 .claude/settings.json 等配置，改为忽略 .claude/*.png 并显式放行配置文件。
+/.claude/

@@ -12,9 +12,8 @@
 
 ## 产品基准（重要）
 
-- 产品设计唯一基准：`docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.1.md`（架构冲突时以该文档为准）
-- UI 布局与界面以 `docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png` 为准；**顶栏第二选择器命名用 "Scope"（文档 §8）**
-- **范围变更走「另存新文件 + 升版号」并在文档「修订记录」登记**（不要就地改范围）。当前 P1 已含 **Create VM / Delete VM**（v3.1 §87）—— v3.0 时代那句「P1 不做 Create VM」**已作废**，见 `…产品设计文档 v3.1.md` 的修订记录
+- 产品设计唯一基准：`docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.0.md`（架构冲突时以该文档为准）
+- UI 布局与界面以 `docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png` 为准；**顶栏第二选择器命名用 "Scope"（文档 §8），P1 不做 Create VM**
 - 核心架构原则：
   - `Account → Tenant → Scope → Resource → Operation`
   - 所有模块查询统一接受 `ResourceScope`（禁止 `GetVirtualMachines(subscriptionId)` 式签名）
