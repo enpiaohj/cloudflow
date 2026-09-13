@@ -230,7 +230,7 @@
                         <Button.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="启动虚拟机" Click="MenuStart_Click" />
-                                <MenuItem Header="更改规格 (Resize)" Click="MenuResize_Click" />
+                                <MenuItem Header="更改规格" Click="MenuResize_Click" />
                                 <MenuItem Header="停止并解除分配" Click="MenuDeallocate_Click" />
                                 <Separator />
                                 <MenuItem Header="复制资源 ID" Click="MenuCopyResourceId_Click" />

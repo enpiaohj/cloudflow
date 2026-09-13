@@ -45,8 +45,12 @@
         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" TextWrapping="Wrap"
                    Text="信任后指纹将记录在本机，后续连接不再询问；若下次连接时指纹变化，将再次弹出强警告。" />
 
+        <!-- 回车与 Esc 都落在「取消」上，刻意不给「信任并连接」设 IsDefault：
+             指纹确认是一次安全决策，误碰回车就信任新主机是不可接受的默认行为，
+             与 BatchHostKeyConfirmDialog 的处理方式一致。 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="取消" Padding="14,6" Margin="0,0,10,0" Click="Cancel_Click" />
+            <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" Padding="14,6" Margin="0,0,10,0"
+                    IsCancel="True" IsDefault="True" Click="Cancel_Click" />
             <Button x:Name="TrustButton" Content="信任并连接"
                     Style="{StaticResource Cf.PrimaryButton}" Padding="14,6" Click="Trust_Click" />
         </StackPanel>

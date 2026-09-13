@@ -57,7 +57,7 @@
                 <!-- 回车与 Esc 都落在「取消」上，**刻意不给「全部信任并继续」设 IsDefault**：
                      指纹确认是一次安全决策，误碰回车就信任 N 台新主机是不可接受的默认行为。
                      要信任必须是一次有意的点击。 -->
-                <Button Content="取消" Padding="14,6" Margin="0,0,10,0"
+                <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" Padding="14,6" Margin="0,0,10,0"
                         IsCancel="True" IsDefault="True" />
                 <Button Content="全部信任并继续" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
                         Click="Trust_Click" />
