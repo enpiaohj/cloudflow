@@ -1,0 +1,17 @@
+<UserControl x:Class="CloudFlow.App.Controls.InlineMessageBanner"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <!--
+      就地提示条：Border + 一行文字，按 SeverityKey 走应用统一的状态配色（Cf.Status.*）。
+      收拢原来在 SettingsPage 三处、凭据对话框错误面板里各自重复的同一份 markup —— 以后要调
+      提示条的外观（圆角/内边距/字号）只需要改这一个文件。
+      Text 为空时自动收起，调用方不必再各自套一层 NonEmptyToVisibility。
+    -->
+    <Border CornerRadius="6" Padding="12,8"
+            Background="{Binding SeverityKey, ElementName=Root, Converter={StaticResource StatusBg}}"
+            Visibility="{Binding Text, ElementName=Root, Converter={StaticResource NonEmptyToVisibility}}">
+        <TextBlock Text="{Binding Text, ElementName=Root}" FontSize="12.5" TextWrapping="Wrap"
+                   Foreground="{Binding SeverityKey, ElementName=Root, Converter={StaticResource StatusFg}}" />
+    </Border>
+</UserControl>

@@ -287,15 +287,7 @@ public partial class CredentialEditorDialog : CfDialogWindow
         DialogResult = true;
     }
 
-    private void ShowError(string message)
-    {
-        ErrorText.Text = message;
-        ErrorPanel.Visibility = Visibility.Visible;
-    }
+    private void ShowError(string message) => ErrorBanner.Text = message;
 
-    private void HideError()
-    {
-        ErrorText.Text = string.Empty;
-        ErrorPanel.Visibility = Visibility.Collapsed;
-    }
+    private void HideError() => ErrorBanner.Text = string.Empty;
 }
