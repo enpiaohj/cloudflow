@@ -18,7 +18,7 @@
         <Border CornerRadius="6" Padding="12,10" Margin="0,12,0,0"
                 Background="{DynamicResource Cf.PageBackgroundBrush}">
             <StackPanel>
-                <TextBlock x:Name="VmNameText" FontSize="13.5" FontWeight="SemiBold"
+                <TextBlock x:Name="VmNameText" FontSize="13" FontWeight="SemiBold"
                            Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                 <TextBlock x:Name="VmTargetText" Style="{StaticResource Cf.Muted}"
                            FontFamily="Consolas" FontSize="12" Margin="0,3,0,0" />

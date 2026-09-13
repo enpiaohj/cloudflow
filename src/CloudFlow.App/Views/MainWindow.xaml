@@ -340,7 +340,7 @@
                                         </StackPanel.Style>
                                         <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="17"
                                                        Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
-                                        <TextBlock Text="{Binding Label}" FontSize="13.5"
+                                        <TextBlock Text="{Binding Label}" FontSize="13"
                                                    Margin="10,0,0,0" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                                     </StackPanel>

@@ -194,7 +194,7 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <TextBlock Text="{Binding PublicIp, Converter={StaticResource NullableText}}"
-                                       FontSize="13.5" FontWeight="SemiBold"
+                                       FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                             <Button Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
                                     Cursor="Hand" Margin="6,0,0,0" ToolTip="复制公网 IP"
@@ -214,7 +214,7 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <TextBlock Text="{Binding PrivateIp, Converter={StaticResource NullableText}}"
-                                       FontSize="13.5" FontWeight="SemiBold"
+                                       FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                             <Button Content="⧉" FontSize="12" Background="Transparent" BorderThickness="0"
                                     Cursor="Hand" Margin="6,0,0,0" ToolTip="复制专用 IP"
