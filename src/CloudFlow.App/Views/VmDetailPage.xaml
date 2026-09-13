@@ -72,19 +72,16 @@
             </Border>
         </DataTemplate>
     </UserControl.Resources>
-
-
     <!--
-      整页可滚动：窗口初始尺寸较小（1180×700），不滚动时网络摘要卡底部（网络安全组 / 安全状态）
-      与标签页内容会被直接裁掉，用户看不到完整信息。
+      面包屑、VM Header、操作反馈与标签栏保持固定；第 4 行的 Tab 内容在受限高度内自行滚动。
+      不能再让根 ScrollViewer 包整页，否则读到长网络 / 性能内容时页面上下文会一并离开视口。
     -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="28,22,28,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ===== 面包屑 ===== -->
@@ -264,7 +261,8 @@
 
         <!-- ===== 标签页（概念图 2：Overview / Network / Disks / Performance / Activity） ===== -->
         <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6" Margin="0,12,0,0">
-            <TabControl Background="Transparent" BorderThickness="0" Padding="0">
+            <TabControl Background="Transparent" BorderThickness="0" Padding="0"
+                        VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem">
                         <Setter Property="Padding" Value="16,9" />
@@ -299,50 +297,62 @@
                     </Style>
                 </TabControl.ItemContainerStyle>
 
-                <!-- ============ Overview ============ -->
-                <!-- 分组与行都由 ViewModel 的数据驱动（OverviewSections）：
-                     Azure 没返回的字段在合成时就被丢掉，所以这里没有 Visibility 布尔，
-                     也不会出现 "—" 占位行。新增字段只需改 ViewModel，不用动这段 XAML。 -->
-                <TabItem Header="概览">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0">
-                        <ItemsControl ItemsSource="{Binding OverviewSections}"
-                                      Margin="14,14,14,16" MaxWidth="760" HorizontalAlignment="Left">
+                <!-- ============ 摘要 ============ -->
+                <!--
+                  OverviewSections 已在 ViewModel 侧过滤空值；这里专注于扫读：分组卡双列排列，
+                  每行采用固定标签 / 自适应值 / 复制按钮三列，长 Resource ID 在受限值列里换行。
+                  复制命令从 UserControl DataContext 取，避免嵌套 ItemsControl 把命令绑定到分组对象上。
+                -->
+                <TabItem Header="摘要">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
+                        <ItemsControl ItemsSource="{Binding OverviewSections}" Margin="14,14,14,16">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="2" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Margin="0,0,0,16">
-                                        <TextBlock Text="{Binding Title}" Style="{StaticResource Cf.SectionTitle}"
-                                                   Margin="0,0,0,6" />
-                                        <ItemsControl ItemsSource="{Binding Rows}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid MinHeight="30">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="180" />
-                                                            <ColumnDefinition Width="*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding Label}"
-                                                                   Style="{StaticResource Cf.Subtitle}"
-                                                                   VerticalAlignment="Center" />
-                                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                                    VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Value}" FontSize="13"
-                                                                       TextWrapping="Wrap"
-                                                                       ToolTip="{Binding ToolTip}"
+                                    <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
+                                            Padding="14" Margin="0,0,12,12">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}" Style="{StaticResource Cf.SectionTitle}"
+                                                       Margin="0,0,0,8" />
+                                            <ItemsControl ItemsSource="{Binding Rows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid MinHeight="34">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="130" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto" />
+                                                                <RowDefinition Height="1" />
+                                                            </Grid.RowDefinitions>
+                                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Label}"
+                                                                       Style="{StaticResource Cf.Muted}"
+                                                                       VerticalAlignment="Top" Margin="0,4,10,4" />
+                                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Value}" FontSize="12.5"
+                                                                       TextWrapping="Wrap" ToolTip="{Binding ToolTip}"
+                                                                       VerticalAlignment="Top" Margin="0,4"
                                                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
-                                                            <Button Content="⧉" FontSize="12" Background="Transparent"
-                                                                    BorderThickness="0" Cursor="Hand" Margin="6,0,0,0"
-                                                                    VerticalAlignment="Top"
-                                                                    ToolTip="复制"
+                                                            <Button Grid.Row="0" Grid.Column="2" Content="⧉" FontSize="12"
+                                                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                                    Margin="6,2,0,2" VerticalAlignment="Top" ToolTip="复制"
                                                                     Visibility="{Binding CanCopy, Converter={StaticResource BoolToVisibility}}"
                                                                     Command="{Binding DataContext.CopyToClipboardCommand,
-                                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                     CommandParameter="{Binding CopyValue}" />
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                                                            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Height="1"
+                                                                    Background="{DynamicResource Cf.RowSeparatorBrush}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -351,7 +361,8 @@
 
                 <!-- ============ Network（P1 核心特色） ============ -->
                 <TabItem Header="网络" IsSelected="True">
-                    <Grid Margin="14,14,14,16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="14,14,14,16">
                         <Grid.ColumnDefinitions>
                             <!-- 摘要列收窄，把宽度让给规则表（列多，窄了会挤掉「来源」列） -->
                             <ColumnDefinition Width="240" />
@@ -542,7 +553,7 @@
                                     <DataGrid x:Name="RulesGrid" ItemsSource="{Binding InboundRules}"
                                               Style="{StaticResource Cf.DataGrid}" RowHeight="38"
                                               CellStyle="{StaticResource Cf.GridCellCompact}"
-                                              HorizontalScrollBarVisibility="Auto">
+                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                         <DataGrid.RowStyle>
                                             <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
                                                 <Setter Property="ContextMenu" Value="{StaticResource Cf.RuleRowMenu}" />
@@ -629,7 +640,7 @@
                                     <DataGrid ItemsSource="{Binding OutboundRules}"
                                               Style="{StaticResource Cf.DataGrid}" RowHeight="38"
                                               CellStyle="{StaticResource Cf.GridCellCompact}"
-                                              HorizontalScrollBarVisibility="Auto">
+                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                         <DataGrid.RowStyle>
                                             <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
                                                 <Setter Property="ContextMenu" Value="{StaticResource Cf.RuleRowMenu}" />
@@ -782,11 +793,13 @@
                             </Border>
                         </StackPanel>
                     </Grid>
+                    </ScrollViewer>
                 </TabItem>
 
                 <!-- ============ 磁盘（设计文档 §26） ============ -->
                 <TabItem Header="磁盘">
-                    <StackPanel Margin="14,14,14,16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="14,14,14,16">
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -806,7 +819,8 @@
                                     FontSize="12.5" Command="{Binding TakeSnapshotCommand}" Content="创建快照"
                                     />
                         </Grid>
-                        <DataGrid ItemsSource="{Binding Disks}" Style="{StaticResource Cf.DataGrid}" RowHeight="42">
+                        <DataGrid ItemsSource="{Binding Disks}" Style="{StaticResource Cf.DataGrid}" RowHeight="42"
+                                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                             <DataGrid.RowStyle>
                                 <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
                                     <Setter Property="ContextMenu" Value="{StaticResource Cf.DiskRowMenu}" />
@@ -853,12 +867,14 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                    </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
 
                 <!-- ============ Performance（设计文档 §27） ============ -->
                 <TabItem Header="性能">
-                    <StackPanel Margin="14,14,14,16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="14,14,14,16">
                         <TextBlock Text="使用率" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
                         <!-- 全部为 Host 指标，无需在 VM 内启用诊断扩展 -->
                         <!-- WrapPanel：窄窗口下指标卡自动 2 列（每卡固定 230 宽） -->
@@ -955,19 +971,21 @@
                         </WrapPanel>
                         <TextBlock Margin="0,12,0,0" Style="{StaticResource Cf.Muted}" TextWrapping="Wrap"
                                    Text="{Binding MetricsNote}" />
-                    </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
 
                 <!-- ============ Activity ============ -->
                 <TabItem Header="活动">
-                    <StackPanel Margin="14,14,14,16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="14,14,14,16">
                         <TextBlock Text="活动" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
                         <!-- 真实账户下该 VM 往往还没有任何操作记录，空表格会被误读为加载失败 -->
                         <TextBlock Text="{Binding ActivityEmptyText}"
                                    Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
                                    Visibility="{Binding HasActivity, Converter={StaticResource InverseBoolToVisibility}}" />
                         <DataGrid ItemsSource="{Binding ActivityJobs}" Style="{StaticResource Cf.DataGrid}"
-                                  RowHeight="38"
+                                  RowHeight="38" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                                   Visibility="{Binding HasActivity, Converter={StaticResource BoolToVisibility}}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt, StringFormat=MM-dd HH:mm:ss}" Width="150" />
@@ -985,7 +1003,8 @@
                                 <DataGridTextColumn Header="结果" Binding="{Binding Summary}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>
-                    </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
 
                 <!-- 终端不再作为详情页的一个标签：SSH 会话统一由主窗口底部的终端面板承载，
@@ -993,5 +1012,4 @@
             </TabControl>
         </Border>
     </Grid>
-    </ScrollViewer>
 </UserControl>

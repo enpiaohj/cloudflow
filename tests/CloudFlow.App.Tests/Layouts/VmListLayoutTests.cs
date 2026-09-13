@@ -130,6 +130,76 @@ public sealed class VmListLayoutTests
     }
 
     /// <summary>解析 DataGridLength 字面量；"*" / "1.2*" 返回 0 并标记 isStar。</summary>
+    [Fact]
+    public void 详情页固定上下文并把滚动责任交给各标签内容区()
+    {
+        var document = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VmDetailPage.xaml"));
+        var rootGrid = document.Root!.Elements()
+            .Single(element => element.Name.LocalName == "Grid");
+
+        // 根层不能再由 ScrollViewer 承担整页滚动，否则 Header / InfoBar / 标签栏会一起离开视口。
+        Assert.DoesNotContain(rootGrid.Elements(), element => element.Name.LocalName == "ScrollViewer");
+
+        var rowDefinitions = rootGrid.Elements()
+            .Single(element => element.Name.LocalName == "Grid.RowDefinitions")
+            .Elements()
+            .Select(element => (string?)element.Attribute("Height"))
+            .ToList();
+        Assert.Equal(new[] { "Auto", "Auto", "Auto", "*" }, rowDefinitions);
+
+        var tabHost = rootGrid.Elements()
+            .Single(element => element.Name.LocalName == "Border" &&
+                               (string?)element.Attribute("Grid.Row") == "3");
+        var tabs = tabHost.Descendants()
+            .Single(element => element.Name.LocalName == "TabControl");
+        Assert.Equal("Stretch", (string?)tabs.Attribute("VerticalContentAlignment"));
+
+        var tabItems = tabs.Elements().Where(element => element.Name.LocalName == "TabItem").ToList();
+        Assert.Equal(new[] { "摘要", "网络", "磁盘", "性能", "活动" },
+            tabItems.Select(item => (string?)item.Attribute("Header")));
+
+        // 每个标签只有自己的直接 ScrollViewer；滚轮不再在根页与摘要 / 网络内容之间竞争。
+        Assert.All(tabItems, item =>
+            Assert.Single(item.Elements(), element => element.Name.LocalName == "ScrollViewer"));
+    }
+
+    [Fact]
+    public void 摘要必须保留可读的两列卡片和复制命令()
+    {
+        var document = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VmDetailPage.xaml"));
+        var summary = document.Descendants()
+            .Single(element => element.Name.LocalName == "TabItem" &&
+                               (string?)element.Attribute("Header") == "摘要");
+        var sections = summary.Descendants()
+            .Single(element => element.Name.LocalName == "ItemsControl" &&
+                               (string?)element.Attribute("ItemsSource") == "{Binding OverviewSections}");
+
+        Assert.Single(summary.Descendants(), element => element.Name.LocalName == "UniformGrid" &&
+                                                      (string?)element.Attribute("Columns") == "2");
+        Assert.Contains(sections.Descendants(), element => element.Name.LocalName == "ColumnDefinition" &&
+                                                          (string?)element.Attribute("Width") == "130");
+        Assert.Contains(sections.Descendants(), element => element.Name.LocalName == "TextBlock" &&
+                                                          (string?)element.Attribute("Text") == "{Binding Value}" &&
+                                                          (string?)element.Attribute("TextWrapping") == "Wrap");
+        Assert.Contains(sections.Descendants(), element => element.Name.LocalName == "Button" &&
+                                                          ((string?)element.Attribute("Command"))?.Contains(
+                                                              "AncestorType=UserControl", StringComparison.Ordinal) is true);
+    }
+
+    [Fact]
+    public void 详情页表格把垂直滚动交给标签内容区并保留横向滚动()
+    {
+        var document = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VmDetailPage.xaml"));
+        var tables = document.Descendants().Where(element => element.Name.LocalName == "DataGrid").ToList();
+
+        Assert.Equal(4, tables.Count);
+        Assert.All(tables, table =>
+        {
+            Assert.Equal("Disabled", (string?)table.Attribute("VerticalScrollBarVisibility"));
+            Assert.NotEqual("Disabled", (string?)table.Attribute("HorizontalScrollBarVisibility"));
+        });
+    }
+
     private static double ParseDataGridLength(string? value, out bool isStar)
     {
         isStar = false;
