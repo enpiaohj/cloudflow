@@ -65,6 +65,43 @@ public partial class VmDetailViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<OverviewSection> _overviewSections = [];
 
+    /// <summary>摘要 Tab 左栏（见 <see cref="OnOverviewSectionsChanged"/> 的按行数贪心分配）。</summary>
+    public IReadOnlyList<OverviewSection> OverviewSectionsLeft { get; private set; } = [];
+
+    /// <summary>摘要 Tab 右栏。</summary>
+    public IReadOnlyList<OverviewSection> OverviewSectionsRight { get; private set; } = [];
+
+    /// <summary>
+    /// 把分组卡按累计行数贪心分配到两栏，而不是用 UniformGrid 强制两列同步换行——
+    /// 那样行数不同的卡片（如"大小"4 行、"操作系统"3 行）会在较矮的一栏底部留出对不齐的空白。
+    /// </summary>
+    partial void OnOverviewSectionsChanged(IReadOnlyList<OverviewSection> value)
+    {
+        var left = new List<OverviewSection>();
+        var right = new List<OverviewSection>();
+        var leftRows = 0;
+        var rightRows = 0;
+
+        foreach (var section in value)
+        {
+            if (leftRows <= rightRows)
+            {
+                left.Add(section);
+                leftRows += section.Rows.Count;
+            }
+            else
+            {
+                right.Add(section);
+                rightRows += section.Rows.Count;
+            }
+        }
+
+        OverviewSectionsLeft = left;
+        OverviewSectionsRight = right;
+        OnPropertyChanged(nameof(OverviewSectionsLeft));
+        OnPropertyChanged(nameof(OverviewSectionsRight));
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PublicIpText))]
     private string? _publicIp;

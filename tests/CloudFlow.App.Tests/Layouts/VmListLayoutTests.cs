@@ -170,20 +170,34 @@ public sealed class VmListLayoutTests
         var summary = document.Descendants()
             .Single(element => element.Name.LocalName == "TabItem" &&
                                (string?)element.Attribute("Header") == "摘要");
-        var sections = summary.Descendants()
-            .Single(element => element.Name.LocalName == "ItemsControl" &&
-                               (string?)element.Attribute("ItemsSource") == "{Binding OverviewSections}");
 
-        Assert.Single(summary.Descendants(), element => element.Name.LocalName == "UniformGrid" &&
-                                                      (string?)element.Attribute("Columns") == "2");
-        Assert.Contains(sections.Descendants(), element => element.Name.LocalName == "ColumnDefinition" &&
+        // 左右两栏各一个 ItemsControl，按行数贪心分配（OverviewSectionsLeft/Right），
+        // 不再用 UniformGrid 强制两列同步换行——那样行数不同的卡片会留出对不齐的空白。
+        Assert.Contains(summary.Descendants(), element => element.Name.LocalName == "ItemsControl" &&
+                                                          (string?)element.Attribute("ItemsSource") == "{Binding OverviewSectionsLeft}");
+        Assert.Contains(summary.Descendants(), element => element.Name.LocalName == "ItemsControl" &&
+                                                          (string?)element.Attribute("ItemsSource") == "{Binding OverviewSectionsRight}");
+        Assert.DoesNotContain(summary.Descendants(), element => element.Name.LocalName == "UniformGrid");
+
+        // 两栏共用同一份卡片模板，避免同一张卡片的样式在文件里出现两份
+        var card = document.Descendants()
+            .Single(element => element.Name.LocalName == "DataTemplate" &&
+                               element.Attributes().Any(attribute =>
+                                   attribute.Name.LocalName == "Key" && attribute.Value == "Cf.OverviewSectionCard"));
+
+        Assert.Contains(card.Descendants(), element => element.Name.LocalName == "ColumnDefinition" &&
                                                           (string?)element.Attribute("Width") == "130");
-        Assert.Contains(sections.Descendants(), element => element.Name.LocalName == "TextBlock" &&
+        Assert.Contains(card.Descendants(), element => element.Name.LocalName == "TextBlock" &&
                                                           (string?)element.Attribute("Text") == "{Binding Value}" &&
                                                           (string?)element.Attribute("TextWrapping") == "Wrap");
-        Assert.Contains(sections.Descendants(), element => element.Name.LocalName == "Button" &&
+        Assert.Contains(card.Descendants(), element => element.Name.LocalName == "Button" &&
                                                           ((string?)element.Attribute("Command"))?.Contains(
                                                               "AncestorType=UserControl", StringComparison.Ordinal) is true);
+
+        // 不再逐行画分隔线——短小的卡片被切碎反而更难读，卡片间距已经足够分组
+        Assert.DoesNotContain(card.Descendants(), element => element.Name.LocalName == "Border" &&
+                                                          ((string?)element.Attribute("Background"))?.Contains(
+                                                              "RowSeparatorBrush", StringComparison.Ordinal) is true);
     }
 
     [Fact]
