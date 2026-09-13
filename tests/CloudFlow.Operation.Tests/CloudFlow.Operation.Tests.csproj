@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\CloudFlow.Core\CloudFlow.Core.csproj" />
     <ProjectReference Include="..\..\src\CloudFlow.Operations\CloudFlow.Operations.csproj" />
     <ProjectReference Include="..\..\src\Modules\CloudFlow.Modules.Compute\CloudFlow.Modules.Compute.csproj" />
+    <ProjectReference Include="..\..\src\Modules\CloudFlow.Modules.Network\CloudFlow.Modules.Network.csproj" />
   </ItemGroup>
 
 </Project>
