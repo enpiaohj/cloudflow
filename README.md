@@ -4,19 +4,22 @@
 
 ## 当前状态
 
-开发初期（P0/P1）。首个交付模块：**Compute / Virtual Machine Operations Center**。
+当前版本：**v0.1.0**（首个正式发布）。首个交付模块：**Compute / Virtual Machine Operations Center**。
 
-- 产品设计基准：`docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.0.md`
+- 产品设计基准：`docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.1.md`
+  （**架构冲突时以该文档为准**；范围变更走「另存新文件 + 升版号」，见文档的修订记录）
 - UI 概念基准：`docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png`
+- 变更记录：根目录 `CHANGELOG.md`；每个版本的完整记录见 `releases/vX.Y.Z/CHANGELOG.md`
 
 ## 技术栈
 
 | 层 | 技术 |
 | --- | --- |
 | UI | WPF + WPF-UI (Fluent Design) + CommunityToolkit.Mvvm，.NET 8 |
-| 架构 | Platform Services + Resource Modules（v3.0：Account → Tenant → Scope → Resource → Operation） |
-| 身份认证 | MSAL.NET（WAM Broker 预留） |
-| 资源发现 | Azure Resource Graph（P1 接入，当前为 Mock） |
+| 架构 | Platform Services + Resource Modules（v3.1：Account → Tenant → Scope → Resource → Operation） |
+| 身份认证 | MSAL.NET（WAM Broker 预留）+ 嵌入式 Azure CLI 两条身份 Provider |
+| 资源发现 | Azure Resource Graph（已接入；**未登录时**回退 Mock 演示数据，已登录时真实查询失败会如实报错、不回退） |
+| 终端 | WebView2 + xterm.js（应用级底部面板，多标签会话） |
 | 写操作 | 统一 Operation Engine（Validate → Impact → Permission → Execute → Verify → Audit） |
 
 ## 本地开发
@@ -62,10 +65,12 @@ src/
   CloudFlow.Data          # 本地持久化（Saved Scopes、Audit 等）
   CloudFlow.Operations    # Operation Engine（操作总线）
   CloudFlow.Azure         # Azure 适配层：MSAL 认证、ARM、Resource Graph
+  CloudFlow.Terminal      # SSH 会话与凭据库（DPAPI 保险库、主机指纹校验、终端控件）
   Modules/
     CloudFlow.Modules.Compute   # 计算模块（Virtual Machines）
     CloudFlow.Modules.Network   # 网络模块（NIC / NSG / Port 管理）
   CloudFlow.App           # WPF 桌面应用
 tests/                    # Core / Operation 单元测试、Azure 集成测试
 tools/CloudFlow.Spike     # P0 技术验证控制台
+runtime/                  # P0 嵌入式 Azure CLI（本机下载/解包，不入库）
 ```
