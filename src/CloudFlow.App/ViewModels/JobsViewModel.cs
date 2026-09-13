@@ -116,11 +116,10 @@ public partial class JobsViewModel : ObservableObject
             return;
         }
 
-        var confirmed = System.Windows.MessageBox.Show(
-            $"将作废任务「{row.Job.Display}」。\n\n作废后该任务不再执行，状态变为已取消，并写入审计日志。此操作不可撤销。",
+        var confirmed = Views.ConfirmDialog.Show(
             "作废任务",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.OK;
+            $"将作废任务「{row.Job.Display}」。作废后该任务不再执行，状态变为已取消，并写入审计日志。此操作不可撤销。",
+            "作废", isDanger: true);
 
         if (!confirmed)
         {

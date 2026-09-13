@@ -63,6 +63,14 @@
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
     </Style>
 
+    <!-- 统计卡数字下方的短标签（如"虚拟机"/"运行中"）。比 Cf.SectionTitle 小一号、
+         比 Cf.Muted 重一号，四张首页统计卡曾各自内联同一组 Setter，这里收成一份共享样式。 -->
+    <Style x:Key="Cf.StatLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+    </Style>
+
     <!-- ===== 状态徽章 ===== -->
     <Style x:Key="Cf.Badge" TargetType="Border">
         <Setter Property="CornerRadius" Value="999" />

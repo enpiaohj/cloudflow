@@ -363,23 +363,16 @@ public partial class HomeViewModel : ObservableObject
     [RelayCommand]
     private void ViewAllJobs() => _navigation.NavigateJobs();
 
-    // ==== 快捷操作（概念图 1 四按钮；创建虚拟机属预配能力，P1 为运维范围，点击给出说明）====
+    // ==== 快捷操作（概念图 1 四按钮）====
+    // 创建虚拟机 / 创建快照都需要先选目标虚拟机（快照还要选目标磁盘），首页没有这个上下文，
+    // 所以统一导航到虚拟机列表，由用户在列表/详情页里完成 —— 不在这里重复一份创建向导或桩提示。
 
     [RelayCommand]
-    private void QuickCreateVm() =>
-        MessageBox.Show(
-            "创建虚拟机属于预配（Provisioning）能力，不属于 P1 运维范围（设计文档 §75/§80）。\n按钮按 UI 概念图保留，将在后续版本实现。",
-            "创建虚拟机", MessageBoxButton.OK, MessageBoxImage.Information);
+    private void QuickCreateVm() => _navigation.NavigateVirtualMachines();
 
     [RelayCommand]
     private void QuickOpenPort() => _navigation.NavigateVirtualMachines();
 
     [RelayCommand]
     private void QuickViewAllVms() => _navigation.NavigateVirtualMachines();
-
-    [RelayCommand]
-    private void QuickTakeSnapshot() =>
-        MessageBox.Show(
-            "快照操作属于 P1 Exit Gate（设计文档 §80），将在下一迭代实现（当前为演示模式）。",
-            "创建快照", MessageBoxButton.OK, MessageBoxImage.Information);
 }
