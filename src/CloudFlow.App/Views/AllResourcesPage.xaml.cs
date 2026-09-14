@@ -13,6 +13,24 @@ public partial class AllResourcesPage : UserControl
 
     private AllResourcesViewModel Vm => (AllResourcesViewModel)DataContext;
 
+    /// <summary>
+    /// 每一行各自 FindResource 一次拿一份独立的 ContextMenu 实例——不能用
+    /// DataGrid.RowStyle 的 Setter（所有行共用同一个 Style 对象，Setter 的 StaticResource
+    /// 只解析一次，会把同一个 ContextMenu 实例分给所有行，行不虚拟化时几乎同时生成的多行
+    /// 会一起抢这份实例的逻辑父级归属，真实复现过：第一条记录右键第一次没反应，右键别的
+    /// 行之后归属权"稳定"下来，回头再右键第一条又恢复正常）。这里的 FindResource 命中的是
+    /// 标了 x:Shared="False" 的资源，每次都是全新实例，跟"⋯"按钮那条路径（每行的
+    /// DataTemplate 各自实例化一次）原理一致。
+    /// </summary>
+    private void AllResourcesGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+    {
+        // 虚拟机行没有删除入口——同一条理由已经用在"⋯"按钮上（虚拟机有自己专门的删除
+        // 流程，这里只是第二道防线），整行右键也不能绕过去。
+        e.Row.ContextMenu = e.Row.DataContext is AllResourceRow { IsVirtualMachine: true }
+            ? null
+            : (ContextMenu)FindResource("Cf.AllResourcesRowMenu");
+    }
+
     private void RowMenu_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement button)

@@ -461,12 +461,33 @@
       调色板走。真实反馈：深色模式下右键菜单左边一条竖着的白条，紧挨着深色背景上的浅色
       文字，看起来完全没套上主题。这个应用里的 MenuItem 全部是纯文字（不用 Icon、不可勾选、
       没有子菜单），干脆整个重写模板，不留这个用不到的占位列。
+
+      修完 MenuItem 之后同一条白条依旧在——说明真正的占位列其实在 ContextMenu 自己的默认
+      模板里（经典 Aero2 主题给整个菜单预留的一条贯穿全高的图标背景带，用来对齐所有菜单项
+      的图标，跟每一项各自的 MenuItem 模板是两回事），只改 MenuItem 盖不掉它，这里一并
+      重写 ContextMenu 的模板，不再用系统默认的 Popup 外壳。
     -->
     <Style TargetType="ContextMenu">
         <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Cf.BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
         <Setter Property="Padding" Value="4" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8" Padding="{TemplateBinding Padding}"
+                            Effect="{StaticResource Cf.Elevation.Popup}">
+                        <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto">
+                            <ItemsPresenter />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="MenuItem">

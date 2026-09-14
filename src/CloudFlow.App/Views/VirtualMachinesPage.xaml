@@ -166,6 +166,12 @@
         <!-- ===== VM 列表 ===== -->
         <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,14,0,0">
             <Grid>
+                <!-- 整行右键同样打开行操作菜单（桌面表格的常规操作方式）。ContextMenu 通过
+                     LoadingRow 在代码里逐行赋值，不用 DataGrid.RowStyle 的 Setter——真实踩过的
+                     坑（"所有资源"页先复现）：多行共用同一个 Style 对象时，Setter 的
+                     StaticResource 只在 Style 生成时解析一次，所有行会拿到同一个 ContextMenu
+                     实例；这个应用默认开着行虚拟化，问题出现得没那么频繁/明显，但同一份代码
+                     模式必然有同样的坑，一并改成 LoadingRow。 -->
                 <DataGrid x:Name="VmsGrid"
                           ItemsSource="{Binding PageItems}"
                           Style="{StaticResource Cf.DataGrid}"
@@ -173,13 +179,8 @@
                           SelectionMode="Single"
                           HorizontalScrollBarVisibility="Auto"
                           PreviewMouseLeftButtonUp="VmsGrid_PreviewMouseLeftButtonUp"
-                          MouseDoubleClick="VmsGrid_MouseDoubleClick">
-                    <!-- 整行右键同样打开行操作菜单（桌面表格的常规操作方式） -->
-                    <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
-                            <Setter Property="ContextMenu" Value="{StaticResource Cf.VmRowMenu}" />
-                        </Style>
-                    </DataGrid.RowStyle>
+                          MouseDoubleClick="VmsGrid_MouseDoubleClick"
+                          LoadingRow="VmsGrid_LoadingRow">
                     <DataGrid.Columns>
                         <!-- 必须用紧凑单元格：默认 Cf.GridCell 的 Padding="12,0" 在 34px 列里
                              只剩 10px，复选框会被横向压成竖长条（概念图 1 中是方形）。 -->

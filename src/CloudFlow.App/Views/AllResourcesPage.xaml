@@ -127,26 +127,25 @@
                      失步场景（资源组页没有搜索过滤，同样的删除代码从未在那边崩过，两次真实崩溃
                      也都点名的是这个 Grid）。关掉虚拟化直接绕开这条脆弱路径——所有资源清单量级
                      通常是几十到几百条，关闭虚拟化的渲染成本可以接受。 -->
+                <!-- 整行右键同样打开行操作菜单（虚拟机列表页已有的常规操作方式，这里补齐）。
+                     ContextMenu 通过 LoadingRow 在代码里逐行赋值（见 .xaml.cs），不用
+                     DataGrid.RowStyle 的 Setter——真实踩过的坑：多行共用同一个 Style 对象，
+                     Setter 的 StaticResource 只在 Style 生成时解析一次，所有行会拿到*同一个*
+                     ContextMenu 实例；这个应用没开行虚拟化，所有行几乎同时生成，会一起抢这唯一
+                     一份实例的逻辑父级归属，导致最先生成的那一行（通常是第一条）右键第一次没
+                     反应，右键别的行把归属权"抢"过去后再回头右键它又恢复正常。LoadingRow 每行
+                     各自 FindResource 一次（资源上标了 x:Shared="False"），跟"⋯"按钮那条路径
+                     （每行的 DataTemplate 各自实例化一次）用的是同一个"各拿各的实例"原理。
+                     虚拟机行没有删除入口——同一条理由已经用在"⋯"按钮上（虚拟机有自己专门的
+                     删除流程，这里只是第二道防线），整行右键也不能绕过去，所以虚拟机行干脆
+                     不挂 ContextMenu（右键没反应），跟"⋯"按钮对这类行直接隐藏保持一致。 -->
                 <DataGrid x:Name="AllResourcesGrid"
                           ItemsSource="{Binding Rows}"
                           Style="{StaticResource Cf.DataGrid}"
                           VirtualizingPanel.IsVirtualizing="False"
                           HorizontalScrollBarVisibility="Auto"
+                          LoadingRow="AllResourcesGrid_LoadingRow"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
-                    <!-- 整行右键同样打开行操作菜单（虚拟机列表页已有的常规操作方式，这里补齐）。
-                         虚拟机行没有删除入口——同一条理由已经用在"⋯"按钮上（虚拟机有自己专门的
-                         删除流程，这里只是第二道防线），整行右键也不能绕过去，所以虚拟机行干脆
-                         不挂 ContextMenu（右键没反应），跟"⋯"按钮对这类行直接隐藏保持一致。 -->
-                    <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
-                            <Setter Property="ContextMenu" Value="{StaticResource Cf.AllResourcesRowMenu}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsVirtualMachine}" Value="True">
-                                    <Setter Property="ContextMenu" Value="{x:Null}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁。 -->
                         <DataGridTemplateColumn Width="44" MinWidth="44" CanUserResize="False"

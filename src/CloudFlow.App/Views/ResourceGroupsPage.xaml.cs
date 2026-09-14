@@ -13,6 +13,11 @@ public partial class ResourceGroupsPage : UserControl
 
     private ResourceGroupsViewModel Vm => (ResourceGroupsViewModel)DataContext;
 
+    /// <summary>每一行各自 FindResource 一次拿一份独立的 ContextMenu 实例——原因见
+    /// AllResourcesPage.xaml.cs 同名方法的详细注释。</summary>
+    private void ResourceGroupsGrid_LoadingRow(object sender, DataGridRowEventArgs e) =>
+        e.Row.ContextMenu = (ContextMenu)FindResource("Cf.ResourceGroupRowMenu");
+
     private void RowMenu_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement button)

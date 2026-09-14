@@ -9,44 +9,68 @@ namespace CloudFlow.App.Tests.Xaml;
 public sealed class RowContextMenuAndThemeStaticTests
 {
     [Fact]
-    public void 所有资源列表整行右键必须打开行菜单且虚拟机行不挂菜单()
+    public void 所有资源列表整行右键必须用LoadingRow逐行赋值菜单且虚拟机行不挂菜单()
     {
         var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "AllResourcesPage.xaml"));
+        var code = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "AllResourcesPage.xaml.cs"));
 
-        // 之前只有"⋯"按钮能开菜单，整行右键没反应——补上 DataGrid.RowStyle 让右键也能用
-        // （虚拟机列表页已经是这样，这里对齐）。
-        var rowStyleStart = xaml.IndexOf("<DataGrid.RowStyle>", StringComparison.Ordinal);
-        Assert.True(rowStyleStart >= 0, "未找到 AllResourcesGrid 的 DataGrid.RowStyle。");
-        var rowStyleEnd = xaml.IndexOf("</DataGrid.RowStyle>", rowStyleStart, StringComparison.Ordinal);
-        var rowStyleBlock = xaml[rowStyleStart..rowStyleEnd];
+        // 之前用 DataGrid.RowStyle 的 Setter 让所有行共用同一个 ContextMenu 实例，行不
+        // 虚拟化时几乎同时生成的多行会一起抢这份实例的逻辑父级归属，真实复现过第一条记录
+        // 右键第一次没反应。改为 LoadingRow 逐行各自 FindResource 一次，拿到各自独立的实例。
+        Assert.Contains("LoadingRow=\"AllResourcesGrid_LoadingRow\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<DataGrid.RowStyle>", xaml, StringComparison.Ordinal);
 
-        Assert.Contains("Cf.AllResourcesRowMenu", rowStyleBlock, StringComparison.Ordinal);
+        Assert.Contains("AllResourcesGrid_LoadingRow", code, StringComparison.Ordinal);
+        Assert.Contains("FindResource(\"Cf.AllResourcesRowMenu\")", code, StringComparison.Ordinal);
         // 虚拟机有自己专门的删除流程（"⋯"按钮对这类行直接隐藏），整行右键不能绕过去，
-        // 必须用 DataTrigger 把虚拟机行的 ContextMenu 置空。
-        Assert.Contains("IsVirtualMachine", rowStyleBlock, StringComparison.Ordinal);
-        Assert.Contains("ContextMenu\" Value=\"{x:Null}\"", rowStyleBlock, StringComparison.Ordinal);
+        // LoadingRow 里必须按 IsVirtualMachine 把这类行的 ContextMenu 置空。
+        Assert.Contains("IsVirtualMachine", code, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void 资源组列表整行右键必须打开行菜单()
+    public void 资源组列表整行右键必须用LoadingRow逐行赋值菜单()
     {
         var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "ResourceGroupsPage.xaml"));
+        var code = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "ResourceGroupsPage.xaml.cs"));
 
-        var rowStyleStart = xaml.IndexOf("<DataGrid.RowStyle>", StringComparison.Ordinal);
-        Assert.True(rowStyleStart >= 0, "未找到 ResourceGroupsGrid 的 DataGrid.RowStyle。");
-        var rowStyleEnd = xaml.IndexOf("</DataGrid.RowStyle>", rowStyleStart, StringComparison.Ordinal);
-        var rowStyleBlock = xaml[rowStyleStart..rowStyleEnd];
+        Assert.Contains("LoadingRow=\"ResourceGroupsGrid_LoadingRow\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<DataGrid.RowStyle>", xaml, StringComparison.Ordinal);
 
-        Assert.Contains("Cf.ResourceGroupRowMenu", rowStyleBlock, StringComparison.Ordinal);
+        Assert.Contains("ResourceGroupsGrid_LoadingRow", code, StringComparison.Ordinal);
+        Assert.Contains("FindResource(\"Cf.ResourceGroupRowMenu\")", code, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void 深色模式下菜单项与分隔线必须自定义模板不留系统默认的浅色占位列()
+    public void 虚拟机列表整行右键也必须用LoadingRow逐行赋值菜单()
+    {
+        var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "VirtualMachinesPage.xaml"));
+        var code = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "VirtualMachinesPage.xaml.cs"));
+
+        // 同一套坑理论上也存在于虚拟机列表页（默认开着行虚拟化，没那么容易复现，
+        // 但代码模式一样，一并改掉）。
+        Assert.Contains("LoadingRow=\"VmsGrid_LoadingRow\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<DataGrid.RowStyle>", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("VmsGrid_LoadingRow", code, StringComparison.Ordinal);
+        Assert.Contains("FindResource(\"Cf.VmRowMenu\")", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 深色模式下菜单及菜单项与分隔线必须自定义模板不留系统默认的浅色占位列()
     {
         var theme = File.ReadAllText(Path.Combine(AppDirectory(), "Themes", "CloudFlowTheme.xaml"));
 
-        // 真实反馈：深色模式下右键菜单左边一条竖着的白条——WPF 默认 MenuItem 模板里的
-        // 图标/勾选占位列有自己独立的浅色背景，只设 Foreground/Background 不重写模板盖不掉它。
+        // 真实反馈：深色模式下右键菜单左边一条竖着的白条。第一次只重写了 MenuItem 的模板，
+        // 白条依旧在——真正的占位列其实在 ContextMenu 自己的默认模板里（经典 Aero2 主题给
+        // 整个菜单预留的一条贯穿全高的图标背景带），必须连 ContextMenu 一起重写模板。
+        var contextMenuStart = theme.IndexOf("<Style TargetType=\"ContextMenu\">", StringComparison.Ordinal);
+        Assert.True(contextMenuStart >= 0, "未找到 ContextMenu 的隐式样式。");
+        var contextMenuEnd = theme.IndexOf("</Style>", contextMenuStart, StringComparison.Ordinal);
+        var contextMenuBlock = theme[contextMenuStart..contextMenuEnd];
+
+        Assert.Contains("ControlTemplate TargetType=\"ContextMenu\"", contextMenuBlock, StringComparison.Ordinal);
+        Assert.Contains("ItemsPresenter", contextMenuBlock, StringComparison.Ordinal);
+
         var menuItemStart = theme.IndexOf("<Style TargetType=\"MenuItem\">", StringComparison.Ordinal);
         Assert.True(menuItemStart >= 0, "未找到 MenuItem 的隐式样式。");
         var menuItemEnd = theme.IndexOf("</Style>", menuItemStart, StringComparison.Ordinal);

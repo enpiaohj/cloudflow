@@ -122,18 +122,19 @@
                 <!-- IsVirtualizing=False：同 AllResourcesPage 的 AllResourcesGrid 那处注释——这个
                      页面现在也有了搜索对应的 CollectionView.Filter，属于同一类已知会让
                      ItemContainerGenerator 失步的组合，提前关掉虚拟化规避，不必等它真的崩一次。 -->
+                <!-- 整行右键同样打开行操作菜单（虚拟机列表页已有的常规操作方式，这里补齐）。
+                     ContextMenu 通过 LoadingRow 在代码里逐行赋值而不是 DataGrid.RowStyle 的
+                     Setter——原因见 AllResourcesPage.xaml 同一处注释：多行共用同一个 Style
+                     对象时，Setter 的 StaticResource 只解析一次，所有行会拿到同一个 ContextMenu
+                     实例，行不虚拟化时几乎同时生成的多行会一起抢这一份实例的逻辑父级归属，
+                     导致最先生成的那一行右键第一次没反应。 -->
                 <DataGrid x:Name="ResourceGroupsGrid"
                           ItemsSource="{Binding Rows}"
                           Style="{StaticResource Cf.DataGrid}"
                           HorizontalScrollBarVisibility="Auto"
                           VirtualizingPanel.IsVirtualizing="False"
+                          LoadingRow="ResourceGroupsGrid_LoadingRow"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
-                    <!-- 整行右键同样打开行操作菜单（虚拟机列表页已有的常规操作方式，这里补齐）。 -->
-                    <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
-                            <Setter Property="ContextMenu" Value="{StaticResource Cf.ResourceGroupRowMenu}" />
-                        </Style>
-                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁
                              （虚拟机列表页踩过同一个坑）。 -->
