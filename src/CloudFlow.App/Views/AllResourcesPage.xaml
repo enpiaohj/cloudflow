@@ -95,9 +95,17 @@
         <!-- ===== 资源列表 ===== -->
         <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,14,0,0">
             <Grid>
+                <!-- 真实踩过的坑：批量/单项删除时崩过 InvalidOperationException（某个 ItemsControl
+                     与它的项源不一致，VirtualizingStackPanel.MeasureChild 里检测到）。这个页面比
+                     资源组页多一样东西——搜索框对应的 CollectionView.Filter；行虚拟化下移除项目、
+                     同时又有过滤视图在场，是 WPF DataGrid 一个有据可查的 ItemContainerGenerator
+                     失步场景（资源组页没有搜索过滤，同样的删除代码从未在那边崩过，两次真实崩溃
+                     也都点名的是这个 Grid）。关掉虚拟化直接绕开这条脆弱路径——所有资源清单量级
+                     通常是几十到几百条，关闭虚拟化的渲染成本可以接受。 -->
                 <DataGrid x:Name="AllResourcesGrid"
                           ItemsSource="{Binding Rows}"
                           Style="{StaticResource Cf.DataGrid}"
+                          VirtualizingPanel.IsVirtualizing="False"
                           HorizontalScrollBarVisibility="Auto"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
                     <DataGrid.Columns>
