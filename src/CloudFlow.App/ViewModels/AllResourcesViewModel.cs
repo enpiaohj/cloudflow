@@ -173,6 +173,17 @@ public partial class AllResourcesViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
+    /// <summary>顶栏全局搜索入口用——按关键字过滤，并把类型/资源组/区域三个下拉复位到
+    /// "全部"。不复位的话，上次留在这个页面时选的筛选条件会悄悄限制这次搜索的结果，
+    /// 让用户以为顶栏搜索"找不到"。</summary>
+    public void SetExternalFilter(string filter)
+    {
+        SearchText = filter;
+        SelectedType = AllTypesOption;
+        SelectedResourceGroup = AllResourceGroupsOption;
+        SelectedLocation = AllLocationsOption;
+    }
+
     partial void OnSelectedTypeChanged(string value) => ApplyFilter();
 
     partial void OnSelectedResourceGroupChanged(string value) => ApplyFilter();

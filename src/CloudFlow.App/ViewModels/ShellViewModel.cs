@@ -578,12 +578,18 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         OnPropertyChanged(nameof(ScopeOptions));
     }
 
+    /// <summary>
+    /// 顶栏全局搜索。占位文字写的是"搜索资源、虚拟机…"，但这里原来无论输入什么都会跳到
+    /// "虚拟机"列表——搜资源组、存储账户这类非虚拟机资源时，会被导到一个必然搜不到东西的
+    /// 虚拟机列表，看起来像是"搜索坏了"。改成导到"所有资源"，那里本来就覆盖全部资源类型
+    /// （含虚拟机），语义上才对得上占位文字。
+    /// </summary>
     [RelayCommand]
     private Task SearchAsync()
     {
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            NavigateVirtualMachines(SearchText.Trim());
+            NavigateAllResources(SearchText.Trim());
         }
         return Task.CompletedTask;
     }
@@ -611,6 +617,26 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         {
             Vms.SetExternalFilter(filter);
         }
+    }
+
+    /// <summary>顶栏全局搜索导航到"所有资源"（覆盖全部资源类型，含虚拟机）。</summary>
+    public void NavigateAllResources(string? filter = null)
+    {
+        NavItems.First(n => n.PageKey == "resources").IsExpanded = true;
+        var item = NavItems.First(n => n.PageKey == "allresources");
+        if (SelectedNav != item)
+        {
+            SelectedNav = item;
+        }
+        _lastSelectedNav = item;
+        Current = AllResources;
+        // 同一条理由见 NavigateVirtualMachines：这条路径可能不触发 OnSelectedNavChanged。
+        Vms.SetPageActive(false);
+        if (filter is not null)
+        {
+            AllResources.SetExternalFilter(filter);
+        }
+        _ = AllResources.RefreshAsync();
     }
 
     public void NavigateToVmDetail(VmSummary vm)
