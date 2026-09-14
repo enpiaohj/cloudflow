@@ -76,17 +76,30 @@ public partial class ImpactApprovalDialog : CfDialogWindow
     /// 机械地连点"继续"而不再细看；合并后全部目标与各自的影响一次摆全，输入确认文本的门槛
     /// 也只过一次。每个 Job 仍各自走完整流水线、各自留审计记录——合并的只是确认这一步。
     /// </summary>
+    /// <param name="targetLabels">
+    /// 与 <paramref name="jobs"/> 一一对应的人类可读目标说明（如"rg-test（韩国中部）"），
+    /// <b>不是</b>原始 Azure Resource ID——那是一长串 <c>/subscriptions/.../providers/...</c>
+    /// 路径，批量场景下堆几十行完全没法读，只在单个确认（另一个构造函数）里保留原始 ID
+    /// 供需要精确核对的场景使用。
+    /// </param>
     public ImpactApprovalDialog(
         IReadOnlyList<OperationJob> jobs,
+        IReadOnlyList<string> targetLabels,
         string operationText,
         Func<Action<string>, CancellationToken, Task<ApprovalSubmitOutcome>> submitAsync,
         string confirmText)
     {
         ArgumentNullException.ThrowIfNull(jobs);
+        ArgumentNullException.ThrowIfNull(targetLabels);
         ArgumentNullException.ThrowIfNull(submitAsync);
         if (jobs.Count == 0)
         {
             throw new ArgumentException("批量确认至少需要一个待审批任务。", nameof(jobs));
+        }
+
+        if (targetLabels.Count != jobs.Count)
+        {
+            throw new ArgumentException("targetLabels 必须与 jobs 一一对应。", nameof(targetLabels));
         }
 
         _submitAsync = submitAsync;
@@ -94,7 +107,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
 
         OperationText = operationText;
         TargetLabel = $"目标资源（{jobs.Count} 个）";
-        ResourceId = string.Join(Environment.NewLine, jobs.Select(job => job.ResourceId));
+        ResourceId = string.Join(Environment.NewLine, targetLabels);
         ImpactText = string.Join(Environment.NewLine, jobs.Select(job => $"• {ImpactOf(job)}"));
         var affected = jobs.Sum(job => job.ImpactAffectedResources ?? 0);
         AffectedText = affected > 0 ? $"预计影响资源数合计：{affected}" : "";

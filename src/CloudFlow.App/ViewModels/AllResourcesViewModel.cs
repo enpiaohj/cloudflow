@@ -458,6 +458,7 @@ public partial class AllResourcesViewModel : ObservableObject
             var result = new BatchDeleteResult();
             var dialog = new Views.ImpactApprovalDialog(
                 [.. waiting.Select(item => item.Job)],
+                [.. waiting.Select(item => $"{item.Row.Name}（{AzureRegionCatalog.DisplayName(item.Row.Location)}）")],
                 $"批量删除资源（{waiting.Count} 项）",
                 (onProgress, ct) => ApproveBatchAsync(waiting, result, onProgress, ct),
                 confirmText: $"删除 {waiting.Count} 项资源")
@@ -506,11 +507,21 @@ public partial class AllResourcesViewModel : ObservableObject
         _ => 1
     };
 
-    /// <summary>合并确认之后逐个执行，理由见 <see cref="ResourceGroupsViewModel"/> 的同名方法。</summary>
+    /// <summary>
+    /// 合并确认之后逐个执行。不并发，理由见 <see cref="ResourceGroupsViewModel"/> 的同名方法。
+    /// </summary>
+    /// <remarks>
+    /// 真实踩过的坑：这里原来是每删成功一项就立刻 <c>Rows.Remove(row)</c>，在真实账户上批量
+    /// 删除时崩过一次 <c>InvalidOperationException：某个 ItemsControl 与它的项源不一致</c>
+    /// ——AllResourcesGrid 的 ItemContainerGenerator 在"await 让出线程 → 下一次 Remove"这种
+    /// 节奏的连续快速删除下会跟 ObservableCollection 的实际状态失步。改为循环内只记录哪些
+    /// 成功了，等整批跑完后一次性重建 <see cref="Rows"/>，DataGrid 只收到一次变更通知。
+    /// </remarks>
     private async Task<Views.ApprovalSubmitOutcome> ApproveBatchAsync(
         IReadOnlyList<(AllResourceRow Row, OperationJob Job)> items, BatchDeleteResult result,
         Action<string> onProgress, CancellationToken ct)
     {
+        var succeededRows = new List<AllResourceRow>();
         for (var i = 0; i < items.Count; i++)
         {
             var (row, job) = items[i];
@@ -523,7 +534,7 @@ public partial class AllResourcesViewModel : ObservableObject
                 if (finished.Status == JobStatus.Succeeded)
                 {
                     result.Succeeded++;
-                    Rows.Remove(row);
+                    succeededRows.Add(row);
                 }
                 else
                 {
@@ -534,6 +545,13 @@ public partial class AllResourcesViewModel : ObservableObject
             {
                 result.Failures.Add($"{row.Name}：{ex.Message}");
             }
+        }
+
+        // 整批跑完后一次性从列表移除，DataGrid 只收到一次变更通知（见本方法上方的注释）。
+        if (succeededRows.Count > 0)
+        {
+            var remaining = Rows.Where(row => !succeededRows.Contains(row));
+            Rows = new ObservableCollection<AllResourceRow>(remaining);
         }
 
         return Views.ApprovalSubmitOutcome.Ok();

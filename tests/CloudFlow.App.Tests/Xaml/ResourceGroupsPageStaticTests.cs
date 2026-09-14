@@ -139,6 +139,33 @@ public sealed class ResourceGroupsPageStaticTests
         Assert.Contains("IReadOnlyList<OperationJob> jobs", dialog, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 真实踩过的坑：批量确认框原来直接堆 Azure Resource ID（一长串
+    /// <c>/subscriptions/.../providers/...</c> 路径），批量场景下完全没法读；且原来的批量执行
+    /// 循环里"删成功一个就立刻从列表移除"在真实账户上删 3 个以上时崩过一次
+    /// <c>InvalidOperationException：某个 ItemsControl 与它的项源不一致</c>
+    /// （DataGrid 的 ItemContainerGenerator 与连续快速的 Remove 失步）。
+    /// </summary>
+    [Fact]
+    public void 批量确认框显示人类可读的名称而非原始ResourceId_且整批跑完才一次性移除行()
+    {
+        var dialog = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "ImpactApprovalDialog.xaml.cs"));
+        Assert.Contains("IReadOnlyList<string> targetLabels", dialog, StringComparison.Ordinal);
+        Assert.Contains("ResourceId = string.Join(Environment.NewLine, targetLabels)", dialog, StringComparison.Ordinal);
+
+        foreach (var file in new[] { "ResourceGroupsViewModel.cs", "AllResourcesViewModel.cs" })
+        {
+            var viewModel = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", file));
+            // 传给对话框的是"名称（区域）"这种人类可读标签，不是 item.Job.ResourceId。
+            Assert.Contains(
+                "AzureRegionCatalog.DisplayName(item.Row.Location)", viewModel, StringComparison.Ordinal);
+            // 批量执行循环内不再逐项 Rows.Remove——收集到 succeededRows，跑完整批才一次性重建 Rows。
+            Assert.DoesNotContain("succeededRows.Add(row);\n                    Rows.Remove", viewModel);
+            Assert.Contains("succeededRows.Add(row);", viewModel, StringComparison.Ordinal);
+            Assert.Contains("new ObservableCollection<", viewModel, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void 单资源删除必须拒绝虚拟机类型()
     {

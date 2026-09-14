@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
 using CloudFlow.Modules.Compute.Services;
@@ -403,6 +404,7 @@ public partial class ResourceGroupsViewModel : ObservableObject
             var result = new BatchDeleteResult();
             var dialog = new Views.ImpactApprovalDialog(
                 [.. waiting.Select(item => item.Job)],
+                [.. waiting.Select(item => $"{item.Row.Name}（{AzureRegionCatalog.DisplayName(item.Row.Location)}）")],
                 $"批量删除资源组（{waiting.Count} 个）",
                 (onProgress, ct) => ApproveBatchAsync(waiting, result, onProgress, ct),
                 confirmText: $"删除 {waiting.Count} 个资源组")
@@ -441,10 +443,19 @@ public partial class ResourceGroupsViewModel : ObservableObject
     /// 合并确认之后逐个执行。不并发：引擎的待审批表不是线程安全的集合，而且逐个执行时
     /// "第 i/N 个"的进度才读得懂。某一项失败不中断后面的——已经确认过的删除都要尝试到。
     /// </summary>
+    /// <remarks>
+    /// 真实踩过的坑：这里原来是每删成功一个就立刻 <c>Rows.Remove(row)</c>，在真实账户上
+    /// 删 3 个以上资源组时崩过一次 <c>InvalidOperationException：某个 ItemsControl 与它的
+    /// 项源不一致</c>——DataGrid 的 ItemContainerGenerator 在"await 让出线程 → 下一次
+    /// Remove"这种节奏的连续快速删除下会跟 ObservableCollection 的实际状态失步（崩溃日志
+    /// 定位到 AllResourcesGrid，资源组页同一种循环结构，同一条纪律）。改为循环内只记录
+    /// 哪些成功了，等整批跑完后一次性重建 <see cref="Rows"/>，DataGrid 只收到一次变更通知。
+    /// </remarks>
     private async Task<Views.ApprovalSubmitOutcome> ApproveBatchAsync(
         IReadOnlyList<(ResourceGroupRow Row, OperationJob Job)> items, BatchDeleteResult result,
         Action<string> onProgress, CancellationToken ct)
     {
+        var succeededRows = new List<ResourceGroupRow>();
         for (var i = 0; i < items.Count; i++)
         {
             var (row, job) = items[i];
@@ -457,7 +468,7 @@ public partial class ResourceGroupsViewModel : ObservableObject
                 if (finished.Status == JobStatus.Succeeded)
                 {
                     result.Succeeded++;
-                    Rows.Remove(row);
+                    succeededRows.Add(row);
                 }
                 else
                 {
@@ -468,6 +479,13 @@ public partial class ResourceGroupsViewModel : ObservableObject
             {
                 result.Failures.Add($"{row.Name}：{ex.Message}");
             }
+        }
+
+        // 整批跑完后一次性从列表移除，DataGrid 只收到一次变更通知（见本方法上方的注释）。
+        if (succeededRows.Count > 0)
+        {
+            var remaining = Rows.Where(row => !succeededRows.Contains(row));
+            Rows = new ObservableCollection<ResourceGroupRow>(remaining);
         }
 
         // 部分失败也关闭对话框：已成功的删不回来，重试也只会对已结束的 Job 报错；
