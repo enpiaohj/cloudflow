@@ -17,6 +17,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -83,12 +84,49 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,16,0,0">
+        <!-- ===== 按名称搜索 + 区域/订阅下拉筛选 =====
+             每个下拉旁边都有一个不随选中值变化的说明性文字（"区域"/"订阅"）——只靠下拉自己的
+             "全部 XX"默认值，一旦选中了具体的值，这行字就不再出现，又会分不清这个下拉是筛
+             哪一列的；固定在旁边的文字不受选中值影响。 -->
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource Cf.SearchField}">
+                <ui:TextBox PlaceholderText="按名称搜索…"
+                            Icon="{ui:SymbolIcon Search24}"
+                            Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                            BorderThickness="0" Background="Transparent"
+                            VerticalContentAlignment="Center" FontSize="13" />
+            </Border>
+            <!-- 两个下拉筛选器：各自精确匹配一列，"全部"表示不筛这一列，与名称关键字按 AND 组合。 -->
+            <TextBlock Grid.Column="1" Text="区域" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="2" MinWidth="110" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}"
+                      automation:AutomationProperties.Name="按区域筛选" />
+            <TextBlock Grid.Column="3" Text="订阅" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="4" MinWidth="130" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding SubscriptionOptions}" SelectedItem="{Binding SelectedSubscription}"
+                      automation:AutomationProperties.Name="按订阅筛选" />
+        </Grid>
+
+        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,16,0,0">
             <Grid>
+                <!-- IsVirtualizing=False：同 AllResourcesPage 的 AllResourcesGrid 那处注释——这个
+                     页面现在也有了搜索对应的 CollectionView.Filter，属于同一类已知会让
+                     ItemContainerGenerator 失步的组合，提前关掉虚拟化规避，不必等它真的崩一次。 -->
                 <DataGrid x:Name="ResourceGroupsGrid"
                           ItemsSource="{Binding Rows}"
                           Style="{StaticResource Cf.DataGrid}"
                           HorizontalScrollBarVisibility="Auto"
+                          VirtualizingPanel.IsVirtualizing="False"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
                     <DataGrid.Columns>
                         <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁
@@ -197,6 +235,12 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
+                <!-- 关键字一个都没匹配上：表头还在，给一句说明而不是一片空白 -->
+                <controls:EmptyState Margin="0,48,0,24" VerticalAlignment="Top"
+                                     Symbol="Search24" Title="未找到匹配的资源组"
+                                     Description="可以换个关键字，或调整区域/订阅筛选器。"
+                                     Visibility="{Binding IsFilteredEmpty, Converter={StaticResource BoolToVisibility}}" />
+
                 <controls:EmptyState Margin="0,24" Symbol="Folder24" Title="没有资源组"
                                      Description="{Binding EmptyText}">
                     <controls:EmptyState.Style>
@@ -226,7 +270,7 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="3" Text="{Binding SummaryText}" Style="{StaticResource Cf.Muted}" Margin="4,12,0,0"
+        <TextBlock Grid.Row="4" Text="{Binding SummaryText}" Style="{StaticResource Cf.Muted}" Margin="4,12,0,0"
                    Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}" />
     </Grid>
 </UserControl>

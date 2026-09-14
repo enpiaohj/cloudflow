@@ -65,6 +65,30 @@ public sealed class DeleteResourceGroupHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_资源组已不存在时直接返回不调用Delete()
+    {
+        var executor = new RecordingExecutor { Exists = false };
+        var handler = new DeleteResourceGroupHandler(executor);
+
+        var requestId = await handler.ExecuteAsync(Request(), CancellationToken.None);
+
+        Assert.Null(requestId);
+        Assert.False(executor.DeleteCalled);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_资源组仍存在时调用Delete并返回其结果()
+    {
+        var executor = new RecordingExecutor { Exists = true };
+        var handler = new DeleteResourceGroupHandler(executor);
+
+        var requestId = await handler.ExecuteAsync(Request(), CancellationToken.None);
+
+        Assert.Equal("request-123", requestId);
+        Assert.True(executor.DeleteCalled);
+    }
+
+    [Fact]
     public async Task VerifyAsync_资源组已消失时判定为成功()
     {
         var executor = new RecordingExecutor { Exists = false };
@@ -102,12 +126,17 @@ public sealed class DeleteResourceGroupHandlerTests
 
         public bool Exists { get; set; } = true;
 
+        public bool DeleteCalled { get; private set; }
+
         public Task<IReadOnlyList<ResourceSummary>> GetContainedResourcesAsync(
             OperationRequest request, CancellationToken ct = default) =>
             Task.FromResult(Contained);
 
-        public Task<string?> DeleteAsync(OperationRequest request, CancellationToken ct = default) =>
-            Task.FromResult<string?>("request-123");
+        public Task<string?> DeleteAsync(OperationRequest request, CancellationToken ct = default)
+        {
+            DeleteCalled = true;
+            return Task.FromResult<string?>("request-123");
+        }
 
         public Task<bool> ExistsAsync(OperationRequest request, CancellationToken ct = default) =>
             Task.FromResult(Exists);

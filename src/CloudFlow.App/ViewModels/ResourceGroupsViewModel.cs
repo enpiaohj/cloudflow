@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
@@ -102,7 +103,33 @@ public partial class ResourceGroupsViewModel : ObservableObject
 
     public bool HasRows => Rows.Count > 0;
 
-    public string SummaryText => $"共 {Rows.Count} 个资源组";
+    // 各自带字段名而不是共用一个裸的"全部"：下拉框收起来时唯一可见的内容就是当前选中值，
+    // 两个都显示"全部"会分不清哪个是哪个字段——真实反馈过这个问题。
+    private const string AllLocationsOption = "全部区域";
+    private const string AllSubscriptionsOption = "全部订阅";
+
+    /// <summary>按名称过滤（只过滤已加载的列表，不重新查询 Azure）；区域/订阅走下面两个
+    /// 下拉筛选器，各自精确匹配，与名称关键字一起按 AND 组合。</summary>
+    [ObservableProperty]
+    private string _searchText = "";
+
+    [ObservableProperty]
+    private string _selectedLocation = AllLocationsOption;
+
+    [ObservableProperty]
+    private string _selectedSubscription = AllSubscriptionsOption;
+
+    /// <summary>两个下拉筛选器的可选项：来自当前已加载 Rows 的去重值，各自的"全部 XX"固定在
+    /// 最前面表示不筛选。数据每次变化都会重新计算。</summary>
+    public ObservableCollection<string> LocationOptions { get; } = [AllLocationsOption];
+
+    public ObservableCollection<string> SubscriptionOptions { get; } = [AllSubscriptionsOption];
+
+    /// <summary>列表下方的计数：有关键字时说明"找到几个、一共几个"。</summary>
+    public string SummaryText { get; private set; } = "";
+
+    /// <summary>有数据但关键字一个都没匹配上——与"根本没有资源组"是两种空态，文案不同。</summary>
+    public bool IsFilteredEmpty { get; private set; }
 
     public string EmptyText => _scopeContext.ActiveAccount is null
         ? "演示模式下暂无资源组数据。"
@@ -115,12 +142,12 @@ public partial class ResourceGroupsViewModel : ObservableObject
 
     public string BatchDeleteText => $"删除所选（{CheckedCount}）";
 
-    /// <summary>表头全选框的显示状态：可删除的行都已勾选。</summary>
+    /// <summary>表头全选框的显示状态：当前可见（未被搜索过滤）的可删除行都已勾选。</summary>
     public bool IsAllChecked
     {
         get
         {
-            var deletable = Rows.Where(row => row.CanDelete).ToList();
+            var deletable = VisibleDeletableRows();
             return deletable.Count > 0 && deletable.All(row => row.IsChecked);
         }
     }
@@ -143,6 +170,12 @@ public partial class ResourceGroupsViewModel : ObservableObject
         _ = LoadResourceCountsAsync([.. Rows]);
     }
 
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedLocationChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedSubscriptionChanged(string value) => ApplyFilter();
+
     partial void OnRowsChanged(
         ObservableCollection<ResourceGroupRow>? oldValue, ObservableCollection<ResourceGroupRow> newValue)
     {
@@ -161,7 +194,11 @@ public partial class ResourceGroupsViewModel : ObservableObject
             row.PropertyChanged += OnRowPropertyChanged;
         }
 
-        NotifySelectionChanged();
+        // 先重建两个下拉的可选项，再筛选——RefreshFilterOptions 内部如果发现当前选中值已经不在
+        // 新清单里，会把它复位成"全部"，这个复位本身会级联触发一次 ApplyFilter，属于安全时机
+        // （原因见 OnRowsCollectionChanged 那处更详细的注释）。
+        RefreshFilterOptions();
+        ApplyFilter();
     }
 
     private void OnRowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -177,7 +214,52 @@ public partial class ResourceGroupsViewModel : ObservableObject
         }
 
         NotifyListChanged();
-        NotifySelectionChanged();
+
+        // 不能在这里同步调用 RefreshFilterOptions()/ApplyFilter()：同 AllResourcesViewModel 的
+        // 同名方法——ApplyFilter() 会给 CollectionView.Filter 重新赋值，触发一次嵌套在当前
+        // CollectionChanged 分发里的同步 Refresh，跟 DataGrid 的 ItemContainerGenerator 正在
+        // 处理的那次变更打架。RefreshFilterOptions() 复位无效选中值时会级联调用 ApplyFilter()，
+        // 所以两个必须一起延后，不能只延后其中一个。这个页面加筛选之前从没出过事，就是因为
+        // 完全没碰 CollectionView；现在补上筛选，必须一起补上这条规避，不然重演同一个崩溃。
+        Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            RefreshFilterOptions();
+            ApplyFilter();
+        });
+    }
+
+    /// <summary>重建两个下拉筛选器的可选项（来自当前 Rows 的去重值）；当前选中值如果已经不在
+    /// 新清单里，复位成"全部"，避免下拉停在一个不存在的值上。</summary>
+    private void RefreshFilterOptions()
+    {
+        UpdateOptions(LocationOptions, AllLocationsOption, Rows.Select(row => AzureRegionCatalog.DisplayName(row.Location)));
+        UpdateOptions(SubscriptionOptions, AllSubscriptionsOption, Rows.Select(row => row.SubscriptionName));
+
+        if (!LocationOptions.Contains(SelectedLocation))
+        {
+            SelectedLocation = AllLocationsOption;
+        }
+
+        if (!SubscriptionOptions.Contains(SelectedSubscription))
+        {
+            SelectedSubscription = AllSubscriptionsOption;
+        }
+    }
+
+    private static void UpdateOptions(ObservableCollection<string> options, string allOption, IEnumerable<string> values)
+    {
+        var distinct = values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        options.Clear();
+        options.Add(allOption);
+        foreach (var value in distinct)
+        {
+            options.Add(value);
+        }
     }
 
     private void OnRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -192,7 +274,6 @@ public partial class ResourceGroupsViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(EmptyText));
-        OnPropertyChanged(nameof(SummaryText));
     }
 
     private void NotifySelectionChanged()
@@ -203,12 +284,58 @@ public partial class ResourceGroupsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAllChecked));
     }
 
-    /// <summary>表头全选框：可删除的行已全勾就全部取消，否则全部勾上。</summary>
+    private bool HasActiveFilter =>
+        SearchText.Trim().Length > 0 || SelectedLocation != AllLocationsOption ||
+        SelectedSubscription != AllSubscriptionsOption;
+
+    private void ApplyFilter()
+    {
+        var view = CollectionViewSource.GetDefaultView(Rows);
+        view.Filter = HasActiveFilter ? item => item is ResourceGroupRow row && Matches(row) : null;
+
+        var visible = HasActiveFilter ? view.Cast<object>().Count() : Rows.Count;
+        SummaryText = HasActiveFilter
+            ? $"找到 {visible} 个，共 {Rows.Count} 个资源组"
+            : $"共 {Rows.Count} 个资源组";
+        IsFilteredEmpty = HasActiveFilter && Rows.Count > 0 && visible == 0;
+        OnPropertyChanged(nameof(SummaryText));
+        OnPropertyChanged(nameof(IsFilteredEmpty));
+        NotifySelectionChanged();
+    }
+
+    /// <summary>名称走关键字包含匹配；区域/订阅走下拉的精确匹配，与名称按 AND 组合。</summary>
+    private bool Matches(ResourceGroupRow row)
+    {
+        var keyword = SearchText.Trim();
+        if (keyword.Length > 0 && !row.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (SelectedLocation != AllLocationsOption &&
+            !string.Equals(AzureRegionCatalog.DisplayName(row.Location), SelectedLocation, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (SelectedSubscription != AllSubscriptionsOption &&
+            !string.Equals(row.SubscriptionName, SelectedSubscription, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private List<ResourceGroupRow> VisibleDeletableRows() =>
+        [.. CollectionViewSource.GetDefaultView(Rows).Cast<ResourceGroupRow>().Where(row => row.CanDelete)];
+
+    /// <summary>表头全选框：只作用于当前可见（未被搜索过滤）的可删除行。</summary>
     [RelayCommand]
     private void ToggleAllChecked()
     {
         var target = !IsAllChecked;
-        foreach (var row in Rows.Where(row => row.CanDelete))
+        foreach (var row in VisibleDeletableRows())
         {
             row.IsChecked = target;
         }
@@ -234,7 +361,9 @@ public partial class ResourceGroupsViewModel : ObservableObject
             var subscriptionName = _scopeContext.AvailableSubscriptions
                 .FirstOrDefault(s => string.Equals(s.SubscriptionId, subscriptionId, StringComparison.OrdinalIgnoreCase))
                 ?.DisplayName ?? "";
-            var groups = await _catalog.GetAllAsync(subscriptionId).ConfigureAwait(true);
+            // forceRefresh：这个页面的刷新必须拿到真数据，不能被创建向导那边设的 10 分钟缓存挡住
+            // （真实报过的 Bug：删完资源组点刷新，那一行还在，Azure 后台其实已经没有了）。
+            var groups = await _catalog.GetAllAsync(subscriptionId, forceRefresh: true).ConfigureAwait(true);
             rows.AddRange(groups.Select(g => new ResourceGroupRow(g.Name, g.Location, subscriptionId, subscriptionName)));
         }
 

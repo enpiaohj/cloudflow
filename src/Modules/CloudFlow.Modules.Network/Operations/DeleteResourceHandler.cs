@@ -51,8 +51,17 @@ public sealed class DeleteResourceHandler(IResourceDeleteExecutor executor) : IO
         });
     }
 
-    public Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct) =>
-        executor.DeleteAsync(request, ct);
+    public async Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct)
+    {
+        // 存在性以真实读回为准，理由同 DeleteResourceGroupHandler 的同一处——已经不存在
+        // 正是这个操作想要的结果，直接视为已达成，不必再撞一次 404。
+        if (!await executor.ExistsAsync(request, ct).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return await executor.DeleteAsync(request, ct).ConfigureAwait(false);
+    }
 
     public async Task<bool> VerifyAsync(OperationRequest request, string? requestId, CancellationToken ct) =>
         !await executor.ExistsAsync(request, ct).ConfigureAwait(false);

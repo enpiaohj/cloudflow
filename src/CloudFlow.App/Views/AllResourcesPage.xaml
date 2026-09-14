@@ -57,21 +57,46 @@
             </Grid>
         </Border>
 
-        <!-- ===== 工具行：搜索 + 批量删除 + 刷新 ===== -->
+        <!-- ===== 工具行：按名称搜索 + 类型/资源组/区域下拉筛选 + 批量删除 + 刷新 =====
+             每个下拉旁边都有一个不随选中值变化的说明性文字（"类型"/"资源组"/"区域"）——只靠
+             下拉自己的"全部 XX"默认值，一旦选中了具体的值（比如选了某个资源组的名字），
+             这行字就不再出现，又会分不清这个下拉是筛哪一列的；固定在旁边的文字不受选中值影响。 -->
         <Grid Grid.Row="2" Margin="0,16,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Border Grid.Column="0" Style="{StaticResource Cf.SearchField}">
-                <ui:TextBox PlaceholderText="按名称、类型、资源组或区域搜索…"
+                <ui:TextBox PlaceholderText="按名称搜索…"
                             Icon="{ui:SymbolIcon Search24}"
                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                             BorderThickness="0" Background="Transparent"
                             VerticalContentAlignment="Center" FontSize="13" />
             </Border>
-            <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <!-- 三个下拉筛选器：各自精确匹配一列，"全部"表示不筛这一列，与名称关键字按 AND 组合。 -->
+            <TextBlock Grid.Column="1" Text="类型" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="2" MinWidth="110" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding SelectedType}"
+                      automation:AutomationProperties.Name="按类型筛选" />
+            <TextBlock Grid.Column="3" Text="资源组" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="4" MinWidth="110" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding ResourceGroupOptions}" SelectedItem="{Binding SelectedResourceGroup}"
+                      automation:AutomationProperties.Name="按资源组筛选" />
+            <TextBlock Grid.Column="5" Text="区域" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="6" MinWidth="110" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}"
+                      automation:AutomationProperties.Name="按区域筛选" />
+            <StackPanel Grid.Column="8" Orientation="Horizontal">
                 <!-- 批量删除：勾选之后才出现，理由同资源组页；虚拟机行勾不上，不会混进来。 -->
                 <Button Style="{StaticResource Cf.DangerSubtleButton}" Margin="0,0,10,0"
                         Command="{Binding BatchDeleteCommand}"
@@ -228,7 +253,7 @@
                 <!-- 关键字一项都没匹配上：表头还在，给一句说明而不是一片空白 -->
                 <controls:EmptyState Margin="0,48,0,24" VerticalAlignment="Top"
                                      Symbol="Search24" Title="未找到匹配的资源"
-                                     Description="可以换个关键字，按名称、类型、资源组或区域搜索。"
+                                     Description="可以换个关键字，或调整类型/资源组/区域筛选器。"
                                      Visibility="{Binding IsFilteredEmpty, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- 真的没有资源（且不在加载中）：加载期间列表也是空的，不能先闪一下"没有资源" -->

@@ -32,14 +32,15 @@ public sealed class ArmResourceGroupCatalog : IResourceGroupCatalog
     }
 
     public async Task<IReadOnlyList<ResourceGroupInfo>> GetAllAsync(
-        string subscriptionId, CancellationToken ct = default)
+        string subscriptionId, bool forceRefresh = false, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(subscriptionId))
         {
             return [];
         }
 
-        if (_cache.TryGetValue(subscriptionId, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
+        if (!forceRefresh &&
+            _cache.TryGetValue(subscriptionId, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
         {
             return cached.Groups;
         }

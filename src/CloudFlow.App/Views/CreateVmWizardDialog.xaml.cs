@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using CloudFlow.App.Themes;
 using CloudFlow.Modules.Compute.Operations;
 using CloudFlow.Modules.Compute.Services;
@@ -88,6 +90,10 @@ public partial class CreateVmWizardDialog : CfDialogWindow
         UpdateCredentialPanels();
 
         ResourceGroupBox.SelectionChanged += ResourceGroupBox_SelectionChanged;
+        // ComboBox 本身没有公开的 TextChanged 事件（可编辑状态下改文字的是内部模板里那个
+        // TextBox），要拿到"用户正在打字"必须挂内部路由事件——账户下资源组一多，原来的
+        // 下拉是完全不筛选的原始清单，只能自己一条条翻，这里补上"边打字边筛选"。
+        ResourceGroupBox.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler(ResourceGroupBox_TextChanged));
         RegionBox.SelectionChanged += RegionBox_Changed;
         RegionBox.LostKeyboardFocus += RegionBox_Changed;
         VmSizeBox.SelectionChanged += (_, _) => { RefreshPriceEstimate(); RefreshImageCompatibility(); };
@@ -129,6 +135,44 @@ public partial class CreateVmWizardDialog : CfDialogWindow
         _settingRegionFromResourceGroup = false;
         RefreshPriceEstimate();
         RefreshImageCompatibility();
+    }
+
+    /// <summary>
+    /// 边打字边筛选下拉里的已有资源组（按名称包含匹配），不影响 <c>Text</c> 本身——
+    /// 打算新建一个全新名字时照样能继续打完、提交，不会被这里的筛选拦住或改写。
+    /// 只是筛哪些项在下拉里显示，跟 <see cref="SelectedItemIfTextUnchanged{T}"/> 判断
+    /// 用户是否仍在使用某个已有项这件事完全独立、互不影响。
+    /// </summary>
+    private void ResourceGroupBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        ApplyResourceGroupFilter();
+
+        // 有匹配就把下拉打开，筛选结果才看得见——IsTextSearchEnabled=False 之后 WPF
+        // 不会自动展开，得自己控制。
+        if (!string.IsNullOrEmpty(ResourceGroupBox.Text))
+        {
+            ResourceGroupBox.IsDropDownOpen = true;
+        }
+    }
+
+    private void ApplyResourceGroupFilter()
+    {
+        if (ResourceGroupBox.ItemsSource is not { } source)
+        {
+            return;
+        }
+
+        var keyword = ResourceGroupBox.Text.Trim();
+        var view = CollectionViewSource.GetDefaultView(source);
+        view.Filter = keyword.Length == 0
+            ? null
+            : item => item is ResourceGroupOption option &&
+                      option.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase);
     }
 
     private void RegionBox_Changed(object sender, RoutedEventArgs e)
@@ -260,6 +304,13 @@ public partial class CreateVmWizardDialog : CfDialogWindow
         if (wasOnDefault)
         {
             ResourceGroupBox.SelectedIndex = 0;
+        }
+        else
+        {
+            // 换了一份新的 ItemsSource 就是换了一个新的 CollectionView 实例，之前打字筛选出来的
+            // Filter 不会跟着带过去——用户如果已经在筛选框里打了字（真实列表还没回来之前），
+            // 换上真实列表后筛选条件要继续生效，不能变回"看到全部未筛选的清单"。
+            ApplyResourceGroupFilter();
         }
     }
 
@@ -574,41 +625,52 @@ public partial class CreateVmWizardDialog : CfDialogWindow
     private bool IsWindowsImage() => SelectedTag(ImageBox)
         .StartsWith("MicrosoftWindows", StringComparison.OrdinalIgnoreCase);
 
-    private string SelectedSubscriptionId() => SubscriptionBox.SelectedItem is ProvisioningSubscriptionOption item
-        ? item.SubscriptionId
-        : SubscriptionBox.Text.Trim();
+    /// <summary>
+    /// 可编辑 ComboBox 的通用兜底：WPF 的 <c>IsEditable</c> ComboBox 在用户手打文本盖掉原来选中项
+    /// 之后，<c>SelectedItem</c> 并不会跟着清空——它会一直指向那个已经不再显示在框里的旧选项，直到
+    /// 用户重新从下拉里选一次。真实踩过的坑：资源组框预选了一个已有资源组（默认带出上次用过的一个），
+    /// 用户打算新建另一个资源组、把文本整个替换掉，<c>SelectedItem</c> 却仍停在原来那个已有资源组
+    /// 上；如果只看 <c>SelectedItem</c> 不看 <c>Text</c> 是否还对得上，创建时就会用错资源组。
+    /// 因此只有当 <c>Text</c> 仍与 <c>displayText(item)</c> 完全一致（说明用户没有动过）时才信任
+    /// <c>SelectedItem</c>，否则一律以 <c>Text</c> 为准——这条规则对本对话框里每一个可编辑下拉框
+    /// （订阅/资源组/区域/镜像/规格）都成立，统一在这里处理，不在每个 SelectedXxx 方法里各写一份。
+    /// </summary>
+    private static T? SelectedItemIfTextUnchanged<T>(ComboBox box, Func<T, string> displayText)
+        where T : class =>
+        box.SelectedItem is T item && string.Equals(box.Text, displayText(item), StringComparison.Ordinal)
+            ? item
+            : null;
+
+    private string SelectedSubscriptionId() =>
+        SelectedItemIfTextUnchanged<ProvisioningSubscriptionOption>(SubscriptionBox, o => o.DisplayName) is { } item
+            ? item.SubscriptionId
+            : SubscriptionBox.Text.Trim();
 
     // ImageBox 的选项是 ComboBoxItem（Tag=URN，Content=展示名）；IsEditable=True 允许直接输入
-    // 自定义 URN，此时 SelectedItem 为 null，退回读 Text（就是用户输入的 URN 本身）。
-    private static string SelectedTag(ComboBox box) => box.SelectedItem switch
-    {
-        ComboBoxItem item => item.Tag as string ?? string.Empty,
-        _ => box.Text.Trim()
-    };
+    // 自定义 URN，此时 Text 不再等于任何选项的展示名，退回读 Text（就是用户输入的 URN 本身）。
+    private static string SelectedTag(ComboBox box) =>
+        SelectedItemIfTextUnchanged<ComboBoxItem>(box, i => i.Content?.ToString() ?? "") is { } item
+            ? item.Tag as string ?? string.Empty
+            : box.Text.Trim();
 
     // ResourceGroupBox 的选项是 ResourceGroupOption（ToString()=名称+区域），选中已有项时不能
     // 直接读 Text——那会把"myrg · koreacentral"这种展示文本当成资源组名字提交上去。
-    // 自由输入新名字时 SelectedItem 为 null，Text 就是用户打的名字本身。
-    private string SelectedResourceGroupName() => ResourceGroupBox.SelectedItem switch
-    {
-        ResourceGroupOption option => option.Name,
-        _ => ResourceGroupBox.Text.Trim()
-    };
+    private string SelectedResourceGroupName() =>
+        SelectedItemIfTextUnchanged<ResourceGroupOption>(ResourceGroupBox, o => o.ToString()) is { } option
+            ? option.Name
+            : ResourceGroupBox.Text.Trim();
 
-    // RegionBox 的选项是 RegionOption（Name=ARM 短名称，ToString()=展示用英文/中文名+短名称）；
-    // 自由输入时（SelectedItem 为 null）直接把输入当短名称本身——高级用户手填的就是短名称。
-    private string SelectedRegionName() => RegionBox.SelectedItem switch
-    {
-        RegionOption option => option.Name,
-        _ => RegionBox.Text.Trim()
-    };
+    // RegionBox 的选项是 RegionOption（Name=ARM 短名称，ToString()=展示用英文/中文名+短名称）。
+    private string SelectedRegionName() =>
+        SelectedItemIfTextUnchanged<RegionOption>(RegionBox, o => o.ToString()) is { } option
+            ? option.Name
+            : RegionBox.Text.Trim();
 
     // VmSizeBox 的选项是 VmSizeOption（Name=规格名，ToString()=规格名+vCPU/内存），同上原则。
-    private string SelectedVmSizeName() => VmSizeBox.SelectedItem switch
-    {
-        VmSizeOption option => option.Name,
-        _ => VmSizeBox.Text.Trim()
-    };
+    private string SelectedVmSizeName() =>
+        SelectedItemIfTextUnchanged<VmSizeOption>(VmSizeBox, o => o.ToString()) is { } option
+            ? option.Name
+            : VmSizeBox.Text.Trim();
 
     private bool ShowError(string message)
     {

@@ -19,5 +19,13 @@ public readonly record struct ResourceGroupInfo(string Name, string Location);
 /// </summary>
 public interface IResourceGroupCatalog
 {
-    Task<IReadOnlyList<ResourceGroupInfo>> GetAllAsync(string subscriptionId, CancellationToken ct = default);
+    /// <param name="forceRefresh">
+    /// 跳过缓存直接查 ARM——"资源组"/"所有资源"页面的刷新按钮点了就该拿到真数据，
+    /// 不能让创建向导那边为了"能立刻看到刚建的资源组"而设的 10 分钟缓存挡在中间
+    /// （真实报过的 Bug：删除资源组后点刷新，缓存没到期，列表里那一行还在，
+    /// 而 Azure 后台其实已经没有这个资源组了）。默认 <c>false</c>：创建向导等其它调用方
+    /// 沿用原来的缓存行为，不因为这个参数而变慢。
+    /// </param>
+    Task<IReadOnlyList<ResourceGroupInfo>> GetAllAsync(
+        string subscriptionId, bool forceRefresh = false, CancellationToken ct = default);
 }

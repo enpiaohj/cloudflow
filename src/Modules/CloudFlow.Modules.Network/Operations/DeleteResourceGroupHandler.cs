@@ -84,8 +84,20 @@ public sealed partial class DeleteResourceGroupHandler(
         };
     }
 
-    public Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct) =>
-        executor.DeleteAsync(request, ct);
+    public async Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct)
+    {
+        // 存在性以真实读回为准：Impact 分析之后、真正执行之前的这段时间里，目标可能已经被
+        // 别处删掉（例如用户重复点击、或者是一个此前因为应用崩溃而没能正常收尾的旧待审批
+        // 任务）。这种情况下"资源组已经不存在"正是这个操作想要的结果，直接视为已达成，
+        // 不必真的再调一次 Delete 去撞一个 404——真实报过的 Bug：这个 404 会带着完整的
+        // HTTP 诊断转储原样冒给用户，而不是一句"已经删除"。
+        if (!await executor.ExistsAsync(request, ct).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return await executor.DeleteAsync(request, ct).ConfigureAwait(false);
+    }
 
     /// <summary>Verify：确认资源组已消失（级联删除完成的标志——组内资源无法单独确认，
     /// 资源组本身消失就意味着 Azure 侧已经把里面的东西都清完了）。</summary>

@@ -111,9 +111,33 @@ public partial class AllResourcesViewModel : ObservableObject
     [ObservableProperty]
     private string? _infoSeverity;
 
-    /// <summary>按名称 / 类型 / 资源组 / 区域过滤（只过滤已加载的列表，不重新查询 Azure）。</summary>
+    // 各自带字段名而不是共用一个裸的"全部"：下拉框收起来时唯一可见的内容就是当前选中值，
+    // 三个都显示"全部"会分不清哪个是哪个字段——真实反馈过这个问题。
+    private const string AllTypesOption = "全部类型";
+    private const string AllResourceGroupsOption = "全部资源组";
+    private const string AllLocationsOption = "全部区域";
+
+    /// <summary>按名称过滤（只过滤已加载的列表，不重新查询 Azure）；类型/资源组/区域走下面三个
+    /// 下拉筛选器，各自精确匹配，与名称关键字一起按 AND 组合。</summary>
     [ObservableProperty]
     private string _searchText = "";
+
+    [ObservableProperty]
+    private string _selectedType = AllTypesOption;
+
+    [ObservableProperty]
+    private string _selectedResourceGroup = AllResourceGroupsOption;
+
+    [ObservableProperty]
+    private string _selectedLocation = AllLocationsOption;
+
+    /// <summary>三个下拉筛选器的可选项：来自当前已加载 Rows 的去重值，各自的"全部 XX"固定在最前面
+    /// 表示不筛选。数据每次变化都会重新计算——账户下资源变了，下拉里能选的值也要跟着变。</summary>
+    public ObservableCollection<string> TypeOptions { get; } = [AllTypesOption];
+
+    public ObservableCollection<string> ResourceGroupOptions { get; } = [AllResourceGroupsOption];
+
+    public ObservableCollection<string> LocationOptions { get; } = [AllLocationsOption];
 
     public bool HasRows => Rows.Count > 0;
 
@@ -149,6 +173,12 @@ public partial class AllResourcesViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
+    partial void OnSelectedTypeChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedResourceGroupChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedLocationChanged(string value) => ApplyFilter();
+
     partial void OnRowsChanged(
         ObservableCollection<AllResourceRow>? oldValue, ObservableCollection<AllResourceRow> newValue)
     {
@@ -167,6 +197,10 @@ public partial class AllResourcesViewModel : ObservableObject
             row.PropertyChanged += OnRowPropertyChanged;
         }
 
+        // 先重建三个下拉的可选项，再筛选——RefreshFilterOptions 内部如果发现当前选中值已经不在
+        // 新清单里，会把它复位成"全部"，这个复位本身会级联触发一次 ApplyFilter，属于安全时机
+        // （原因见 OnRowsCollectionChanged 那处更详细的注释）。
+        RefreshFilterOptions();
         ApplyFilter();
     }
 
@@ -184,7 +218,61 @@ public partial class AllResourcesViewModel : ObservableObject
 
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(EmptyText));
-        ApplyFilter();
+
+        // 不能在这里同步调用 RefreshFilterOptions()/ApplyFilter()：ApplyFilter() 会给
+        // CollectionView.Filter 重新赋值，触发一次同步的 Refresh（Reset 通知）。这个方法本身是
+        // Rows 自己的 CollectionChanged 事件分发出来的，同一次分发里再嵌套抛出一次 Reset，会跟
+        // DataGrid 的 ItemContainerGenerator 正在处理的那次变更打架——真实崩溃过：单个资源删除
+        // （Rows.Remove(row)）就会触发"某个 ItemsControl 与它的项源不一致"（累积计数对不上）。
+        // RefreshFilterOptions() 复位无效选中值时会级联调用 ApplyFilter()，所以两个必须一起延后，
+        // 不能只延后其中一个。延后到当前这次事件分发完全结束之后再刷新，就不会再嵌套。
+        // ResourceGroupsViewModel 的同名方法不受影响——那个页面没有筛选器，
+        // OnRowsCollectionChanged 里不碰 CollectionView，不存在这个问题。
+        Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            RefreshFilterOptions();
+            ApplyFilter();
+        });
+    }
+
+    /// <summary>重建三个下拉筛选器的可选项（来自当前 Rows 的去重值）；当前选中值如果已经不在
+    /// 新清单里（比如筛的那个资源组被删光了），复位成"全部"，避免下拉停在一个不存在的值上。</summary>
+    private void RefreshFilterOptions()
+    {
+        UpdateOptions(TypeOptions, AllTypesOption, Rows.Select(row => row.TypeDisplay));
+        UpdateOptions(ResourceGroupOptions, AllResourceGroupsOption, Rows.Select(row => row.ResourceGroupName));
+        UpdateOptions(LocationOptions, AllLocationsOption, Rows.Select(row => AzureRegionCatalog.DisplayName(row.Location)));
+
+        if (!TypeOptions.Contains(SelectedType))
+        {
+            SelectedType = AllTypesOption;
+        }
+
+        if (!ResourceGroupOptions.Contains(SelectedResourceGroup))
+        {
+            SelectedResourceGroup = AllResourceGroupsOption;
+        }
+
+        if (!LocationOptions.Contains(SelectedLocation))
+        {
+            SelectedLocation = AllLocationsOption;
+        }
+    }
+
+    private static void UpdateOptions(ObservableCollection<string> options, string allOption, IEnumerable<string> values)
+    {
+        var distinct = values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        options.Clear();
+        options.Add(allOption);
+        foreach (var value in distinct)
+        {
+            options.Add(value);
+        }
     }
 
     private void OnRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -233,29 +321,55 @@ public partial class AllResourcesViewModel : ObservableObject
         }
     }
 
+    private bool HasActiveFilter =>
+        SearchText.Trim().Length > 0 || SelectedType != AllTypesOption ||
+        SelectedResourceGroup != AllResourceGroupsOption || SelectedLocation != AllLocationsOption;
+
     private void ApplyFilter()
     {
-        var keyword = SearchText.Trim();
         var view = CollectionViewSource.GetDefaultView(Rows);
-        view.Filter = keyword.Length == 0 ? null : item => item is AllResourceRow row && Matches(row, keyword);
+        view.Filter = HasActiveFilter ? item => item is AllResourceRow row && Matches(row) : null;
 
-        var visible = keyword.Length == 0 ? Rows.Count : view.Cast<object>().Count();
-        SummaryText = keyword.Length == 0
-            ? $"共 {Rows.Count} 项资源"
-            : $"找到 {visible} 项，共 {Rows.Count} 项资源";
-        IsFilteredEmpty = keyword.Length > 0 && Rows.Count > 0 && visible == 0;
+        var visible = HasActiveFilter ? view.Cast<object>().Count() : Rows.Count;
+        SummaryText = HasActiveFilter
+            ? $"找到 {visible} 项，共 {Rows.Count} 项资源"
+            : $"共 {Rows.Count} 项资源";
+        IsFilteredEmpty = HasActiveFilter && Rows.Count > 0 && visible == 0;
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(IsFilteredEmpty));
         NotifySelectionChanged();
     }
 
-    private static bool Matches(AllResourceRow row, string keyword) =>
-        row.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-        || row.TypeDisplay.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-        || row.Type.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-        || row.ResourceGroupName.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-        || row.Location.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-        || AzureRegionCatalog.DisplayName(row.Location).Contains(keyword, StringComparison.OrdinalIgnoreCase);
+    /// <summary>名称走关键字包含匹配；类型/资源组/区域走下拉的精确匹配，与名称按 AND 组合——
+    /// 三个下拉各自代表一列，选中即精确匹配该列，不需要再做包含匹配。</summary>
+    private bool Matches(AllResourceRow row)
+    {
+        var keyword = SearchText.Trim();
+        if (keyword.Length > 0 && !row.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (SelectedType != AllTypesOption &&
+            !string.Equals(row.TypeDisplay, SelectedType, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (SelectedResourceGroup != AllResourceGroupsOption &&
+            !string.Equals(row.ResourceGroupName, SelectedResourceGroup, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (SelectedLocation != AllLocationsOption &&
+            !string.Equals(AzureRegionCatalog.DisplayName(row.Location), SelectedLocation, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
 
     private async Task<List<AllResourceRow>> LoadRowsAsync()
     {
@@ -303,7 +417,8 @@ public partial class AllResourcesViewModel : ObservableObject
         var result = new List<(string, string, string)>();
         foreach (var subscriptionId in ResolveSubscriptionIds())
         {
-            var groups = await _catalog.GetAllAsync(subscriptionId).ConfigureAwait(true);
+            // forceRefresh：理由同 ResourceGroupsViewModel 的同一处调用。
+            var groups = await _catalog.GetAllAsync(subscriptionId, forceRefresh: true).ConfigureAwait(true);
             result.AddRange(groups.Select(g => (g.Name, g.Location, subscriptionId)));
         }
 

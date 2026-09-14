@@ -6,6 +6,7 @@ using Azure.Core;
 using Azure.ResourceManager;
 using Azure.ResourceManager.Resources;
 using CloudFlow.Azure.Arm;
+using CloudFlow.Core.Errors;
 using CloudFlow.Core.Operations;
 using CloudFlow.Modules.Network.Models;
 using CloudFlow.Modules.Network.Services;
@@ -113,13 +114,29 @@ public sealed class ArmResourceGroupDeleteExecutor(
         var armClient = await CreateClientAsync(request, ct).ConfigureAwait(false);
         var rgId = ResourceGroupResource.CreateResourceIdentifier(request.SubscriptionId, RequireRgName(request));
 
-        var operation = await armClient.GetResourceGroupResource(rgId)
-            .DeleteAsync(WaitUntil.Completed, cancellationToken: ct).ConfigureAwait(false);
+        try
+        {
+            var operation = await armClient.GetResourceGroupResource(rgId)
+                .DeleteAsync(WaitUntil.Completed, cancellationToken: ct).ConfigureAwait(false);
 
-        var requestId = RequestIdOf(operation.GetRawResponse());
-        logger.LogInformation("ARM delete resource group {ResourceId} (requestId {RequestId})",
-            request.ResourceId, requestId);
-        return requestId;
+            var requestId = RequestIdOf(operation.GetRawResponse());
+            logger.LogInformation("ARM delete resource group {ResourceId} (requestId {RequestId})",
+                request.ResourceId, requestId);
+            return requestId;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            // 已经不在了 = 目标已达成（Handler 的 ExecuteAsync 已经在此之前查过一次存在性，
+            // 这里兜住"查完之后、真正调用 Delete 之前它被别处删掉"的竞态）。
+            logger.LogInformation("资源组 {ResourceId} 在删除时已不存在，视为已达成", request.ResourceId);
+            return null;
+        }
+        catch (RequestFailedException ex)
+        {
+            // 不能让 SDK 的完整诊断转储（Status / ErrorCode / 原始 Content / 全部 HTTP Header）
+            // 原样冒给用户——摘成一句人能读的话（真实报过的 Bug：用户看到的是一整段 HTTP 抓包）。
+            throw new CloudFlowException(CloudFlowErrorCode.AzureError, AzureErrorMessages.Summarize(ex), ex);
+        }
     }
 
     public async Task<bool> ExistsAsync(OperationRequest request, CancellationToken ct = default)
@@ -128,8 +145,18 @@ public sealed class ArmResourceGroupDeleteExecutor(
         var subscription = armClient.GetSubscriptionResource(
             SubscriptionResource.CreateResourceIdentifier(request.SubscriptionId));
 
-        return (await subscription.GetResourceGroups()
-            .ExistsAsync(RequireRgName(request), ct).ConfigureAwait(false)).Value;
+        try
+        {
+            return (await subscription.GetResourceGroups()
+                .ExistsAsync(RequireRgName(request), ct).ConfigureAwait(false)).Value;
+        }
+        catch (RequestFailedException ex)
+        {
+            // 这个方法是 DeleteResourceGroupHandler.ExecuteAsync 执行前的存在性预检查，也是
+            // VerifyAsync 用的同一个方法——不能让非预期的 RequestFailedException 带着完整
+            // 诊断转储原样冒出去（同 ArmResourceDeleteExecutor.ExistsAsync 的同一处修复）。
+            throw new CloudFlowException(CloudFlowErrorCode.AzureError, AzureErrorMessages.Summarize(ex), ex);
+        }
     }
 
     private async Task<ArmClient> CreateClientAsync(OperationRequest request, CancellationToken ct) =>

@@ -81,7 +81,7 @@ public sealed class ResourceGroupsPageStaticTests
     {
         var resourceGroups = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "ResourceGroupsViewModel.cs"));
         // 已确认的产品决策：列出当前 Scope 下全部资源组，不按名称/规模做筛选。
-        Assert.Contains("_catalog.GetAllAsync(subscriptionId)", resourceGroups, StringComparison.Ordinal);
+        Assert.Contains("_catalog.GetAllAsync(subscriptionId, forceRefresh: true)", resourceGroups, StringComparison.Ordinal);
         Assert.DoesNotContain("IsPlatformManagedResourceGroup", resourceGroups, StringComparison.Ordinal);
 
         var allResources = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "AllResourcesViewModel.cs"));
@@ -180,6 +180,100 @@ public sealed class ResourceGroupsPageStaticTests
             RepositoryRoot(), "src", "Modules", "CloudFlow.Modules.Network", "Operations", "DeleteResourceHandler.cs"));
         Assert.Contains("microsoft.compute/virtualmachines", handler, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("请到「虚拟机」页删除", handler, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 资源组页支持按名称搜索加区域订阅两个下拉筛选且不得在集合变更事件里同步刷新过滤器()
+    {
+        var viewModel = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "ResourceGroupsViewModel.cs"));
+        Assert.Contains("private string _searchText", viewModel, StringComparison.Ordinal);
+        Assert.Contains("private string _selectedLocation", viewModel, StringComparison.Ordinal);
+        Assert.Contains("private string _selectedSubscription", viewModel, StringComparison.Ordinal);
+        Assert.Contains("CollectionViewSource.GetDefaultView(Rows)", viewModel, StringComparison.Ordinal);
+
+        // 同 AllResourcesViewModel 的同一处教训：这个页面之前没有过滤器所以从没崩过，
+        // 现在补上过滤器就必须一起补上"延后刷新"，否则会在这个页面重演同一个崩溃；
+        // RefreshFilterOptions() 复位无效选中值时会级联调用 ApplyFilter()，必须一起延后。
+        var start = viewModel.IndexOf("private void OnRowsCollectionChanged", StringComparison.Ordinal);
+        Assert.True(start >= 0, "未找到 OnRowsCollectionChanged，无法核对是否延后刷新过滤器。");
+        var end = viewModel.IndexOf("\n    }", start, StringComparison.Ordinal);
+        var body = viewModel[start..end];
+
+        var beginInvokeIndex = body.IndexOf("Dispatcher.BeginInvoke(", StringComparison.Ordinal);
+        Assert.True(beginInvokeIndex >= 0, "未找到 Dispatcher.BeginInvoke，过滤器刷新可能又变回同步调用。");
+
+        // 用带分号的调用形式匹配，不用裸的 "ApplyFilter()"——上面解释这条规避的注释文本本身
+        // 就会提到 "ApplyFilter()"，裸匹配会把注释也算成一次调用，误判失败。
+        var beforeBeginInvoke = body[..beginInvokeIndex];
+        Assert.DoesNotContain("ApplyFilter();", beforeBeginInvoke, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshFilterOptions();", beforeBeginInvoke, StringComparison.Ordinal);
+
+        var deferredBody = body[beginInvokeIndex..];
+        Assert.Contains("ApplyFilter();", deferredBody, StringComparison.Ordinal);
+        Assert.Contains("RefreshFilterOptions();", deferredBody, StringComparison.Ordinal);
+
+        var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "ResourceGroupsPage.xaml"));
+        Assert.Contains("Binding SearchText", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding SelectedLocation", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding SelectedSubscription", xaml, StringComparison.Ordinal);
+        Assert.Contains("VirtualizingPanel.IsVirtualizing=\"False\"", xaml, StringComparison.Ordinal);
+
+        // 真实反馈过：只靠下拉自己的"全部 XX"默认值，一旦选中了具体的值，就看不出这个下拉
+        // 是筛哪一列的了——每个下拉旁边必须有一个不随选中值变化的说明性文字。
+        Assert.Contains("Text=\"区域\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"订阅\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 所有资源页支持按名称搜索加类型资源组区域三个下拉筛选()
+    {
+        var viewModel = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "AllResourcesViewModel.cs"));
+        Assert.Contains("private string _searchText", viewModel, StringComparison.Ordinal);
+        Assert.Contains("private string _selectedType", viewModel, StringComparison.Ordinal);
+        Assert.Contains("private string _selectedResourceGroup", viewModel, StringComparison.Ordinal);
+        Assert.Contains("private string _selectedLocation", viewModel, StringComparison.Ordinal);
+
+        var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "AllResourcesPage.xaml"));
+        Assert.Contains("Binding SearchText", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding SelectedType", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding SelectedResourceGroup", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding SelectedLocation", xaml, StringComparison.Ordinal);
+
+        // 真实反馈过：只靠下拉自己的"全部 XX"默认值，一旦选中了具体的值，就看不出这个下拉
+        // 是筛哪一列的了——每个下拉旁边必须有一个不随选中值变化的说明性文字。
+        Assert.Contains("Text=\"类型\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"资源组\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"区域\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 所有资源列表变更事件里不得同步刷新过滤器()
+    {
+        var viewModel = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "AllResourcesViewModel.cs"));
+
+        // 真实崩溃过：单个资源删除（Rows.Remove(row)）会触发"某个 ItemsControl 与它的项源不一致"。
+        // 根因是 OnRowsCollectionChanged 在 Rows 自己的 CollectionChanged 分发过程中同步调用
+        // ApplyFilter()，而 ApplyFilter() 会重新赋值 CollectionView.Filter、触发一次嵌套的
+        // 同步 Refresh（Reset 通知），跟 DataGrid 的 ItemContainerGenerator 正在处理的那次变更
+        // 打架。必须延后到当前事件分发完全结束之后再刷新；RefreshFilterOptions() 会级联调用
+        // ApplyFilter()，必须跟 ApplyFilter() 一起延后，不能只延后其中一个。
+        var start = viewModel.IndexOf("private void OnRowsCollectionChanged", StringComparison.Ordinal);
+        Assert.True(start >= 0, "未找到 OnRowsCollectionChanged，无法核对是否延后刷新过滤器。");
+        var end = viewModel.IndexOf("\n    }", start, StringComparison.Ordinal);
+        var body = viewModel[start..end];
+
+        var beginInvokeIndex = body.IndexOf("Dispatcher.BeginInvoke(", StringComparison.Ordinal);
+        Assert.True(beginInvokeIndex >= 0, "未找到 Dispatcher.BeginInvoke，过滤器刷新可能又变回同步调用。");
+
+        // 用带分号的调用形式匹配，不用裸的 "ApplyFilter()"——上面解释这条规避的注释文本本身
+        // 就会提到 "ApplyFilter()"，裸匹配会把注释也算成一次调用，误判失败。
+        var beforeBeginInvoke = body[..beginInvokeIndex];
+        Assert.DoesNotContain("ApplyFilter();", beforeBeginInvoke, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshFilterOptions();", beforeBeginInvoke, StringComparison.Ordinal);
+
+        var deferredBody = body[beginInvokeIndex..];
+        Assert.Contains("ApplyFilter();", deferredBody, StringComparison.Ordinal);
+        Assert.Contains("RefreshFilterOptions();", deferredBody, StringComparison.Ordinal);
     }
 
     private static string AppDirectory() => Path.Combine(RepositoryRoot(), "src", "CloudFlow.App");

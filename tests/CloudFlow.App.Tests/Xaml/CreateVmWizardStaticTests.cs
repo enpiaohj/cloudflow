@@ -55,6 +55,38 @@ public sealed class CreateVmWizardStaticTests
     }
 
     [Fact]
+    public void 可编辑下拉框必须用TextUnchanged判断而不是直接信任SelectedItem()
+    {
+        var dialog = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "CreateVmWizardDialog.xaml.cs"));
+
+        // 真实踩过的坑：资源组框预选了一个已有资源组，用户打算新建另一个、把文本整个替换掉，
+        // WPF 的可编辑 ComboBox 并不会跟着清空 SelectedItem——它会一直指向那个已经不再显示在
+        // 框里的旧选项。如果只看 SelectedItem 不看 Text 是否还对得上，创建时就会用错资源组
+        // （曾经真实发生：输入 RG-LT1-SG，最终却用了 RG-AC-KR）。五个可编辑下拉框都必须走
+        // 同一个 SelectedItemIfTextUnchanged 兜底，缺一个都可能在那一个字段上重演这个 Bug。
+        Assert.Contains("SelectedItemIfTextUnchanged", dialog, StringComparison.Ordinal);
+        Assert.Contains(
+            "SelectedItemIfTextUnchanged<ProvisioningSubscriptionOption>(SubscriptionBox", dialog,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "SelectedItemIfTextUnchanged<ResourceGroupOption>(ResourceGroupBox", dialog, StringComparison.Ordinal);
+        Assert.Contains("SelectedItemIfTextUnchanged<RegionOption>(RegionBox", dialog, StringComparison.Ordinal);
+        Assert.Contains("SelectedItemIfTextUnchanged<VmSizeOption>(VmSizeBox", dialog, StringComparison.Ordinal);
+        Assert.Contains("SelectedItemIfTextUnchanged<ComboBoxItem>(box", dialog, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 资源组下拉框支持边打字边筛选已有资源组()
+    {
+        var dialog = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "CreateVmWizardDialog.xaml.cs"));
+
+        // 账户下资源组一多，原来的下拉是完全不筛选的原始清单，只能一条条翻。
+        Assert.Contains("ResourceGroupBox_TextChanged", dialog, StringComparison.Ordinal);
+        Assert.Contains("ApplyResourceGroupFilter", dialog, StringComparison.Ordinal);
+        Assert.Contains("TextBoxBase.TextChangedEvent", dialog, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void 列表创建入口必须打开向导而不是旧占位提示()
     {
         var source = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "VirtualMachinesViewModel.cs"));
