@@ -218,7 +218,8 @@ public partial class MainWindow : FluentWindow
     private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject source &&
-            IsInteractiveElement(source))
+            sender is DependencyObject topBar &&
+            IsInteractiveElement(source, topBar))
         {
             return;
         }
@@ -235,10 +236,17 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    private static bool IsInteractiveElement(DependencyObject source)
+    /// <summary>
+    /// 从点击处往上找，直到（不含）<paramref name="boundary"/>（顶栏 Border 本身）为止 ——
+    /// 边界必须是 <b>不含</b>，否则永远拖不动：<see cref="Window"/> 继承自
+    /// <see cref="System.Windows.Controls.Control"/>，不设边界的话每次点击都会沿可视化树
+    /// 一路走到窗口本身，被误判成"点在控件上"而放弃调用 <see cref="DragMove"/>。
+    /// </summary>
+    private static bool IsInteractiveElement(DependencyObject source, DependencyObject boundary)
     {
         // 交互控件（ComboBox / Button / TextBox 等）不触发窗口拖拽
-        for (var node = source; node is not null; node = System.Windows.Media.VisualTreeHelper.GetParent(node))
+        for (var node = source; node is not null && !ReferenceEquals(node, boundary);
+             node = System.Windows.Media.VisualTreeHelper.GetParent(node))
         {
             if (node is System.Windows.Controls.Control or System.Windows.Controls.TextBox)
             {
