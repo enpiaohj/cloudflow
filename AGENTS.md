@@ -7,7 +7,7 @@
 - **默认分支**：`main`
 - **可见性**：Private（转 Public 需用户明确决定）
 - **License**：GPL-3.0（根目录 `LICENSE`）；随源码分发的第三方组件（xterm.js 等）见 `THIRD-PARTY-NOTICES.md`
-- **版本**：Semantic Versioning，当前 `0.4.1`（Tag `v0.4.1`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`）
+- **版本**：Semantic Versioning，当前 `0.5.0`（Tag `v0.5.0`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`、`v0.5.0`）
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `build:` / `ci:` / `chore:` / `release:`）
 - **Artifact 策略**：`releases/vX.Y.Z/` 快照中 `source/` 与 `CHANGELOG.md` 入库，二进制产物不入库（交付走 GitHub Releases）
 
