@@ -454,7 +454,13 @@
       （白底黑字）—— 深色模式下弹出来就是一块刺眼的白色，字还是黑的。
       它们不在窗口逻辑树里渲染，但资源查找能落到 Application.Resources，
       所以 DynamicResource 在这里有效；调色板切换时自动跟随。
-      MenuItem 只设前景与悬停底色，不重写模板：系统高亮蓝在深浅两档下都可读。
+
+      MenuItem 原来只设前景与悬停底色、不重写模板，理由是"系统高亮蓝在深浅两档下都可读"——
+      这个判断只顾到了整行的高亮色，漏了默认模板里独立的一块：左侧图标/勾选占位列有自己的
+      背景，跟整行高亮背景是两回事，默认模板里这块是固定的浅色系统色，不会跟着我们的深色
+      调色板走。真实反馈：深色模式下右键菜单左边一条竖着的白条，紧挨着深色背景上的浅色
+      文字，看起来完全没套上主题。这个应用里的 MenuItem 全部是纯文字（不用 Icon、不可勾选、
+      没有子菜单），干脆整个重写模板，不留这个用不到的占位列。
     -->
     <Style TargetType="ContextMenu">
         <Setter Property="Background" Value="{DynamicResource Cf.CardBrush}" />
@@ -465,10 +471,41 @@
 
     <Style TargetType="MenuItem">
         <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Margin="2,1"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- IsHighlighted 而不是 IsMouseOver：键盘方向键在菜单里移动时也要能看到
+                             高亮在哪一项，只认鼠标悬停会导致键盘操作时"选中了但看不出来"。 -->
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Cf.RowHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource Cf.TextMutedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
+    <!-- Separator 的默认模板同样是"两条线"的立体凹槽效果（一条深线 + 一条浅色高光线），
+         深色模式下那条浅色高光线也会露白，跟 MenuItem 是同一类问题，一并处理。 -->
     <Style TargetType="Separator">
         <Setter Property="Background" Value="{DynamicResource Cf.BorderBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1" Background="{TemplateBinding Background}" Margin="6,4" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ToolTip">

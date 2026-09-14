@@ -232,8 +232,13 @@
                                        Foreground="{DynamicResource Cf.PrimaryBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
+                        <!-- MaxWidth 原来是 130：登录名换成邮箱地址后（见 AccountDisplayName 的
+                             注释），比展示名普遍长很多——真实反馈过 piaohongji@live.cn 能完整
+                             显示、piaohongji@outlook.com 却被截断，130px 装不下常见邮箱域名。
+                             调宽到 220，仍保留 TextTrimming 兜底极端情况（配合按钮上已有的
+                             AccountToolTip 悬浮提示看完整值）。 -->
                         <TextBlock Text="{Binding AccountDisplayName}" FontSize="13"
-                                   MinWidth="96" MaxWidth="130" Margin="8,0,0,0"
+                                   MinWidth="96" MaxWidth="220" Margin="8,0,0,0"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
                         <ui:SymbolIcon Symbol="ChevronDown24" FontSize="12" Margin="6,0,0,0"

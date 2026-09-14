@@ -128,6 +128,12 @@
                           HorizontalScrollBarVisibility="Auto"
                           VirtualizingPanel.IsVirtualizing="False"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
+                    <!-- 整行右键同样打开行操作菜单（虚拟机列表页已有的常规操作方式，这里补齐）。 -->
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
+                            <Setter Property="ContextMenu" Value="{StaticResource Cf.ResourceGroupRowMenu}" />
+                        </Style>
+                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁
                              （虚拟机列表页踩过同一个坑）。 -->

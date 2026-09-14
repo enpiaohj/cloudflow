@@ -133,6 +133,20 @@
                           VirtualizingPanel.IsVirtualizing="False"
                           HorizontalScrollBarVisibility="Auto"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
+                    <!-- 整行右键同样打开行操作菜单（虚拟机列表页已有的常规操作方式，这里补齐）。
+                         虚拟机行没有删除入口——同一条理由已经用在"⋯"按钮上（虚拟机有自己专门的
+                         删除流程，这里只是第二道防线），整行右键也不能绕过去，所以虚拟机行干脆
+                         不挂 ContextMenu（右键没反应），跟"⋯"按钮对这类行直接隐藏保持一致。 -->
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
+                            <Setter Property="ContextMenu" Value="{StaticResource Cf.AllResourcesRowMenu}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsVirtualMachine}" Value="True">
+                                    <Setter Property="ContextMenu" Value="{x:Null}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁。 -->
                         <DataGridTemplateColumn Width="44" MinWidth="44" CanUserResize="False"
