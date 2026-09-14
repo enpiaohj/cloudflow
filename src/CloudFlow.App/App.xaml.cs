@@ -130,6 +130,8 @@ public partial class App : Application
             sp => sp.GetRequiredService<CloudFlow.Azure.Identity.AzureCli.AzureCliProcessRunner>());
         services.AddSingleton<CloudFlow.Azure.Identity.AzureCli.AzureCliProfileManager>();
         services.AddSingleton<CloudFlow.Azure.Identity.AzureCli.AzureCliRuntimeManager>();
+        // 按需下载 Runtime（个人账户登录依赖）：单文件发布包从不携带这 ~90MB，首次真正需要才下载
+        services.AddSingleton<CloudFlow.Azure.Identity.AzureCli.AzureCliRuntimeInstaller>();
         services.AddSingleton<ICloudIdentityProvider, CloudFlow.Azure.Identity.Msal.MsalIdentityProvider>();
         services.AddSingleton<ICloudIdentityProvider>(sp => new CloudFlow.Azure.Identity.AzureCli.EmbeddedAzureCliIdentityProvider(
             sp.GetRequiredService<CloudFlow.Azure.Identity.AzureCli.AzureCliProcessRunner>(),

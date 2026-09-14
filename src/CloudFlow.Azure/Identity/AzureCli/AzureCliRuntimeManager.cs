@@ -25,8 +25,9 @@ public sealed class AzureCliRuntimeManager
 
     /// <summary>
     /// 解析 az.cmd 完整路径：优先显式指定（安装器写入的配置），
-    /// 否则探测注入路径（测试/部署自定义）或默认位置：
-    /// 安装目录 Runtime\AzureCLI\bin\az.cmd 与开发仓库 runtime\AzureCLI\bin\az.cmd。
+    /// 否则依次探测注入路径（测试/部署自定义）或默认位置：
+    /// <see cref="AzureCliRuntimeInstaller"/> 按需下载的落盘目录、安装目录
+    /// Runtime\AzureCLI\bin\az.cmd、开发仓库 runtime\AzureCLI\bin\az.cmd。
     /// </summary>
     public string ResolveAzCmd()
     {
@@ -38,6 +39,10 @@ public sealed class AzureCliRuntimeManager
         }
         else
         {
+            // 首次使用时由 AzureCliRuntimeInstaller 按需下载到这里（%LOCALAPPDATA%\CloudFlow\Runtime\
+            // AzureCLI），是发布出去的单文件 EXE 唯一真正会命中的候选——发布包本身不携带 Runtime。
+            candidates.Add(new AzureCliRuntimeInstaller().AzCmdPath);
+
             candidates.Add(Path.Combine(AppContext.BaseDirectory, "Runtime", "AzureCLI", "bin", "az.cmd"));
 
             // 开发环境：解包在仓库根 runtime\ 下（gitignore，不入库）
@@ -54,7 +59,8 @@ public sealed class AzureCliRuntimeManager
             .FirstOrDefault();
 
         return resolved ?? throw new AzureCliException(
-            "Azure CLI Runtime 缺失或损坏，请通过 CloudFlow 修复（应用将自动分发完整 Runtime，无需手动安装）。");
+            "Azure CLI Runtime 缺失。请通过「添加个人 Microsoft 账户」触发一次自动下载"
+            + "（约 90 MB，仅需一次），或检查网络连接后重试。");
     }
 
     /// <summary>查询认证 Runtime 版本（如 "2.90.0"），用于启动自检与诊断记录。</summary>

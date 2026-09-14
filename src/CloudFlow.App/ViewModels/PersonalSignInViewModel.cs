@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using CloudFlow.Azure.Identity;
+using CloudFlow.Azure.Identity.AzureCli;
 using CloudFlow.Core.Identity;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,6 +29,7 @@ public partial class PersonalSignInViewModel : ObservableObject
         new(@"code\s+([A-Za-z0-9]{6,12})", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly CloudAccountDirectory _directory;
+    private readonly AzureCliRuntimeInstaller _runtimeInstaller;
     private readonly StringBuilder _rawOutput = new();
     private readonly object _rawOutputLock = new();
     private CancellationTokenSource? _cts;
@@ -68,9 +70,10 @@ public partial class PersonalSignInViewModel : ObservableObject
 
     public bool HasError => !string.IsNullOrEmpty(ErrorText);
 
-    public PersonalSignInViewModel(CloudAccountDirectory directory)
+    public PersonalSignInViewModel(CloudAccountDirectory directory, AzureCliRuntimeInstaller runtimeInstaller)
     {
         _directory = directory;
+        _runtimeInstaller = runtimeInstaller;
     }
 
     /// <summary>
@@ -90,6 +93,16 @@ public partial class PersonalSignInViewModel : ObservableObject
         _cts = new CancellationTokenSource();
         try
         {
+            // 单文件发布的 EXE 从不携带这份 Runtime——首次真正需要（点了"添加个人账户"）才下载，
+            // 装一次以后就一直能用。复用同一个遮罩的状态行，不需要额外的 UI。
+            if (!_runtimeInstaller.IsInstalled)
+            {
+                await _runtimeInstaller
+                    .EnsureInstalledAsync(note => StatusText = note, _cts.Token)
+                    .ConfigureAwait(true);
+                StatusText = "正在启动登录，请稍候…";
+            }
+
             var account = await _directory
                 .SignInPersonalAccountAsync(AppendOutputLine, _cts.Token)
                 .ConfigureAwait(true);
