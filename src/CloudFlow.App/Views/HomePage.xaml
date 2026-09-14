@@ -5,13 +5,26 @@
              xmlns:controls="clr-namespace:CloudFlow.App.Controls"
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0">
-        <!-- Stretch 而不是 Left：Left 时 StackPanel 按内容取宽，UniformGrid 只报出四张卡的最小宽度，
-             整页被压成六百多像素宽、右侧大片空白（实测）。MaxWidth 仍然限制超宽屏下的行长。 -->
-        <StackPanel Margin="28,22,28,24" MaxWidth="1200" HorizontalAlignment="Stretch">
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" Padding="0">
+        <!-- 宽度：不设 MaxWidth——原先限宽 1200 并居中，窗口拉宽 / 最大化时两侧留出大片空白、
+             卡片不随窗口变宽，与其它页面（列表随窗口铺满）不一致。
+             高度：外框高度跟随可视区（Height 绑 ViewportHeight），中间"最近操作 / 注意项"一行取 *：
+             窗口变高时由这两块内容区吃掉多出来的高度、显示更多条目，而不是把卡片和字号放大，
+             也不在底部留一大片空白；窗口矮于 MinHeight 时整页照常滚动。
+             边距用 Border 的 Padding 而不是 Margin：Height 不含 Margin，用 Margin 的话
+             总高 = 可视区 + 上下边距，页面会永远多出一截可滚动的空白。 -->
+        <Border Padding="28,22,28,24" MinHeight="640"
+                Height="{Binding ViewportHeight, ElementName=PageScroll}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" MinHeight="210" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
             <!-- ===== 页头 ===== -->
-            <Grid>
+            <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -35,9 +48,16 @@
                     <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right">
                         <TextBlock Text="{Binding TodayText}" Style="{StaticResource Cf.Subtitle}"
                                    HorizontalAlignment="Right" />
-                        <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}"
-                                   HorizontalAlignment="Right" Margin="0,3,0,0"
-                                   Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+                        <!-- 读取中配一个持续旋转的小图标：静态的"正在读取…"看不出是在读还是卡住了，
+                             与详情页各 Tab 的加载提示同一个 Cf.SpinningIcon。 -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,3,0,0"
+                                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="12" VerticalAlignment="Center"
+                                           Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}"
+                                       VerticalAlignment="Center" Margin="6,0,0,0" />
+                        </StackPanel>
                         <TextBlock Text="{Binding ScopeSubtitle}" Style="{StaticResource Cf.Muted}"
                                    HorizontalAlignment="Right" Margin="0,3,0,0"
                                    Visibility="{Binding IsLoading, Converter={StaticResource InverseBoolToVisibility}}" />
@@ -50,7 +70,7 @@
                  原来是"大圆图标 + 数字 + 标签"竖排，一张卡 170px 高而信息只有两行，
                  大面积留白让首屏显得空。UniformGrid 让四张卡始终等宽铺满（原 WrapPanel +
                  固定 250 宽在宽窗口下右侧参差不齐）；外层 -6 与每张卡 6 的边距抵消，左右与下方卡片对齐。 -->
-            <UniformGrid Columns="4" Margin="-6,20,-6,0">
+            <UniformGrid Grid.Row="1" Columns="4" Margin="-6,20,-6,0">
 
                 <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
                     <Grid>
@@ -146,8 +166,9 @@
                 </Border>
             </UniformGrid>
 
-            <!-- ===== 最近操作 + 注意项 ===== -->
-            <Grid Margin="0,16,0,0">
+            <!-- ===== 最近操作 + 注意项 =====
+                 取 * 行：窗口变高时这两块内容区跟着变高，放不下的条目在卡片内部滚动。 -->
+            <Grid Grid.Row="2" Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="11*" />
                     <ColumnDefinition Width="9*" />
@@ -168,7 +189,7 @@
                         </Grid>
                         <Grid>
                             <!-- 没有写操作记录时给出说明，否则空表会被误读为加载失败 -->
-                            <controls:EmptyState Compact="True" Margin="0,14,0,10"
+                            <controls:EmptyState Compact="True" Margin="0,14,0,10" VerticalAlignment="Center"
                                                  Symbol="History24" Title="暂无操作记录"
                                                  Description="{Binding RecentOperationsEmptyText}"
                                                  Visibility="{Binding HasRecentOperations, Converter={StaticResource InverseBoolToVisibility}}" />
@@ -220,11 +241,12 @@
                         <TextBlock DockPanel.Dock="Top" Text="注意项" Style="{StaticResource Cf.SectionTitle}"
                                    Margin="0,4,0,10" />
                         <Grid>
-                            <controls:EmptyState Compact="True" Margin="0,14,0,10"
+                            <controls:EmptyState Compact="True" Margin="0,14,0,10" VerticalAlignment="Center"
                                                  Symbol="ShieldCheckmark24" Title="暂无注意项"
                                                  Description="{Binding AttentionEmptyText}"
                                                  Visibility="{Binding HasAttentionItems, Converter={StaticResource InverseBoolToVisibility}}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Disabled"
+                            <!-- Auto 而不是 Disabled：卡片高度随窗口伸缩后，注意项多于放得下的条数时在卡片内滚动 -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
                                           Visibility="{Binding HasAttentionItems, Converter={StaticResource BoolToVisibility}}">
                                 <ItemsControl ItemsSource="{Binding AttentionItems}">
                                     <ItemsControl.ItemTemplate>
@@ -297,7 +319,7 @@
             </Grid>
 
             <!-- ===== 成本洞察 + 快捷操作 ===== -->
-            <Grid Margin="0,16,0,0">
+            <Grid Grid.Row="3" Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1.6*" />
@@ -395,6 +417,7 @@
                     </StackPanel>
                 </Border>
             </Grid>
-        </StackPanel>
+        </Grid>
+        </Border>
     </ScrollViewer>
 </UserControl>

@@ -65,6 +65,12 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private string _deallocatedPercent = "";
 
+    /// <summary>
+    /// 首页"最近操作"最多取几条。这块卡片的高度随窗口伸缩（见 HomePage.xaml 外框的注释）：
+    /// 窗口高时多显示几条，放不下时表格内部滚动——所以给到 20，而不是按最矮窗口只取 6 条。
+    /// </summary>
+    private const int RecentOperationsLimit = 20;
+
     [ObservableProperty]
     private ObservableCollection<OperationJob> _recentOperations = [];
 
@@ -184,7 +190,7 @@ public partial class HomeViewModel : ObservableObject
         await SeedDemoJobsAsync();
 
         // 只显示当前账户的操作记录：混入 Demo / 其他账户的 Job 会被当成当前订阅发生过的事
-        RecentOperations = [.. ActiveAccountJobs.For(_scopeContext, _jobStore.GetAll()).Take(6)];
+        RecentOperations = [.. ActiveAccountJobs.For(_scopeContext, _jobStore.GetAll()).Take(RecentOperationsLimit)];
         OnPropertyChanged(nameof(HasRecentOperations));
         OnPropertyChanged(nameof(RecentOperationsEmptyText));
 
@@ -380,7 +386,7 @@ public partial class HomeViewModel : ObservableObject
     {
         Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            RecentOperations = [.. ActiveAccountJobs.For(_scopeContext, _jobStore.GetAll()).Take(6)];
+            RecentOperations = [.. ActiveAccountJobs.For(_scopeContext, _jobStore.GetAll()).Take(RecentOperationsLimit)];
             OnPropertyChanged(nameof(HasRecentOperations));
         });
     }
