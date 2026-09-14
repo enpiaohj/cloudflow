@@ -56,7 +56,7 @@ public sealed class MsalAccountSessionManager : IAccountSessionManager
         if (!IsConfigured)
         {
             throw new NotConfiguredException(
-                "Azure App Registration 未配置。请复制 appsettings.example.json 为 appsettings.json 并填入 ClientId。");
+                "尚未配置 Azure 登录服务。请在「设置 → 账户 → 登录服务」中填写应用（客户端）ID。");
         }
 
         var client = await GetClientAsync().ConfigureAwait(false);

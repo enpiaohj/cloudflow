@@ -91,6 +91,67 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _tenantIdDisplay = "—";
 
+    // ---- 登录服务配置（应用（客户端）ID / 目录（租户）） ----
+    //
+    // 单文件发布包里没有 appsettings.json，也不随包分发任何真实 ClientId，
+    // 所以正式版必须能在界面里填——否则只能对着一句"请复制 appsettings.example.json"无从下手。
+
+    [ObservableProperty]
+    private bool _isEditingAuth;
+
+    [ObservableProperty]
+    private string _clientIdInput = "";
+
+    /// <summary>选择"单个组织"时填写的目录（租户）ID 或已验证域名；"多个组织"时不用。</summary>
+    [ObservableProperty]
+    private string _tenantIdInput = "";
+
+    // 账户范围做成选择而不是让人手敲 organizations：两项对应 Entra 应用注册「受支持的帐户类型」里的
+    // 多租户 / 单租户，照着应用注册页选即可；只有单个组织时才需要填目录（租户）ID。
+    // 不提供 common / consumers：ARM 只支持组织账户，个人 Microsoft 账户走嵌入式 Azure CLI。
+    private const string MultiOrgOption = "多个组织（任何组织目录中的账户）";
+    private const string SingleOrgOption = "单个组织（仅此组织目录中的账户）";
+    private const string MultiOrgTenant = "organizations";
+
+    public IReadOnlyList<string> TenantModeOptions { get; } = [MultiOrgOption, SingleOrgOption];
+
+    [ObservableProperty]
+    private string _tenantMode = MultiOrgOption;
+
+    public bool IsSingleTenant => TenantMode == SingleOrgOption;
+
+    partial void OnTenantModeChanged(string value) => OnPropertyChanged(nameof(IsSingleTenant));
+
+    /// <summary>organizations / common 都视为多租户（common 还会放进个人账户，ARM 用不上）。</summary>
+    private static bool IsMultiOrgTenant(string? tenant) =>
+        string.IsNullOrWhiteSpace(tenant)
+        || tenant.Equals(MultiOrgTenant, StringComparison.OrdinalIgnoreCase)
+        || tenant.Equals("common", StringComparison.OrdinalIgnoreCase);
+
+    private static string DescribeTenant(string tenant) =>
+        IsMultiOrgTenant(tenant) ? "多个组织（organizations）" : $"单个组织（{tenant}）";
+
+    [ObservableProperty]
+    private string? _authConfigMessage;
+
+    [ObservableProperty]
+    private string? _authConfigSeverity;
+
+    public bool IsAuthConfigured => _sessionManager.IsConfigured;
+
+    /// <summary>未配置时编辑区始终展开——那是用户此刻唯一需要做的事。</summary>
+    public bool ShowAuthEditor => IsEditingAuth || !IsAuthConfigured;
+
+    public bool CanStartAuthEdit => IsAuthConfigured && !IsEditingAuth;
+
+    private static string UserAuthConfigPath => Path.Combine(CloudFlowPaths.Root, MsalAuthConfig.UserConfigFileName);
+
+    partial void OnIsEditingAuthChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowAuthEditor));
+        OnPropertyChanged(nameof(CanStartAuthEdit));
+    }
+
     [ObservableProperty]
     private string? _messageText;
 
@@ -637,7 +698,7 @@ public partial class SettingsViewModel : ObservableObject
             AuthStatusText = "已配置";
             AuthStatusKey = "Protected";
             ClientIdDisplay = Mask(_authConfig.ClientId);
-            TenantIdDisplay = _authConfig.TenantId;
+            TenantIdDisplay = DescribeTenant(_authConfig.TenantId);
         }
         else
         {
@@ -646,6 +707,94 @@ public partial class SettingsViewModel : ObservableObject
             ClientIdDisplay = "—";
             TenantIdDisplay = "—";
         }
+
+        OnPropertyChanged(nameof(IsAuthConfigured));
+        OnPropertyChanged(nameof(ShowAuthEditor));
+        OnPropertyChanged(nameof(CanStartAuthEdit));
+    }
+
+    [RelayCommand]
+    private void EditAuthConfig()
+    {
+        ClientIdInput = _authConfig.IsConfigured ? _authConfig.ClientId : "";
+        var singleTenant = !IsMultiOrgTenant(_authConfig.TenantId);
+        TenantMode = singleTenant ? SingleOrgOption : MultiOrgOption;
+        TenantIdInput = singleTenant ? _authConfig.TenantId : "";
+        AuthConfigMessage = null;
+        IsEditingAuth = true;
+    }
+
+    [RelayCommand]
+    private void CancelAuthConfig()
+    {
+        AuthConfigMessage = null;
+        IsEditingAuth = false;
+    }
+
+    /// <summary>
+    /// 保存登录服务配置到 %LOCALAPPDATA%\CloudFlow\appsettings.json（启动时优先于程序目录那一份）。
+    /// 首次配置立即生效；修改已有配置需要重启——见方法内注释。
+    /// </summary>
+    [RelayCommand]
+    private void SaveAuthConfig()
+    {
+        var clientId = ClientIdInput.Trim();
+        var tenantId = IsSingleTenant ? TenantIdInput.Trim() : MultiOrgTenant;
+
+        if (!MsalAuthConfig.IsValidClientId(clientId))
+        {
+            AuthConfigSeverity = "Warning";
+            AuthConfigMessage = "应用（客户端）ID 格式不正确，应为 GUID，例如 11111111-2222-3333-4444-555555555555。";
+            return;
+        }
+
+        // 选了单个组织就必须给出具体目录：留空或填 organizations / common 等于又回到了多租户。
+        if (IsSingleTenant && (IsMultiOrgTenant(tenantId) || !MsalAuthConfig.IsValidTenant(tenantId)))
+        {
+            AuthConfigSeverity = "Warning";
+            AuthConfigMessage = "选择单个组织时，请填写目录（租户）ID（GUID）或已验证的域名，例如 contoso.onmicrosoft.com。";
+            return;
+        }
+
+        var wasConfigured = _authConfig.IsConfigured;
+        var changed = !string.Equals(_authConfig.ClientId, clientId, StringComparison.OrdinalIgnoreCase)
+                      || !string.Equals(_authConfig.TenantId, tenantId, StringComparison.OrdinalIgnoreCase);
+
+        try
+        {
+            MsalAuthConfigFile.Save(UserAuthConfigPath, clientId, tenantId);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AuthConfigSeverity = "Failed";
+            AuthConfigMessage = $"保存失败：{ex.Message}";
+            return;
+        }
+
+        if (!wasConfigured)
+        {
+            // 未配置时登录客户端从未创建过（MsalAccountSessionManager 每个入口都先判 IsConfigured），
+            // 直接更新这份单例配置即可立即生效，不必重启。
+            _authConfig.ClientId = clientId;
+            _authConfig.TenantId = tenantId;
+            AuthConfigSeverity = "Succeeded";
+            AuthConfigMessage = "登录服务已配置，现在可以添加工作或学校账户。";
+        }
+        else if (changed)
+        {
+            // 已配置时登录客户端已按旧的客户端 ID 创建并缓存了令牌，运行中切换会让已登录账户
+            // 与新的应用注册对不上——只写文件，重启后生效。
+            AuthConfigSeverity = "Warning";
+            AuthConfigMessage = "已保存。重启 CloudFlow 后使用新的登录服务配置。";
+        }
+        else
+        {
+            AuthConfigSeverity = "Succeeded";
+            AuthConfigMessage = "配置未变化。";
+        }
+
+        IsEditingAuth = false;
+        UpdateAuthStatus();
     }
 
     private void UpdateSignedInAccount()
@@ -663,7 +812,7 @@ public partial class SettingsViewModel : ObservableObject
         if (!_sessionManager.IsConfigured)
         {
             MessageSeverity = "Warning";
-            MessageText = "CloudFlow 登录尚未配置，请联系应用管理员。";
+            MessageText = "尚未配置登录服务，请先在下方「登录服务」中填写应用（客户端）ID。";
             return;
         }
 

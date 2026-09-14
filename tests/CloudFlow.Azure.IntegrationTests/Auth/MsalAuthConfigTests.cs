@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CloudFlow.Azure.Auth;
 using Xunit;
 
@@ -53,5 +54,122 @@ public sealed class MsalAuthConfigTests
 
         Assert.False(config.IsConfigured);
         Assert.StartsWith("SET-YOUR", config.ClientId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b", true)]
+    [InlineData(" 8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b ", true)]
+    [InlineData("00000000-0000-0000-0000-000000000000", false)]
+    [InlineData("SET-YOUR-PUBLIC-CLIENT-ID", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsValidClientId_只接受非空GUID(string? value, bool expected)
+    {
+        Assert.Equal(expected, MsalAuthConfig.IsValidClientId(value));
+    }
+
+    [Theory]
+    [InlineData("organizations", true)]
+    [InlineData("Common", true)]
+    [InlineData("8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b", true)]
+    [InlineData("contoso.onmicrosoft.com", true)]
+    // ARM 只支持组织账户：个人账户租户不能用于这条登录链路
+    [InlineData("consumers", false)]
+    [InlineData("contoso", false)]
+    [InlineData("https://login.microsoftonline.com/contoso.com", false)]
+    [InlineData("", false)]
+    public void IsValidTenant_接受组织租户标识_拒绝个人账户与非法格式(string value, bool expected)
+    {
+        Assert.Equal(expected, MsalAuthConfig.IsValidTenant(value));
+    }
+
+    [Fact]
+    public void 保存配置_写入Azure节且保留文件中其它配置项()
+    {
+        var dir = NewTempDirectory();
+        var path = Path.Combine(dir, MsalAuthConfig.UserConfigFileName);
+        try
+        {
+            File.WriteAllText(path,
+                """{ "Logging": { "Level": "Debug" }, "Azure": { "Instance": "https://login.microsoftonline.com/" } }""");
+
+            MsalAuthConfigFile.Save(path, " 8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b ", "organizations");
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var azure = doc.RootElement.GetProperty("Azure");
+            Assert.Equal("8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b", azure.GetProperty("ClientId").GetString());
+            Assert.Equal("organizations", azure.GetProperty("TenantId").GetString());
+            Assert.Equal("https://login.microsoftonline.com/", azure.GetProperty("Instance").GetString());
+            Assert.Equal("Debug", doc.RootElement.GetProperty("Logging").GetProperty("Level").GetString());
+            Assert.False(File.Exists(path + ".tmp"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void 保存配置_目录不存在时自动创建()
+    {
+        var dir = NewTempDirectory();
+        var path = Path.Combine(dir, "nested", "CloudFlow", MsalAuthConfig.UserConfigFileName);
+        try
+        {
+            MsalAuthConfigFile.Save(path, "8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b", "contoso.onmicrosoft.com");
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("contoso.onmicrosoft.com", doc.RootElement.GetProperty("Azure").GetProperty("TenantId").GetString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void 保存配置_格式不合法时拒绝且不写文件()
+    {
+        var dir = NewTempDirectory();
+        var path = Path.Combine(dir, MsalAuthConfig.UserConfigFileName);
+        try
+        {
+            Assert.Throws<ArgumentException>(() => MsalAuthConfigFile.Save(path, "not-a-guid", "organizations"));
+            Assert.Throws<ArgumentException>(() =>
+                MsalAuthConfigFile.Save(path, "8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b", "consumers"));
+            Assert.False(File.Exists(path));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void 保存配置_已有文件损坏时覆盖为有效配置()
+    {
+        var dir = NewTempDirectory();
+        var path = Path.Combine(dir, MsalAuthConfig.UserConfigFileName);
+        try
+        {
+            File.WriteAllText(path, "{ not json");
+
+            MsalAuthConfigFile.Save(path, "8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b", "organizations");
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("8c8f3b2d-9d95-4d3c-8fcd-4fb5feac1f9b",
+                doc.RootElement.GetProperty("Azure").GetProperty("ClientId").GetString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static string NewTempDirectory()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cloudflow-auth-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return dir;
     }
 }

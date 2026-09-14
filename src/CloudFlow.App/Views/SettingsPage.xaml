@@ -140,8 +140,75 @@
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TenantIdDisplay}" FontSize="13"
                                        VerticalAlignment="Center" />
                         </Grid>
+
+                        <!-- 已配置且不在编辑时，给一个进入修改的入口 -->
+                        <Button Content="修改登录服务配置" Style="{StaticResource Cf.LinkButton}"
+                                HorizontalAlignment="Left" Margin="0,6,0,0"
+                                Command="{Binding EditAuthConfigCommand}"
+                                Visibility="{Binding CanStartAuthEdit, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- 登录服务配置：单文件发布包里没有 appsettings.json，这是正式版填写应用（客户端）ID
+                             的唯一入口。未配置时直接展开；保存到 %LOCALAPPDATA%\CloudFlow\appsettings.json。 -->
+                        <Border Margin="0,12,0,0" Padding="16,14" CornerRadius="8"
+                                Background="{DynamicResource Cf.PageBackgroundBrush}"
+                                Visibility="{Binding ShowAuthEditor, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="配置登录服务" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                           Text="在 Microsoft Entra 管理中心打开应用注册的「概述」页，复制以下信息。应用注册需开启「允许公共客户端流」，并为「移动和桌面应用程序」平台添加重定向 URI http://localhost。" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="144" />
+                                        <ColumnDefinition Width="*" MaxWidth="420" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="应用（客户端）ID"
+                                               Style="{StaticResource Cf.Subtitle}" VerticalAlignment="Center" />
+                                    <TextBox Grid.Row="0" Grid.Column="1" Height="32" FontSize="13"
+                                             VerticalContentAlignment="Center"
+                                             AutomationProperties.Name="应用（客户端）ID"
+                                             Text="{Binding ClientIdInput, UpdateSourceTrigger=PropertyChanged}" />
+                                    <!-- 账户范围做成选择而不是手填 organizations：两项对应应用注册
+                                         「受支持的帐户类型」里的多租户 / 单租户。 -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="账户范围" Margin="0,10,0,0"
+                                               Style="{StaticResource Cf.Subtitle}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Row="1" Grid.Column="1" MinHeight="34" FontSize="13" Margin="0,10,0,0"
+                                              AutomationProperties.Name="账户范围"
+                                              ItemsSource="{Binding TenantModeOptions}"
+                                              SelectedItem="{Binding TenantMode, Mode=TwoWay}" />
+                                    <!-- 只有单个组织才需要目录（租户）ID -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="目录（租户）ID" Margin="0,10,0,0"
+                                               Style="{StaticResource Cf.Subtitle}" VerticalAlignment="Center"
+                                               Visibility="{Binding IsSingleTenant, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBox Grid.Row="2" Grid.Column="1" Height="32" FontSize="13" Margin="0,10,0,0"
+                                             VerticalContentAlignment="Center"
+                                             AutomationProperties.Name="目录（租户）ID"
+                                             Visibility="{Binding IsSingleTenant, Converter={StaticResource BoolToVisibility}}"
+                                             Text="{Binding TenantIdInput, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource Cf.Muted}"
+                                               Margin="0,4,0,0" TextWrapping="Wrap"
+                                               Text="与应用注册「身份验证」页中的「受支持的帐户类型」保持一致；选择单个组织时，填写目录（租户）ID 或已验证的域名。" />
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button Content="保存" Style="{StaticResource Cf.PrimaryButton}"
+                                            Command="{Binding SaveAuthConfigCommand}" />
+                                    <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" Margin="10,0,0,0"
+                                            Command="{Binding CancelAuthConfigCommand}"
+                                            Visibility="{Binding IsAuthConfigured, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <controls:InlineMessageBanner Margin="0,10,0,0"
+                                                       SeverityKey="{Binding AuthConfigSeverity}"
+                                                       Text="{Binding AuthConfigMessage}" />
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Text="应用标识是公开的客户端 ID。CloudFlow 不会保存密码、访问令牌或客户端密钥。" />
+                                   Text="应用标识是公开的客户端 ID，保存在本机用户目录（%LOCALAPPDATA%\CloudFlow）。CloudFlow 不会保存密码、访问令牌或客户端密钥。" />
                     </StackPanel>
                 </Border>
 

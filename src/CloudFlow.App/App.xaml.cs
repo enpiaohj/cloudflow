@@ -84,11 +84,31 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
 
-        // ---- 配置（appsettings.json，含 MSAL ClientId，不入库）----
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-            .Build();
+        // ---- 配置 ----
+        // 两个来源，后者覆盖前者：
+        //  ① 程序目录的 appsettings.json：开发调试用（含本机 ClientId，gitignore，不随发布产物分发）；
+        //  ② %LOCALAPPDATA%\CloudFlow\appsettings.json：用户在「设置 → 账户 → 登录服务」里填写后写入。
+        //     单文件发布包里没有 ①，② 是正式版唯一的配置入口。
+        var userConfigFile = System.IO.Path.Combine(CloudFlowPaths.Root, MsalAuthConfig.UserConfigFileName);
+        IConfiguration configuration;
+        try
+        {
+            configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+                .AddJsonFile(userConfigFile, optional: true, reloadOnChange: false)
+                .Build();
+        }
+        catch (Exception ex) when (ex is FormatException or System.IO.InvalidDataException)
+        {
+            // 用户目录下的配置被手工改坏时不能让程序起不来：记录后退回只读程序目录的配置，
+            // 设置页会显示"未配置"，在那里重新保存一次即可覆盖坏文件。
+            CloudFlowPaths.WriteCrashLog($"读取用户配置 {userConfigFile}", ex);
+            configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+                .Build();
+        }
         services.AddSingleton<IConfiguration>(configuration);
         var authConfig = configuration.GetSection(MsalAuthConfig.SectionName).Get<MsalAuthConfig>()
                          ?? new MsalAuthConfig();

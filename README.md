@@ -41,8 +41,13 @@ dotnet run --project tools/CloudFlow.Spike
 
 ## Azure 配置
 
-复制 `src/CloudFlow.App/appsettings.example.json` 为 `appsettings.json`，填入 Entra ID App Registration 的
-`ClientId`（Public Client，无 Secret）。**`appsettings.json` 已被 .gitignore 排除，不得提交真实配置。**
+CloudFlow 用 Entra ID App Registration（Public Client，无 Secret）登录工作或学校账户，两种配置方式：
+
+- **发布版（单文件 EXE）**：打开「设置 → 账户 → 登录服务」，填写**应用程序(客户端) ID**
+  （支持多个组织的应用，目录（租户）保持 `organizations`），保存后立即生效。
+  配置写入 `%LOCALAPPDATA%\CloudFlow\appsettings.json`，发布包本身不携带任何 ClientId。
+- **源码开发调试**：复制 `src/CloudFlow.App/appsettings.example.json` 为 `appsettings.json` 并填入 `ClientId`。
+  **`appsettings.json` 已被 .gitignore 排除，不得提交真实配置。** 两处都有时，用户目录中的配置优先。
 
 还没有 App Registration 时，在 Azure Portal 创建：
 
