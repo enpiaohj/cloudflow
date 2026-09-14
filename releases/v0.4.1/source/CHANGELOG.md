@@ -5,24 +5,6 @@
 
 ---
 
-## v0.4.1 — 2026-09-14
-
-修复正式版单文件 EXE 无法配置 Azure 登录服务的问题。
-
-**主要修复**
-- 「设置 → 账户 → 登录服务」可直接填写应用（客户端）ID；账户范围改为选择（多个组织 = `organizations` / 单个组织 + 目录（租户）ID）
-- 配置保存到 `%LOCALAPPDATA%\CloudFlow\appsettings.json`，优先于程序目录配置；首次配置立即生效
-- 未配置提示改为指向设置页，不再要求复制模板文件
-
-**验证**：`dotnet build CloudFlow.sln -c Release -t:Rebuild` 0 警告 0 错误；481 项测试全部通过；单文件 EXE 无 `appsettings.json` 启动并显示配置入口。
-
-**主要已知问题**
-- 在设置页保存配置后完成登录的端到端验证未执行
-
-完整清单见 [`releases/v0.4.1/CHANGELOG.md`](releases/v0.4.1/CHANGELOG.md)。
-
----
-
 ## v0.4.0 — 2026-09-14
 
 资源组与所有资源支持批量删除；首页随窗口自适应宽度与高度。
