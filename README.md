@@ -10,6 +10,7 @@
   （**架构冲突时以该文档为准**；范围变更走「另存新文件 + 升版号」，见文档的修订记录）
 - UI 概念基准：`docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png`
 - 变更记录：根目录 `CHANGELOG.md`；每个版本的完整记录见 `releases/vX.Y.Z/CHANGELOG.md`
+- 许可证：[GPL-3.0](LICENSE)；随源码分发的第三方组件见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
 ## 技术栈
 
