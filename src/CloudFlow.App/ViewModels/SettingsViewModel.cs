@@ -26,6 +26,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly AppSettingsStore _settings;
     private readonly IJobStore _jobStore;
     private readonly SshConnectionService _ssh;
+    private readonly WindowsStartupManager _startup;
 
     // ==================== 分节导航 ====================
     //
@@ -47,6 +48,7 @@ public partial class SettingsViewModel : ObservableObject
         // WPF-UI 3.0.5 截断成 16 位，渲染成"á"和一个孤立的变音符（XamlSymbolLiteralTests 有码位检查）。
         new("credentials", "凭据管理", SymbolRegular.Key24),
         new("appearance", "外观", SymbolRegular.PaintBrush24),
+        new("general", "通用", SymbolRegular.Desktop24),
         new("approval", "操作与审批", SymbolRegular.ShieldCheckmark24),
         new("lists", "列表与刷新", SymbolRegular.ArrowClockwise24),
         new("network", "网络", SymbolRegular.Globe24),
@@ -181,7 +183,8 @@ public partial class SettingsViewModel : ObservableObject
         ShellViewModel shell,
         AppSettingsStore settings,
         IJobStore jobStore,
-        SshConnectionService ssh)
+        SshConnectionService ssh,
+        WindowsStartupManager startup)
     {
         _sessionManager = sessionManager;
         _directory = directory;
@@ -191,6 +194,7 @@ public partial class SettingsViewModel : ObservableObject
         _settings = settings;
         _jobStore = jobStore;
         _ssh = ssh;
+        _startup = startup;
 
         LoadFromSettings();
         UpdateAuthStatus();
@@ -253,6 +257,40 @@ public partial class SettingsViewModel : ObservableObject
         {
             CfThemeManager.WatchSystemTheme(window);
         }
+    }
+
+    // ---- 通用（开机启动 / 关闭行为） ----
+
+    /// <summary>
+    /// 开机时启动。真实生效状态以注册表为准（见 <see cref="WindowsStartupManager"/>），
+    /// 不落盘到 settings.json——两处各记一份容易在用户自己用系统"启动"设置页/任务管理器
+    /// 把它关掉之后互相打架，注册表已经是唯一权威来源，没必要再复制一份。
+    /// </summary>
+    [ObservableProperty]
+    private bool _launchAtStartup;
+
+    partial void OnLaunchAtStartupChanged(bool value)
+    {
+        if (_loadingSettings)
+        {
+            return;
+        }
+
+        _startup.SetRegistered(value);
+    }
+
+    /// <summary>关闭主窗口时最小化到系统托盘而不是退出。</summary>
+    [ObservableProperty]
+    private bool _minimizeToTrayOnClose;
+
+    partial void OnMinimizeToTrayOnCloseChanged(bool value)
+    {
+        if (_loadingSettings)
+        {
+            return;
+        }
+
+        Save(s => s with { MinimizeToTrayOnClose = value });
     }
 
     // ---- 操作与审批 ----
@@ -622,6 +660,8 @@ public partial class SettingsViewModel : ObservableObject
             SelectedRefreshInterval = RefreshText(current.AutoRefreshSeconds);
             SelectedPageSize = $"{current.DefaultPageSize} 条/页";
             AutoDetectPublicIp = current.AutoDetectPublicIp;
+            LaunchAtStartup = _startup.IsRegistered();
+            MinimizeToTrayOnClose = current.MinimizeToTrayOnClose;
         }
         finally
         {

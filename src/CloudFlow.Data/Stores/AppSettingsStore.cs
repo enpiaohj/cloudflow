@@ -116,13 +116,16 @@ public sealed class AppSettingsStore
 
         public bool? AutoDetectPublicIp { get; set; }
 
+        public bool? MinimizeToTrayOnClose { get; set; }
+
         public static SettingsDto From(AppSettings settings) => new()
         {
             Theme = settings.Theme.ToString(),
             ApprovalPolicy = settings.ApprovalPolicy.ToString(),
             AutoRefreshSeconds = settings.AutoRefreshSeconds,
             DefaultPageSize = settings.DefaultPageSize,
-            AutoDetectPublicIp = settings.AutoDetectPublicIp
+            AutoDetectPublicIp = settings.AutoDetectPublicIp,
+            MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose
         };
 
         public AppSettings ToSettings() => new()
@@ -136,7 +139,8 @@ public sealed class AppSettingsStore
             ApprovalPolicy = ParseEnum(ApprovalPolicy, Core.Operations.ApprovalPolicy.HighRiskOnly),
             AutoRefreshSeconds = AutoRefreshSeconds ?? 0,
             DefaultPageSize = DefaultPageSize ?? 10,
-            AutoDetectPublicIp = AutoDetectPublicIp ?? true
+            AutoDetectPublicIp = AutoDetectPublicIp ?? true,
+            MinimizeToTrayOnClose = MinimizeToTrayOnClose ?? false
         };
 
         private static TEnum ParseEnum<TEnum>(string? value, TEnum fallback)

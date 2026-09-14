@@ -41,6 +41,9 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(0, defaults.AutoRefreshSeconds);
         Assert.Equal(10, defaults.DefaultPageSize);
         Assert.True(defaults.AutoDetectPublicIp);
+        // 默认关闭：这是本设置存在之前没有的行为，不能替用户悄悄打开
+        // "关闭窗口=最小化到托盘"，必须用户自己在设置页选择启用。
+        Assert.False(defaults.MinimizeToTrayOnClose);
     }
 
     [Fact]
@@ -53,7 +56,8 @@ public sealed class AppSettingsStoreTests : IDisposable
             ApprovalPolicy = ApprovalPolicy.AllWrites,
             AutoRefreshSeconds = 60,
             DefaultPageSize = 50,
-            AutoDetectPublicIp = false
+            AutoDetectPublicIp = false,
+            MinimizeToTrayOnClose = true
         });
 
         var restored = new AppSettingsStore(FilePath).Current;
@@ -63,6 +67,7 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(60, restored.AutoRefreshSeconds);
         Assert.Equal(50, restored.DefaultPageSize);
         Assert.False(restored.AutoDetectPublicIp);
+        Assert.True(restored.MinimizeToTrayOnClose);
     }
 
     [Fact]

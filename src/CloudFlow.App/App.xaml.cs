@@ -153,6 +153,9 @@ public partial class App : Application
         var settingsStore = new AppSettingsStore();
         services.AddSingleton(settingsStore);
 
+        // "开机时启动"读写 HKCU\...\Run 注册表项，设置页与主窗口都要用
+        services.AddSingleton<CloudFlow.App.Infrastructure.WindowsStartupManager>();
+
         // 审批策略读的是上面的设置，每次判定现读，所以设置页改完立即生效
         services.AddSingleton<CloudFlow.Core.Operations.IApprovalPolicy, SettingsApprovalPolicy>();
 

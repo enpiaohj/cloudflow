@@ -334,6 +334,22 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ===================== 通用（开机启动 / 关闭行为） ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=general}">
+                    <StackPanel>
+                        <TextBlock Text="通用" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <ui:ToggleSwitch Content="开机时启动 CloudFlow"
+                                         IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Text="登录 Windows 后自动运行。" />
+                        <ui:ToggleSwitch Content="关闭窗口时最小化到通知区域" Margin="0,16,0,0"
+                                         IsChecked="{Binding MinimizeToTrayOnClose, Mode=TwoWay}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Text="关闭主窗口时，程序将最小化到系统托盘，方便快速访问。" />
+                    </StackPanel>
+                </Border>
+
                 <!-- ===================== 操作与审批 ===================== -->
                 <Border Style="{StaticResource Cf.Card}"
                         Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=approval}">

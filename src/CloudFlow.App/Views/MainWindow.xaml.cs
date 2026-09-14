@@ -2,8 +2,11 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using CloudFlow.App.Infrastructure;
 using CloudFlow.App.ViewModels;
+using CloudFlow.Data.Stores;
 using Wpf.Ui.Controls;
+using WinForms = System.Windows.Forms;
 
 namespace CloudFlow.App;
 
@@ -13,17 +16,102 @@ namespace CloudFlow.App;
 public partial class MainWindow : FluentWindow
 {
     private readonly ShellViewModel _shell;
+    private readonly AppSettingsStore _settings;
 
     /// <summary>退出收尾只走一次（收尾完成后会主动再关一次窗口）。</summary>
     private bool _shutdownStarted;
 
-    public MainWindow(ShellViewModel shell)
+    /// <summary>true 表示这次关闭是真的要退出（托盘"退出"菜单，或系统关机/注销）——
+    /// "最小化到托盘"这条设置只拦截用户点右上角"×"这一种关闭，不能拦住真正的退出路径，
+    /// 否则托盘菜单的"退出"会变成打不死的"假退出"。</summary>
+    private bool _isExiting;
+
+    private WinForms.NotifyIcon? _trayIcon;
+    private bool _trayBalloonShown;
+
+    public MainWindow(ShellViewModel shell, AppSettingsStore settings)
     {
         _shell = shell;
+        _settings = settings;
         InitializeComponent();
         DataContext = shell;
         AccountMenuPopup.CustomPopupPlacementCallback = PlaceAccountMenu;
         Loaded += OnLoaded;
+        InitializeTrayIcon();
+        Closed += (_, _) => _trayIcon?.Dispose();
+    }
+
+    /// <summary>
+    /// 托盘图标常驻——不管"关闭窗口时最小化到托盘"这条设置有没有开，图标本身始终在，
+    /// 提供双击快速打开和右键常用操作；只有"关闭主窗口的行为"这一件事受那条设置控制。
+    /// </summary>
+    private void InitializeTrayIcon()
+    {
+        var iconPath = Environment.ProcessPath;
+        var icon = !string.IsNullOrEmpty(iconPath)
+            ? System.Drawing.Icon.ExtractAssociatedIcon(iconPath)
+            : null;
+
+        var menu = new WinForms.ContextMenuStrip();
+        menu.Items.Add("打开 CloudFlow", null, (_, _) => ShowFromTray());
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("查看任务", null, (_, _) =>
+        {
+            ShowFromTray();
+            _shell.NavigateJobs();
+        });
+        menu.Items.Add("设置", null, (_, _) =>
+        {
+            ShowFromTray();
+            _shell.NavigateSettings();
+        });
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("退出 CloudFlow", null, (_, _) => ExitFromTray());
+
+        _trayIcon = new WinForms.NotifyIcon
+        {
+            Icon = icon,
+            Text = AppInfo.ProductName,
+            Visible = true,
+            ContextMenuStrip = menu
+        };
+        _trayIcon.DoubleClick += (_, _) => ShowFromTray();
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        ShowInTaskbar = true;
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+    }
+
+    /// <summary>最小化到托盘：只是把窗口藏起来，不释放任何资源、不跑终端会话收尾——
+    /// 那一套只在真正退出时才需要，见 <see cref="OnClosing"/>。</summary>
+    private void HideToTray()
+    {
+        Hide();
+        ShowInTaskbar = false;
+
+        if (_trayBalloonShown)
+        {
+            return;
+        }
+
+        _trayBalloonShown = true;
+        _trayIcon?.ShowBalloonTip(
+            3000, AppInfo.ProductName, "程序已最小化到系统托盘，双击图标或从右键菜单重新打开。",
+            WinForms.ToolTipIcon.Info);
+    }
+
+    private void ExitFromTray()
+    {
+        _isExiting = true;
+        System.Windows.Application.Current?.Shutdown();
     }
 
     /// <summary>拖动终端面板抓手：把位移交给面板 VM，由它统一钳制高度。</summary>
@@ -37,6 +125,16 @@ public partial class MainWindow : FluentWindow
     protected override void OnClosing(CancelEventArgs e)
     {
         base.OnClosing(e);
+
+        // 最小化到托盘：取消这次关闭，只是把窗口藏起来，不走下面的终端会话收尾——那一套
+        // 只在真正退出时才需要。_isExiting 是唯一的口子：托盘"退出"菜单会先置位它再关，
+        // 到这里就不再拦截，走正常的收尾+关闭流程。
+        if (!_isExiting && _settings.Current.MinimizeToTrayOnClose)
+        {
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
 
         // 没有会话就没什么要收尾的，直接关。
         // 收尾必须在 UI 线程上 await（SshSession 的清理会回到捕获的 SynchronizationContext），

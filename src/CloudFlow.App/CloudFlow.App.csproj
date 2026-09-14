@@ -4,6 +4,10 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- 仅为托盘图标（System.Windows.Forms.NotifyIcon）——WPF 没有原生的托盘图标控件，
+         这是业内最通用、最稳妥的实现方式。不是引入一个新的第三方包，Windows Desktop SDK
+         自带，跟 WPF 同一个 SDK 的一部分。 -->
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>CloudFlow.App</RootNamespace>
     <AssemblyName>CloudFlow.App</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
@@ -13,6 +17,16 @@
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\app-icon-preview.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- UseWPF 和 UseWindowsForms 同时打开时，SDK 会给两边各自的隐式全局 using 都加上，
+         而 UserControl / ComboBox / Application / Brush / Size / Point 这些类型名在两个
+         命名空间里同时存在，全局 using 一旦重叠就直接编译失败（这些名字全仓库到处用）。
+         去掉 System.Windows.Forms 和 System.Drawing 这两条隐式全局 using，只在真正需要
+         NotifyIcon 的那个文件里用命名空间别名显式引用，不影响其它文件。 -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>

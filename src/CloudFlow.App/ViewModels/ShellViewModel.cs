@@ -590,6 +590,10 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     public void NavigateHome() => SelectedNav = NavItems.First(n => n.PageKey == "home");
 
+    /// <summary>托盘菜单"设置"用——切换导航项即可，OnSelectedNavChanged 已经会把
+    /// Current 切到 Settings 并刷新，不需要在这里重复一遍。</summary>
+    public void NavigateSettings() => SelectedNav = NavItems.First(n => n.PageKey == "settings");
+
     public void NavigateVirtualMachines(string? filter = null)
     {
         NavItems.First(n => n.PageKey == "compute").IsExpanded = true;

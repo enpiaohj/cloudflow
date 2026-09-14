@@ -44,6 +44,11 @@ public sealed record AppSettings
     /// </summary>
     public bool AutoDetectPublicIp { get; init; } = true;
 
+    /// <summary>关闭主窗口时最小化到系统托盘而不是真正退出。默认关闭——这是本设置存在
+    /// 之前没有的行为，点右上角"×"却发现程序没退出、还在托盘里挂着，对没预期到这个
+    /// 行为的用户是个意外，必须用户自己在设置页选择启用。</summary>
+    public bool MinimizeToTrayOnClose { get; init; }
+
     /// <summary>
     /// 把任意来源的值收敛到合法取值。反序列化之后、使用之前都要过一遍 ——
     /// 文件可能是旧版本写的、手改过的，或者干脆是坏的。
@@ -61,6 +66,7 @@ public sealed record AppSettings
             : 0,
 
         DefaultPageSize = SupportedPageSizes.Contains(DefaultPageSize) ? DefaultPageSize : 10,
-        AutoDetectPublicIp = AutoDetectPublicIp
+        AutoDetectPublicIp = AutoDetectPublicIp,
+        MinimizeToTrayOnClose = MinimizeToTrayOnClose
     };
 }
