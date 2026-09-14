@@ -13,9 +13,12 @@
 
 ## 产品基准（重要）
 
-- 产品设计唯一基准：`docs/01-产品设计/20260913-CloudFlow 云资源智能运维平台产品设计文档 v3.2.md`（架构冲突时以该文档为准）
-- UI 布局与界面以 `docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png` 为准；**顶栏第二选择器命名用 "Scope"（文档 §8）**
-- **范围变更走「另存新文件 + 升版号」并在文档「修订记录」登记**（不要就地改范围）。当前 P1 已含 **Create VM / Delete VM**（v3.1 §87，v3.2 修订）—— v3.0 时代那句「P1 不做 Create VM」**已作废**；创建虚拟机时资源组 / 虚拟网络 / 子网不存在会按需新建、存在则复用（v3.2 §87.2），见 `…产品设计文档 v3.2.md` 的修订记录
+- 产品设计过程文档（范围演进历史、内部技术验证记录、UI 视觉方案迭代）不随本仓库分发，
+  由维护者存放在独立的私有工作区（`ai-coding-workspace/projects/cloudflow/`）管理，
+  不在本仓库的 Git 历史中——公开架构说明见 `docs/`（另行编写中）。
+- **架构冲突或范围变更，以维护者当时的私有设计文档 + 本文件的架构原则为准**；本文件是
+  面向贡献者与 Claude Code 的公开摘要，不是完整设计规格。
+- 顶栏第二选择器命名用 "Scope"（不叫 Subscription——一个 Scope 可以横跨多个订阅）
 - 核心架构原则：
   - `Account → Tenant → Scope → Resource → Operation`
   - 所有模块查询统一接受 `ResourceScope`（禁止 `GetVirtualMachines(subscriptionId)` 式签名）
@@ -43,5 +46,4 @@ dotnet run --project tools/CloudFlow.Spike        # P0 技术验证（需先配�
 ## 当前开发阶段约定
 
 - **Demo 模式**：真实 Azure 接入前，UI 数据来自 `Mock*Service`（Modules.Compute / Modules.Network），注册在 `App.xaml.cs`。接入真实 Azure 时替换对应 DI 注册，Mock 服务保留用于 UI 开发与测试
-- 阶段路线见设计文档 §78：P0 Spike → P1（VM Ops + 多订阅）→ P1.5（多账号 UI）→ …
-- P1 Exit Gate 清单见设计文档 §80，阶段完成与否以清单为准，不允许"页面完成 = 阶段完成"
+- 详细阶段路线与 Exit Gate 清单见维护者私有工作区的设计文档，不在本仓库内追踪

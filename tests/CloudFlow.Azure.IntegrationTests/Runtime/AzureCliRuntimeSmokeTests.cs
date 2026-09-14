@@ -5,7 +5,7 @@ namespace CloudFlow.Azure.IntegrationTests.Runtime;
 
 /// <summary>
 /// P0 Spike 步骤 1：嵌入式 Azure CLI Runtime 静态验证。
-/// 认证版本 azure-cli 2.90.0（Microsoft 官方 x64 ZIP），SHA-256 记录于 docs/Identity-Spike.md。
+/// 认证版本 azure-cli 2.90.0（Microsoft 官方 x64 ZIP），SHA-256 记录于维护者私有工作区的设计文档。
 /// Runtime 未下载/解包时本测试静默返回（与 SilentAuthTests 同一约定）。
 /// </summary>
 [Trait("Category", "Integration")]

@@ -6,14 +6,19 @@
 - **仓库名**：`cloudflow`（GitHub，lowercase-kebab-case，默认 Private）
 - **默认分支**：`main`
 - **可见性**：Private（转 Public 需用户明确决定）
-- **版本**：Semantic Versioning，当前 `0.1.0`（开发期，未正式发布，无 Tag）
+- **License**：GPL-3.0（根目录 `LICENSE`）；随源码分发的第三方组件（xterm.js 等）见 `THIRD-PARTY-NOTICES.md`
+- **版本**：Semantic Versioning，当前 `0.4.1`（Tag `v0.4.1`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`）
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `build:` / `ci:` / `chore:` / `release:`）
 - **Artifact 策略**：`releases/vX.Y.Z/` 快照中 `source/` 与 `CHANGELOG.md` 入库，二进制产物不入库（交付走 GitHub Releases）
 
 ## 产品基准（重要）
 
-- 产品设计唯一基准：`docs/01-产品设计/20260912-CloudFlow 云资源智能运维平台产品设计文档 v3.0.md`（架构冲突时以该文档为准）
-- UI 布局与界面以 `docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png` 为准；**顶栏第二选择器命名用 "Scope"（文档 §8），P1 不做 Create VM**
+- 产品设计过程文档（范围演进历史、内部技术验证记录、UI 视觉方案迭代）不随本仓库分发，
+  由维护者存放在独立的私有工作区（`ai-coding-workspace/projects/cloudflow/`）管理，
+  不在本仓库的 Git 历史中——公开架构说明见 `docs/`（另行编写中）。
+- **架构冲突或范围变更，以维护者当时的私有设计文档 + 本文件的架构原则为准**；本文件是
+  面向贡献者与 Claude Code 的公开摘要，不是完整设计规格。
+- 顶栏第二选择器命名用 "Scope"（不叫 Subscription——一个 Scope 可以横跨多个订阅）
 - 核心架构原则：
   - `Account → Tenant → Scope → Resource → Operation`
   - 所有模块查询统一接受 `ResourceScope`（禁止 `GetVirtualMachines(subscriptionId)` 式签名）
@@ -41,5 +46,4 @@ dotnet run --project tools/CloudFlow.Spike        # P0 技术验证（需先配�
 ## 当前开发阶段约定
 
 - **Demo 模式**：真实 Azure 接入前，UI 数据来自 `Mock*Service`（Modules.Compute / Modules.Network），注册在 `App.xaml.cs`。接入真实 Azure 时替换对应 DI 注册，Mock 服务保留用于 UI 开发与测试
-- 阶段路线见设计文档 §78：P0 Spike → P1（VM Ops + 多订阅）→ P1.5（多账号 UI）→ …
-- P1 Exit Gate 清单见设计文档 §80，阶段完成与否以清单为准，不允许"页面完成 = 阶段完成"
+- 详细阶段路线与 Exit Gate 清单见维护者私有工作区的设计文档，不在本仓库内追踪

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    SSH 终端（参考 RemoteFlow 连接逻辑，见 docs/02-开发/2026-09-13-CloudFlow-SSH终端实现标准-v1.1.md）。
+    SSH 终端（参考 RemoteFlow 连接逻辑）。
     与 Azure 无关（不经 Operation Engine），独立成项目便于将来复用。
     本项目只提供 SshSession 与 SshTerminalView；承载页在 App 层（VM 详情页「终端」标签）。
   -->

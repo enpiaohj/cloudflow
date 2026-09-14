@@ -6,9 +6,6 @@
 
 当前版本：**v0.4.1**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口。
 
-- 产品设计基准：`docs/01-产品设计/20260913-CloudFlow 云资源智能运维平台产品设计文档 v3.2.md`
-  （**架构冲突时以该文档为准**；范围变更走「另存新文件 + 升版号」，见文档的修订记录）
-- UI 概念基准：`docs/01-产品设计/UI/UI概念图1.png`、`UI概念图2.png`
 - 变更记录：根目录 `CHANGELOG.md`；每个版本的完整记录见 `releases/vX.Y.Z/CHANGELOG.md`
 - 许可证：[GPL-3.0](LICENSE)；随源码分发的第三方组件见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
