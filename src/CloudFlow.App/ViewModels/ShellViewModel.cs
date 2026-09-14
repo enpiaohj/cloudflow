@@ -154,7 +154,12 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     public string AccountInitial => SelectedAccount?.Initial ?? "?";
 
-    public string AccountDisplayName => SelectedAccount?.DisplayName ?? "未登录";
+    // 顶栏这个位置只显示一个值，必须能唯一区分账户——真实踩过的坑：两个账户展示名完全一样
+    // （比如都叫"朴宏基"），只看展示名分不清当前生效的是哪一个；登录名（UPN）才是账户的唯一
+    // 标识（CloudAccount 的类型注释也写明"身份唯一性 = ProviderType + Provider 原生 ID；
+    // UPN / 显示名称不作为主键"，但至少 UPN 在同一 Provider 下实际上不会重复，适合拿来当
+    // 人类可读的消歧义显示）。展示名仍然保留在 AccountToolTip 悬浮提示里。
+    public string AccountDisplayName => SelectedAccount is null ? "未登录" : SelectedAccount.Account.Username;
 
     public string AccountToolTip => SelectedAccount is null
         ? "尚未登录 Microsoft 账户，当前为演示数据"
