@@ -6,7 +6,7 @@
 - **仓库名**：`cloudflow`（GitHub，lowercase-kebab-case，默认 Private）
 - **默认分支**：`main`
 - **可见性**：Private（转 Public 需用户明确决定）
-- **版本**：Semantic Versioning，当前 `0.4.0`（Tag `v0.4.0`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`）
+- **版本**：Semantic Versioning，当前 `0.4.1`（Tag `v0.4.1`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`）
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `build:` / `ci:` / `chore:` / `release:`）
 - **Artifact 策略**：`releases/vX.Y.Z/` 快照中 `source/` 与 `CHANGELOG.md` 入库，二进制产物不入库（交付走 GitHub Releases）
 
