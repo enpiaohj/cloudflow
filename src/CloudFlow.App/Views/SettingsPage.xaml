@@ -56,8 +56,46 @@
         <ScrollViewer Grid.Row="2" Margin="0,20,0,0" VerticalScrollBarVisibility="Auto">
             <StackPanel>
 
-                <!-- ===================== 账户 ===================== -->
+                <!-- ===================== 通用（主题 / 开机启动 / 关闭行为） =====================
+                     排在最前面：主题、开机启动、关闭到托盘这类"一次设置、长期不变"的应用整体
+                     偏好，是大多数人打开设置最先想调的。外观（主题）并入通用，不再单列一个
+                     只有一项内容的「外观」分节。 -->
                 <Border Style="{StaticResource Cf.Card}" Margin="0,0,0,0"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=general}">
+                    <StackPanel>
+                        <TextBlock Text="通用" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="主题" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <!-- 裸 ComboBox + MinHeight 34：WPF-UI 的模板会给内容区留内边距，
+                                 高度给不够时选中的文字会被裁掉下半截（VirtualMachinesPage 上踩过一次） -->
+                            <ComboBox Grid.Column="1" MinHeight="34" MaxWidth="240" FontSize="13"
+                                      HorizontalAlignment="Left" Width="240"
+                                      ItemsSource="{Binding ThemeOptions}"
+                                      SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="选择「跟随系统」时，将随 Windows 的浅色 / 深色设置自动切换。" />
+
+                        <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
+
+                        <ui:ToggleSwitch Content="开机时启动 CloudFlow"
+                                         IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Text="登录 Windows 后自动运行。" />
+                        <ui:ToggleSwitch Content="关闭窗口时最小化到通知区域" Margin="0,16,0,0"
+                                         IsChecked="{Binding MinimizeToTrayOnClose, Mode=TwoWay}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Text="关闭主窗口时，程序将最小化到系统托盘，方便快速访问。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 账户 ===================== -->
+                <Border Style="{StaticResource Cf.Card}" Margin="0,16,0,0"
                         Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=account}">
                     <StackPanel>
                         <Grid Margin="0,0,0,6">
@@ -307,46 +345,6 @@
 
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Text="密码与私钥使用 Windows 当前用户身份加密（DPAPI）后保存在本机，其他 Windows 账户或其他设备均无法解密。凭据不绑定主机，可在任意虚拟机的连接窗口中选用。" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===================== 外观 ===================== -->
-                <Border Style="{StaticResource Cf.Card}"
-                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=appearance}">
-                    <StackPanel>
-                        <TextBlock Text="外观" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="主题" Style="{StaticResource Cf.Subtitle}"
-                                       VerticalAlignment="Center" />
-                            <!-- 裸 ComboBox + MinHeight 34：WPF-UI 的模板会给内容区留内边距，
-                                 高度给不够时选中的文字会被裁掉下半截（VirtualMachinesPage 上踩过一次） -->
-                            <ComboBox Grid.Column="1" MinHeight="34" MaxWidth="240" FontSize="13"
-                                      HorizontalAlignment="Left" Width="240"
-                                      ItemsSource="{Binding ThemeOptions}"
-                                      SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
-                        </Grid>
-                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="选择「跟随系统」时，将随 Windows 的浅色 / 深色设置自动切换。" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===================== 通用（开机启动 / 关闭行为） ===================== -->
-                <Border Style="{StaticResource Cf.Card}"
-                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=general}">
-                    <StackPanel>
-                        <TextBlock Text="通用" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
-                        <ui:ToggleSwitch Content="开机时启动 CloudFlow"
-                                         IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" />
-                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                   Text="登录 Windows 后自动运行。" />
-                        <ui:ToggleSwitch Content="关闭窗口时最小化到通知区域" Margin="0,16,0,0"
-                                         IsChecked="{Binding MinimizeToTrayOnClose, Mode=TwoWay}" />
-                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                   Text="关闭主窗口时，程序将最小化到系统托盘，方便快速访问。" />
                     </StackPanel>
                 </Border>
 

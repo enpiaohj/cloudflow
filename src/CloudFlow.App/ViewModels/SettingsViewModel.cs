@@ -33,22 +33,22 @@ public partial class SettingsViewModel : ObservableObject
     // 设置页有 8 个分节，一条长滚动列会把「改主题」和「清除任务历史」混在同一个视线里，
     // 用户找一项要滚很久、也看不出总共有哪些设置。改成顶部分节条 + 下方内容。
     //
-    // 分节顺序：账户排第一 —— 打开设置最先要回答的问题是「我现在是谁、怎么退出去」，
-    // 这也是成熟桌面应用的通行次序（账户 → 通用偏好 → 功能设置 → 数据 → 关于）。
-    // 凭据紧跟账户：它回答的是「我拿什么去连机器」，与账户同属"身份"，但彼此独立
-    // （Azure 账户凭据走 MSAL，SSH 凭据走 DPAPI 保险库，名字相近而已）。
+    // 分节顺序：通用排第一 —— 主题、开机启动、关闭到托盘这类"一次设置、长期不变"的
+    // 应用整体偏好，是大多数人打开设置最先想调的，因此把原本独立的「外观」并入「通用」，
+    // 不再单列。账户 / 凭据管理紧随其后（它们回答的是「我是谁、我拿什么去连机器」，
+    // 同属"身份"但机制独立：Azure 账户走 MSAL，SSH 凭据走 DPAPI 保险库）。
+    // 之后是功能类设置（操作与审批 → 列表与刷新 → 网络），最后是数据管理与关于。
 
     /// <summary>设置页分节条的一项。<see cref="Key"/> 供 XAML 的 SectionVisible 转换器比较，不要改字面量。</summary>
     public sealed record SettingsSection(string Key, string Title, SymbolRegular Symbol);
 
     private static readonly SettingsSection[] AllSections =
     [
+        new("general", "通用", SymbolRegular.Desktop24),
         new("account", "账户", SymbolRegular.Person24),
         // 图标码位必须在 U+FFFF 以内：LockClosedKey24（U+F00E1）/ HardDrive24（U+F0306）会被
         // WPF-UI 3.0.5 截断成 16 位，渲染成"á"和一个孤立的变音符（XamlSymbolLiteralTests 有码位检查）。
         new("credentials", "凭据管理", SymbolRegular.Key24),
-        new("appearance", "外观", SymbolRegular.PaintBrush24),
-        new("general", "通用", SymbolRegular.Desktop24),
         new("approval", "操作与审批", SymbolRegular.ShieldCheckmark24),
         new("lists", "列表与刷新", SymbolRegular.ArrowClockwise24),
         new("network", "网络", SymbolRegular.Globe24),
@@ -222,7 +222,7 @@ public partial class SettingsViewModel : ObservableObject
     // 没有"保存"按钮是有意的 —— 有按钮就会有"改了没按"的状态，
     // 而这里的每一项都是本地偏好，撤销的成本比确认的成本低。
 
-    // ---- 外观 ----
+    // ---- 通用（主题 / 开机启动 / 关闭行为） ----
 
     public IReadOnlyList<string> ThemeOptions { get; } = ["跟随系统", "浅色", "深色"];
 
@@ -258,8 +258,6 @@ public partial class SettingsViewModel : ObservableObject
             CfThemeManager.WatchSystemTheme(window);
         }
     }
-
-    // ---- 通用（开机启动 / 关闭行为） ----
 
     /// <summary>
     /// 开机时启动。真实生效状态以注册表为准（见 <see cref="WindowsStartupManager"/>），
