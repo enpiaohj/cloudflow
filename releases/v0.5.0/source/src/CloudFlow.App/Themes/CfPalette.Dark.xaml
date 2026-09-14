@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      深色取值表。key 集合与 CfPalette.Light.xaml 完全一致（CfPaletteParityTests 断言）。
+
+      **本文件是一张纯取值表**：由 CfThemeManager 读出每个 Color，
+      写进 Initialize() 造出来的那批未冻结画刷实例（见该类注释）。它不参与任何资源查找。
+
+      **没有产品基准**：docs/01-产品设计/UI/UI概念图*.png 只有浅色。
+      以下取值按 Fluent / WinUI 3 深色惯例推导（表面 #1B1B1B→#2B2B2B 分层、
+      文本 #FFFFFF/#C5C5C5/#9A9A9A 三级、主色在深底上提亮到 #479EF5、
+      状态底色改为深色着色面而非浅色面），**不是**从任何设计稿还原出来的。
+    -->
+
+    <!-- ===== 主色与表面 ===== -->
+    <SolidColorBrush x:Key="Cf.PrimaryBrush" Color="#FF479EF5" />
+    <SolidColorBrush x:Key="Cf.PrimaryHoverBrush" Color="#FF6BB0F7" />
+    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FF1B1B1B" />
+    <SolidColorBrush x:Key="Cf.TopBarBrush" Color="#FF272727" />
+    <SolidColorBrush x:Key="Cf.CardBrush" Color="#FF2B2B2B" />
+    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FF232323" />
+    <SolidColorBrush x:Key="Cf.DialogBackgroundBrush" Color="#FF2B2B2B" />
+    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FF3D3D3D" />
+
+    <!-- ===== 文本 ===== -->
+    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FFC5C5C5" />
+    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF9A9A9A" />
+
+    <!-- 深色下主色提亮到 #479EF5，白字对比度只有约 2.8:1（主按钮"连接 / 创建虚拟机"发虚）；
+         改用近黑色，约 6.8:1，与 Windows 11 深色主题强调色按钮的做法一致。 -->
+    <SolidColorBrush x:Key="Cf.OnPrimaryTextBrush" Color="#FF0B1220" />
+
+    <!-- 语义文本色：深底上一律提亮，否则 #C5221F 这类深红几乎不可读 -->
+    <SolidColorBrush x:Key="Cf.ErrorTextBrush" Color="#FFFF99A4" />
+    <SolidColorBrush x:Key="Cf.DangerTextBrush" Color="#FFFFB3B3" />
+    <SolidColorBrush x:Key="Cf.SuccessTextBrush" Color="#FF6CCB5F" />
+    <SolidColorBrush x:Key="Cf.WarningTextBrush" Color="#FFF0B45E" />
+    <SolidColorBrush x:Key="Cf.WarningStrongTextBrush" Color="#FFF7C97A" />
+
+    <!-- ===== 行状态 ===== -->
+    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FF353535" />
+    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FF313131" />
+    <!-- 选中刻意带一点蓝：深色下"比悬停更亮一档"几乎看不出区别，会读不出哪一行被选中 -->
+    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FF33475B" />
+
+    <!-- ===== 危险动作按钮 ===== -->
+    <SolidColorBrush x:Key="Cf.DangerBrush" Color="#FFC13438" />
+    <SolidColorBrush x:Key="Cf.DangerHoverBrush" Color="#FFA52A2E" />
+
+    <!-- ===== 语义浅底（提示条 / 药丸） ===== -->
+    <SolidColorBrush x:Key="Cf.Surface.SuccessBrush" Color="#FF1E3A22" />
+    <SolidColorBrush x:Key="Cf.Surface.WarningBrush" Color="#FF3D2E12" />
+    <SolidColorBrush x:Key="Cf.Surface.WarningBorderBrush" Color="#FF6B5122" />
+    <SolidColorBrush x:Key="Cf.Surface.DangerBrush" Color="#FF43212A" />
+    <SolidColorBrush x:Key="Cf.Surface.DangerBorderBrush" Color="#FF7A3A44" />
+
+    <!-- ===== 状态徽章调色板 ===== -->
+    <SolidColorBrush x:Key="Cf.Status.Success.Bg" Color="#FF1E3A22" />
+    <SolidColorBrush x:Key="Cf.Status.Success.Fg" Color="#FF7ED47E" />
+    <SolidColorBrush x:Key="Cf.Status.Warning.Bg" Color="#FF3D2E12" />
+    <SolidColorBrush x:Key="Cf.Status.Warning.Fg" Color="#FFF0B45E" />
+    <SolidColorBrush x:Key="Cf.Status.Danger.Bg" Color="#FF43212A" />
+    <SolidColorBrush x:Key="Cf.Status.Danger.Fg" Color="#FFFF99A4" />
+    <SolidColorBrush x:Key="Cf.Status.Neutral.Bg" Color="#FF343434" />
+    <SolidColorBrush x:Key="Cf.Status.Neutral.Fg" Color="#FFC5C5C5" />
+    <SolidColorBrush x:Key="Cf.Status.Info.Bg" Color="#FF1B3350" />
+    <SolidColorBrush x:Key="Cf.Status.Info.Fg" Color="#FF6BB0F7" />
+    <SolidColorBrush x:Key="Cf.Status.Subnet.Bg" Color="#FF35244A" />
+    <SolidColorBrush x:Key="Cf.Status.Subnet.Fg" Color="#FFC69BE8" />
+
+    <!-- 列表加载遮罩：浅色下压白，深色下压黑，两边都保证 Cf.Muted 文字可读 -->
+    <SolidColorBrush x:Key="Cf.LoadingScrimBrush" Color="#B3000000" />
+
+    <!-- ===== 遮罩 ===== -->
+    <SolidColorBrush x:Key="Cf.ScrimBrush" Color="#99000000" />
+
+    <!-- 虚拟机操作系统图标 -->
+    <SolidColorBrush x:Key="Cf.OsIconScreenBrush" Color="#FF3E9BEA" />
+    <SolidColorBrush x:Key="Cf.OsIconStandBrush" Color="#FF7A828E" />
+    <SolidColorBrush x:Key="Cf.OsIconMarkBrush" Color="#FFD6ECFF" />
+
+</ResourceDictionary>

@@ -5,33 +5,6 @@
 
 ---
 
-## v0.5.0 — 2026-09-14
-
-个人 Microsoft 账户登录支持首次使用时自动下载 Azure CLI Runtime；仓库采用 GPL-3.0 许可证；
-补齐面向使用者与贡献者的公开文档；产品设计过程文档迁出仓库并清理相应 Git 历史。
-
-**主要能力**
-- 首次「添加个人 Microsoft 账户」且本机缺少 Runtime 时自动下载（官方 GitHub Release，校验
-  SHA-256 通过才使用），此前所有版本这条登录路径实际上只在开发机上能用
-- 新增 `docs/` 下六份公开文档（用户手册、认证说明、架构、开发指南、Provider 开发规范）与
-  `CONTRIBUTING.md`
-
-**主要变更**
-- 仓库改用 GPL-3.0 许可证
-- 产品设计过程文档迁出仓库、Git 历史相应清理（含此前一份历史提交中曾短暂出现的真实客户端 ID
-  与内部验证记录），已重新发布 `v0.1.0`～`v0.4.1` 对应 Tag
-
-**验证**：`dotnet build CloudFlow.sln -c Release -t:Rebuild` 0 警告 0 错误；488 项测试全部通过
-（含一项真实下载 Azure CLI Runtime 的端到端集成测试）；单文件 EXE 无 `appsettings.json` 启动
-验证通过。
-
-**主要已知问题**
-- 公开文档目前只有一张 Demo 模式截图，其余页面截图尚未提供
-
-完整清单见 [`releases/v0.5.0/CHANGELOG.md`](releases/v0.5.0/CHANGELOG.md)。
-
----
-
 ## v0.4.1 — 2026-09-14
 
 修复正式版单文件 EXE 无法配置 Azure 登录服务的问题。
