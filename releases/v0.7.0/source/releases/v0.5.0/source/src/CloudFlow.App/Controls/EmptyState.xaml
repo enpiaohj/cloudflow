@@ -1,0 +1,29 @@
+<UserControl x:Class="CloudFlow.App.Controls.EmptyState"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="Root">
+    <!--
+      空状态：图标圆盘 + 一句标题 + 一句"下一步可以做什么"。
+      原来各页面的空态都是一行灰字，放在一大块白卡片里看起来像"没加载出来"，
+      而不是"确实没有数据"。统一成这一个控件，列表页 / 首页卡片 / 设置页共用同一种语气和版式。
+      可见性由调用方决定（通常是"无数据且不在加载中"）。
+    -->
+    <StackPanel x:Name="Layout" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380">
+        <Border x:Name="IconDisc" Width="52" Height="52" CornerRadius="26" HorizontalAlignment="Center"
+                Background="{DynamicResource Cf.Status.Neutral.Bg}">
+            <ui:SymbolIcon x:Name="IconGlyph" Symbol="{Binding Symbol, ElementName=Root}" FontSize="24"
+                           Foreground="{DynamicResource Cf.TextMutedBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <TextBlock x:Name="TitleText" Text="{Binding Title, ElementName=Root}" Margin="0,14,0,0"
+                   FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"
+                   TextAlignment="Center" TextWrapping="Wrap"
+                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+        <TextBlock x:Name="DescriptionText" Text="{Binding Description, ElementName=Root}" Margin="0,6,0,0"
+                   FontSize="12.5" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                   LineHeight="19" LineStackingStrategy="BlockLineHeight"
+                   Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                   Visibility="{Binding Description, ElementName=Root, Converter={StaticResource NonEmptyToVisibility}}" />
+    </StackPanel>
+</UserControl>

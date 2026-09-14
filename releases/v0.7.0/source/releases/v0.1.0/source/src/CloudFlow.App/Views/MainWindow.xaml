@@ -1,0 +1,393 @@
+<ui:FluentWindow x:Class="CloudFlow.App.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:vm="clr-namespace:CloudFlow.App.ViewModels"
+                 xmlns:views="clr-namespace:CloudFlow.App.Views"
+                 xmlns:infra="clr-namespace:CloudFlow.App.Infrastructure"
+                 Title="CloudFlow"
+                 Icon="pack://application:,,,/Assets/app.ico"
+                 Width="1320" Height="700"
+                 MinWidth="1040" MinHeight="620"
+                 WindowStartupLocation="CenterScreen"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="None"
+                 Background="{DynamicResource Cf.PageBackgroundBrush}"
+        TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+    <!--
+      与几个对话框同理：TextBlock 的默认前景是黑色，凡是没写 Foreground 的地方
+      在深色主题下都会看不见。在此设一次，由继承覆盖整个窗口。
+    -->
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:HomeViewModel}">
+            <views:HomePage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VirtualMachinesViewModel}">
+            <views:VirtualMachinesPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VmDetailViewModel}">
+            <views:VmDetailPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:JobsViewModel}">
+            <views:JobsPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsPage />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Auto 而不是写死 52：全屏时顶栏 Collapsed，这一行必须能收到 0。
+                 固定高度不会因为子元素收起而变矮，顶栏会留下一条空白。 -->
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===================== 顶栏（概念图 1：logo + Scope + Search + 工具 + Account） ===================== -->
+        <Border Grid.Row="0"
+                Height="52"
+                Background="{DynamicResource Cf.TopBarBrush}"
+                BorderBrush="{DynamicResource Cf.BorderBrush}"
+                BorderThickness="0,0,0,1"
+                MouseLeftButtonDown="TopBar_MouseLeftButtonDown"
+                Visibility="{Binding Terminal.IsFullScreen,
+                                     Converter={StaticResource InverseBoolToVisibility}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Logo -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,10,0" VerticalAlignment="Center">
+                    <ui:SymbolIcon Symbol="Cloud24" FontSize="22" Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                    <TextBlock Text="CloudFlow" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                    <!-- 版本号紧随产品名，取自程序集 InformationalVersion（见 AppInfo） -->
+                    <TextBlock Text="{x:Static infra:AppInfo.Version}" FontSize="11.5"
+                               Foreground="{DynamicResource Cf.TextMutedBrush}"
+                               Margin="6,0,0,2" VerticalAlignment="Bottom" />
+                </StackPanel>
+
+                <!-- Scope 选择器（设计文档 §8：不命名 Subscription） -->
+                <ComboBox Grid.Column="1" Width="220" Height="34" Margin="6,0"
+                          VerticalAlignment="Center"
+                          ToolTip="作用范围"
+                          ItemsSource="{Binding ScopeOptions}"
+                          SelectedItem="{Binding SelectedScope, Mode=TwoWay}" />
+
+                <!-- 全局搜索（弹性列：窗口变窄时优先收缩，Account 区不被挤压） -->
+                <Border Grid.Column="2" MaxWidth="430" MinWidth="180" Height="34" Margin="10,2"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        Background="{DynamicResource Cf.PageBackgroundBrush}"
+                        BorderBrush="{DynamicResource Cf.BorderBrush}"
+                        BorderThickness="1" CornerRadius="6">
+                    <ui:TextBox PlaceholderText="搜索资源、虚拟机…"
+                                Icon="{ui:SymbolIcon Search24}"
+                                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                BorderThickness="0" Background="Transparent"
+                                VerticalContentAlignment="Center" FontSize="13">
+                        <ui:TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                        </ui:TextBox.InputBindings>
+                    </ui:TextBox>
+                </Border>
+
+                <!--
+                  顶栏这里**刻意没有刷新按钮**：首页 / 虚拟机 / 详情 / 任务 各自在页面标题行
+                  有一个刷新图标，顶栏这个做的是同一件事（ShellViewModel.RefreshCommand
+                  也是按 Current 分发到当前页），同屏出现两个等价的刷新按钮是纯噪音。
+                  设置页不需要刷新 Azure 数据，所以不再有"某个页面没有刷新入口"的问题。
+                -->
+
+                <!-- 终端会话入口：面板收起后底部不留任何残留，这里是唯一的回入口。
+                     没有会话时按钮一并消失（HasTabs），所以不存在"点开是空面板"的死路。
+                     角标用自绘 Border 而不是 Cf.Badge：那个走的是状态枚举的 StatusBg 转换器，
+                     会话数是个整数，套上去只会得到错误的配色。 -->
+                <Button Grid.Column="3" Height="34" Margin="4,0,6,0" Padding="8,0"
+                        Style="{StaticResource Cf.TopBarButton}"
+                        ToolTip="{Binding Terminal.TabsTip}"
+                        Command="{Binding Terminal.ToggleExpandedCommand}"
+                        Visibility="{Binding Terminal.HasTabs, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="WindowConsole20" FontSize="17"
+                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                        <Border MinWidth="18" Height="18" CornerRadius="9" Margin="6,0,0,0"
+                                Padding="5,0"
+                                Background="{DynamicResource Cf.PrimaryBrush}">
+                            <TextBlock Text="{Binding Terminal.Tabs.Count}" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </StackPanel>
+                </Button>
+
+                <!-- 账户：头像 + 展示名 → 账户菜单（切换 / 添加 / 管理） -->
+                <Button Grid.Column="4" x:Name="AccountMenuButton"
+                        Height="34" Margin="4,0,6,0" Padding="4,0,10,0"
+                        ToolTip="{Binding AccountToolTip}"
+                        Click="AccountMenuButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource Cf.TopBarButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSwitchingAccount}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource Cf.Status.Info.Bg}">
+                            <TextBlock Text="{Binding AccountInitial}" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cf.PrimaryBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="{Binding AccountDisplayName}" FontSize="13"
+                                   MinWidth="96" MaxWidth="130" Margin="8,0,0,0"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                        <ui:SymbolIcon Symbol="ChevronDown24" FontSize="12" Margin="6,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                    </StackPanel>
+                </Button>
+
+                <!-- 标题栏按钮（最小化 / 最大化 / 关闭） -->
+                <ui:TitleBar Grid.Column="5" VerticalAlignment="Top" />
+
+                <!-- 账户菜单（Popup：宽度自适应，不再与“+”互相挤压） -->
+                <Popup x:Name="AccountMenuPopup"
+                       DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
+                       PlacementTarget="{Binding ElementName=AccountMenuButton}"
+                       Placement="Custom"
+                       StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                    <Border MinWidth="300" MaxWidth="380" Margin="10"
+                            Background="{DynamicResource Cf.CardBrush}"
+                            BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1"
+                            CornerRadius="8">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.16" Color="#FF1B1F2A" />
+                        </Border.Effect>
+                        <StackPanel Margin="4">
+                            <TextBlock Text="切换账户" Style="{StaticResource Cf.Muted}" Margin="10,8,0,4" />
+
+                            <ItemsControl ItemsSource="{Binding AccountOptions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource Cf.MenuRow}" Padding="10,7"
+                                                CommandParameter="{Binding}"
+                                                Command="{Binding DataContext.SwitchAccountCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Click="AccountMenuAction_Click">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="26" Height="26" CornerRadius="13"
+                                                        Background="{DynamicResource Cf.Status.Info.Bg}" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Initial}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource Cf.PrimaryBrush}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DisplayName}" FontSize="13"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Cf.Muted}"
+                                                               Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <ui:SymbolIcon Grid.Column="2" Symbol="Checkmark24" FontSize="14"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Cf.PrimaryBrush}"
+                                                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Height="1" Margin="10,6" Background="{DynamicResource Cf.BorderBrush}" />
+
+                            <Button Style="{StaticResource Cf.MenuRow}" Padding="10,8"
+                                    Command="{Binding AddAccountFromShellCommand}"
+                                    Click="AccountMenuAction_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Add24" FontSize="16"
+                                                   Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                    <TextBlock Text="添加工作或学校账户…" FontSize="13" Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource Cf.MenuRow}" Padding="10,8"
+                                    Command="{Binding AddPersonalAccountFromShellCommand}"
+                                    Click="AccountMenuAction_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Add24" FontSize="16"
+                                                   Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                    <TextBlock Text="添加个人 Microsoft 账户…" FontSize="13" Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Button>
+
+                            <Border Height="1" Margin="10,6" Background="{DynamicResource Cf.BorderBrush}" />
+
+                            <Button Style="{StaticResource Cf.MenuRow}" Padding="10,8"
+                                    Command="{Binding ManageAccountsCommand}"
+                                    Click="AccountMenuAction_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Settings24" FontSize="16"
+                                                   Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                    <TextBlock Text="管理账户…" FontSize="13" Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
+        </Border>
+
+        <!-- ===================== 主体：左导航 + (页面 / 抓手 / 终端面板) =====================
+             终端面板放在这一层、而不是给根 Grid 再加一行：
+             根 Grid 的登录遮罩写死了 Grid.RowSpan="2"（未登录时覆盖整窗），
+             在根上加行就得同步改它；放在这里则遮罩的 RowSpan 依然正好覆盖整个窗口。 -->
+        <Grid x:Name="BodyGrid" Grid.Row="1" SizeChanged="BodyGrid_SizeChanged">
+            <Grid.ColumnDefinitions>
+                <!-- Auto 而不是写死 216：全屏时导航 Collapsed，这一列必须能收到 0。
+                     固定宽度不会因为子元素收起而归零，左边会留下一条空白。 -->
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <!-- 页面行不给 MinHeight：面板最大化时这一行必须能收到 0。
+                     "页面至少留 160px" 由 TerminalPanelViewModel.ClampPanelHeight 保证，
+                     两处都写只会互相打架 —— 行定义的 MinHeight 不能阻止面板变高，
+                     它只会把栅格撑出窗口、把面板底边裁掉。 -->
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 左侧导航（RowSpan=3 通高：只铺第 1 行的话，下面会露出一条页面底色的缝） -->
+            <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0"
+                    Width="216"
+                    Background="{DynamicResource Cf.NavBackgroundBrush}"
+                    BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="0,0,1,0"
+                    Visibility="{Binding Terminal.IsFullScreen,
+                                         Converter={StaticResource InverseBoolToVisibility}}">
+                <ListBox ItemsSource="{Binding NavItems}"
+                         SelectedItem="{Binding SelectedNav, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource Cf.NavItem}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Margin="0,10,0,0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+
+                                <!--
+                                  分组分隔线。用 Border 而不是 Separator：WPF-UI 给 Separator 套了自己的
+                                  模板，实测不吃这里设的 Background —— 结果是这一行完全空白，
+                                  看起来就像"一个没加载出来的菜单项"。Border 只画自己，所见即所得。
+                                -->
+                                <Border Height="1" Margin="12,6"
+                                        Background="{DynamicResource Cf.BorderBrush}"
+                                        Visibility="{Binding IsSeparator, Converter={StaticResource BoolToVisibility}}" />
+
+                                <!-- 导航内容（子项随父分组展开显示） -->
+                                <Grid>
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsChild}" Value="True">
+                                                    <Setter Property="Visibility"
+                                                            Value="{Binding Parent.IsExpanded, Converter={StaticResource BoolToVisibility}}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChild}" Value="True">
+                                                        <Setter Property="Margin" Value="26,0,0,0" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="17"
+                                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                        <TextBlock Text="{Binding Label}" FontSize="13.5"
+                                                   Margin="10,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                    </StackPanel>
+
+                                    <!-- 分组展开箭头 -->
+                                    <ui:SymbolIcon Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                                                   Symbol="ChevronRight24"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}"
+                                                   Visibility="{Binding IsGroup, Converter={StaticResource BoolToVisibility}}">
+                                        <ui:SymbolIcon.Style>
+                                            <Style TargetType="ui:SymbolIcon">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                        <Setter Property="Symbol" Value="ChevronDown24" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:SymbolIcon.Style>
+                                    </ui:SymbolIcon>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- 页面内容 -->
+            <ContentControl Grid.Row="0" Grid.Column="1" Content="{Binding Current}" />
+
+            <!-- 拖动抓手。用裸 Thumb 而不是 GridSplitter：GridSplitter 的类处理器会把像素
+                 GridLength 写进行定义，而面板高度由 TerminalPanel 内容区的 Height 绑定驱动 ——
+                 两个写者会让"拖完之后再展开弹回原高度、中间露出死区"。Thumb 只上报位移，
+                 高度始终只有一个写者（PanelHeight）。Background 必须是 Transparent 而不是不设：
+                 没有背景的画刷不参与命中测试，抓手会拖不动。 -->
+            <Thumb Grid.Row="1" Grid.Column="1" Height="4"
+                   Cursor="SizeNS" Background="Transparent"
+                   DragDelta="PanelGrip_DragDelta"
+                   Visibility="{Binding Terminal.IsExpanded, Converter={StaticResource BoolToVisibility}}" />
+
+            <!-- 底部终端面板：收起时自身 Collapsed，第 2 行随之塌成 0，底部不留残留 -->
+            <views:TerminalPanel Grid.Row="2" Grid.Column="1" DataContext="{Binding Terminal}" />
+        </Grid>
+
+        <!-- ===================== 个人账户登录遮罩（覆盖整个窗口，不依赖当前页面） ===================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="2"
+              Visibility="{Binding PersonalSignIn.IsVisible, Converter={StaticResource BoolToVisibility}}">
+            <views:PersonalSignInOverlay DataContext="{Binding PersonalSignIn}" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>
