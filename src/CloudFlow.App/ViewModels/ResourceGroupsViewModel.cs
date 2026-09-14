@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
@@ -34,6 +36,10 @@ public sealed partial class ResourceGroupRow(
 
     [ObservableProperty]
     private bool _isDeleting;
+
+    /// <summary>批量删除的勾选状态。由页面代码后置写回——Cf.DataGrid 只读，TwoWay 不会提交。</summary>
+    [ObservableProperty]
+    private bool _isChecked;
 
     /// <summary>行内"删除"按钮的可用性——没有现成的反向 Bool 转换器，直接算好一个属性更简单。</summary>
     public bool CanDelete => !IsDeleting;
@@ -101,6 +107,23 @@ public partial class ResourceGroupsViewModel : ObservableObject
         ? "演示模式下暂无资源组数据。"
         : "当前 Scope 内没有资源组。可以在顶栏切换到其他订阅后再查看。";
 
+    /// <summary>已勾选的行数：决定"删除所选"按钮是否出现及按钮上的计数。</summary>
+    public int CheckedCount => Rows.Count(row => row.IsChecked);
+
+    public bool HasChecked => CheckedCount > 0;
+
+    public string BatchDeleteText => $"删除所选（{CheckedCount}）";
+
+    /// <summary>表头全选框的显示状态：可删除的行都已勾选。</summary>
+    public bool IsAllChecked
+    {
+        get
+        {
+            var deletable = Rows.Where(row => row.CanDelete).ToList();
+            return deletable.Count > 0 && deletable.All(row => row.IsChecked);
+        }
+    }
+
     [RelayCommand]
     public async Task RefreshAsync()
     {
@@ -119,11 +142,75 @@ public partial class ResourceGroupsViewModel : ObservableObject
         _ = LoadResourceCountsAsync([.. Rows]);
     }
 
+    partial void OnRowsChanged(
+        ObservableCollection<ResourceGroupRow>? oldValue, ObservableCollection<ResourceGroupRow> newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.CollectionChanged -= OnRowsCollectionChanged;
+            foreach (var row in oldValue)
+            {
+                row.PropertyChanged -= OnRowPropertyChanged;
+            }
+        }
+
+        newValue.CollectionChanged += OnRowsCollectionChanged;
+        foreach (var row in newValue)
+        {
+            row.PropertyChanged += OnRowPropertyChanged;
+        }
+
+        NotifySelectionChanged();
+    }
+
+    private void OnRowsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        foreach (var row in e.OldItems?.OfType<ResourceGroupRow>() ?? [])
+        {
+            row.PropertyChanged -= OnRowPropertyChanged;
+        }
+
+        foreach (var row in e.NewItems?.OfType<ResourceGroupRow>() ?? [])
+        {
+            row.PropertyChanged += OnRowPropertyChanged;
+        }
+
+        NotifyListChanged();
+        NotifySelectionChanged();
+    }
+
+    private void OnRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ResourceGroupRow.IsChecked) or nameof(ResourceGroupRow.CanDelete))
+        {
+            NotifySelectionChanged();
+        }
+    }
+
     private void NotifyListChanged()
     {
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(SummaryText));
+    }
+
+    private void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(CheckedCount));
+        OnPropertyChanged(nameof(HasChecked));
+        OnPropertyChanged(nameof(BatchDeleteText));
+        OnPropertyChanged(nameof(IsAllChecked));
+    }
+
+    /// <summary>表头全选框：可删除的行已全勾就全部取消，否则全部勾上。</summary>
+    [RelayCommand]
+    private void ToggleAllChecked()
+    {
+        var target = !IsAllChecked;
+        foreach (var row in Rows.Where(row => row.CanDelete))
+        {
+            row.IsChecked = target;
+        }
     }
 
     private async Task<List<ResourceGroupRow>> LoadRowsAsync()
@@ -154,7 +241,7 @@ public partial class ResourceGroupsViewModel : ObservableObject
     }
 
     /// <summary>
-    /// AllAccessible（"全部可访问订阅"）没有具体订阅 ID 列表——资源组是按订阅枚举的 ARM 资源，
+    /// AllAccessible（"所有订阅"）没有具体订阅 ID 列表——资源组是按订阅枚举的 ARM 资源，
     /// 与 Resource Graph 不同，没法一次查全部订阅，只能展开成 Scope 已发现的每个订阅各查一次。
     /// </summary>
     private IReadOnlyList<string> ResolveSubscriptionIds()
@@ -224,12 +311,7 @@ public partial class ResourceGroupsViewModel : ObservableObject
                 Owner = Application.Current?.MainWindow
             };
 
-            if (dialog.ShowDialog() is true)
-            {
-                Rows.Remove(row);
-                NotifyListChanged();
-            }
-
+            dialog.ShowDialog();
             PendingApprovalJob = null;
         }
         catch (Exception ex)
@@ -240,11 +322,161 @@ public partial class ResourceGroupsViewModel : ObservableObject
         finally
         {
             row.IsDeleting = false;
+            row.IsChecked = false;
         }
     }
 
     private async Task<Views.ApprovalSubmitOutcome> ApproveJobAsync(
         Guid jobId, ResourceGroupRow row, Action<string> onProgress, CancellationToken ct)
+    {
+        try
+        {
+            var job = await RunApprovalAsync(jobId, onProgress, ct).ConfigureAwait(true);
+            ShowJob(job);
+
+            // 流水线失败不抛异常——引擎把失败记在 Job 上照常返回。只有真正成功才从列表移除，
+            // 否则删除失败的资源组也会从列表里消失，看起来像已经删掉了。
+            if (job.Status == JobStatus.Succeeded)
+            {
+                Rows.Remove(row);
+            }
+
+            return Views.ApprovalSubmitOutcome.Ok();
+        }
+        catch (Exception ex)
+        {
+            return Views.ApprovalSubmitOutcome.Failed(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 批量删除勾选的资源组：逐个提交 → 合并成一个确认框（列出全部目标与各自影响，输入
+    /// "删除 N 个资源组"确认）→ 逐个执行。每个资源组仍是一个独立 Job，各自走完整流水线、
+    /// 各自留审计记录；合并的只是"确认"这一步。只选了一个时退回单个删除（按名称确认）。
+    /// </summary>
+    [RelayCommand]
+    private async Task BatchDeleteAsync()
+    {
+        var targets = Rows.Where(row => row.IsChecked && row.CanDelete).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        if (targets.Count == 1)
+        {
+            await DeleteResourceGroupAsync(targets[0]).ConfigureAwait(true);
+            return;
+        }
+
+        var waiting = new List<(ResourceGroupRow Row, OperationJob Job)>();
+        var notSubmitted = new List<string>();
+        foreach (var row in targets)
+        {
+            row.IsDeleting = true;
+        }
+
+        InfoText = $"正在分析删除 {targets.Count} 个资源组的影响…";
+        InfoSeverity = "Validating";
+        try
+        {
+            foreach (var row in targets)
+            {
+                var job = await _service.DeleteAsync(row.SubscriptionId, row.Name).ConfigureAwait(true);
+                if (job.Status == JobStatus.WaitingApproval)
+                {
+                    waiting.Add((row, job));
+                }
+                else
+                {
+                    notSubmitted.Add(JobPresentation.Feedback(job));
+                }
+            }
+
+            if (waiting.Count == 0)
+            {
+                InfoText = $"未能提交批量删除：{string.Join("；", notSubmitted)}";
+                InfoSeverity = "Failed";
+                return;
+            }
+
+            var result = new BatchDeleteResult();
+            var dialog = new Views.ImpactApprovalDialog(
+                [.. waiting.Select(item => item.Job)],
+                $"批量删除资源组（{waiting.Count} 个）",
+                (onProgress, ct) => ApproveBatchAsync(waiting, result, onProgress, ct),
+                confirmText: $"删除 {waiting.Count} 个资源组")
+            {
+                Owner = Application.Current?.MainWindow
+            };
+
+            if (dialog.ShowDialog() is true)
+            {
+                (InfoText, InfoSeverity) = result.Describe("个资源组", notSubmitted);
+            }
+            else
+            {
+                await BatchDeletion.RejectPendingAsync(_engine, waiting.Select(item => item.Job)).ConfigureAwait(true);
+                InfoText = $"已取消批量删除，本次提交的 {waiting.Count} 个待审批任务已作废。";
+                InfoSeverity = nameof(JobStatus.Canceled);
+            }
+        }
+        catch (Exception ex)
+        {
+            await BatchDeletion.RejectPendingAsync(_engine, waiting.Select(item => item.Job)).ConfigureAwait(true);
+            InfoText = $"批量删除资源组失败：{ex.Message}";
+            InfoSeverity = "Failed";
+        }
+        finally
+        {
+            foreach (var row in targets)
+            {
+                row.IsDeleting = false;
+                row.IsChecked = false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 合并确认之后逐个执行。不并发：引擎的待审批表不是线程安全的集合，而且逐个执行时
+    /// "第 i/N 个"的进度才读得懂。某一项失败不中断后面的——已经确认过的删除都要尝试到。
+    /// </summary>
+    private async Task<Views.ApprovalSubmitOutcome> ApproveBatchAsync(
+        IReadOnlyList<(ResourceGroupRow Row, OperationJob Job)> items, BatchDeleteResult result,
+        Action<string> onProgress, CancellationToken ct)
+    {
+        for (var i = 0; i < items.Count; i++)
+        {
+            var (row, job) = items[i];
+            var prefix = $"第 {i + 1}/{items.Count} 个 · {row.Name}";
+            onProgress($"{prefix}：正在删除…");
+            try
+            {
+                var finished = await RunApprovalAsync(job.JobId, note => onProgress($"{prefix}：{note}"), ct)
+                    .ConfigureAwait(true);
+                if (finished.Status == JobStatus.Succeeded)
+                {
+                    result.Succeeded++;
+                    Rows.Remove(row);
+                }
+                else
+                {
+                    result.Failures.Add(JobPresentation.Feedback(finished));
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Failures.Add($"{row.Name}：{ex.Message}");
+            }
+        }
+
+        // 部分失败也关闭对话框：已成功的删不回来，重试也只会对已结束的 Job 报错；
+        // 失败项的原因汇总到页面提示条，任务中心也有逐项记录。
+        return Views.ApprovalSubmitOutcome.Ok();
+    }
+
+    /// <summary>批准一个待审批 Job，期间把它的子步骤进度转给调用方。</summary>
+    private async Task<OperationJob> RunApprovalAsync(Guid jobId, Action<string> onProgress, CancellationToken ct)
     {
         void OnProgressChanged(object? sender, OperationJob job)
         {
@@ -260,13 +492,7 @@ public partial class ResourceGroupsViewModel : ObservableObject
         _jobStore.JobChanged += OnProgressChanged;
         try
         {
-            var job = await _engine.ApproveAsync(jobId, ct).ConfigureAwait(true);
-            ShowJob(job);
-            return Views.ApprovalSubmitOutcome.Ok();
-        }
-        catch (Exception ex)
-        {
-            return Views.ApprovalSubmitOutcome.Failed(ex.Message);
+            return await _engine.ApproveAsync(jobId, ct).ConfigureAwait(true);
         }
         finally
         {

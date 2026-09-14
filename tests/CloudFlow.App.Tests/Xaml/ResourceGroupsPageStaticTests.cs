@@ -107,6 +107,39 @@ public sealed class ResourceGroupsPageStaticTests
     }
 
     [Fact]
+    public void 批量删除必须合并确认输入确认文本且取消时作废待审批任务()
+    {
+        foreach (var file in new[] { "ResourceGroupsViewModel.cs", "AllResourcesViewModel.cs" })
+        {
+            var viewModel = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", file));
+            // 多项合并成一个确认框，仍要输入"删除 N …"才能继续，门槛不因批量而降低。
+            Assert.Contains("confirmText: $\"删除 {waiting.Count}", viewModel, StringComparison.Ordinal);
+            // 取消（或提交中途出错）时，本轮提交的待审批任务一并作废，不留一堆挂着的待审批任务。
+            Assert.Contains("BatchDeletion.RejectPendingAsync", viewModel, StringComparison.Ordinal);
+            // 引擎把失败记在 Job 上照常返回、不抛异常——只有真正成功才能从列表里移除。
+            Assert.Contains("finished.Status == JobStatus.Succeeded", viewModel, StringComparison.Ordinal);
+            Assert.Contains("job.Status == JobStatus.Succeeded", viewModel, StringComparison.Ordinal);
+            Assert.Contains("row.IsChecked && row.CanDelete", viewModel, StringComparison.Ordinal);
+        }
+
+        foreach (var page in new[] { "ResourceGroupsPage.xaml", "AllResourcesPage.xaml" })
+        {
+            var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", page));
+            // Cf.DataGrid 只读：勾选必须 OneWay + 代码后置写回（TwoWay 不会提交）。
+            Assert.Contains("IsChecked=\"{Binding IsChecked, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+            Assert.Contains("Click=\"RowCheck_Click\"", xaml, StringComparison.Ordinal);
+            // 不能删的行（虚拟机、删除中）勾不上。
+            Assert.Contains("IsEnabled=\"{Binding CanDelete}\"", xaml, StringComparison.Ordinal);
+            // 批量删除按钮只在有勾选时出现，不是常驻按钮。
+            Assert.Contains("Command=\"{Binding BatchDeleteCommand}\"", xaml, StringComparison.Ordinal);
+            Assert.Contains("Visibility=\"{Binding HasChecked", xaml, StringComparison.Ordinal);
+        }
+
+        var dialog = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "ImpactApprovalDialog.xaml.cs"));
+        Assert.Contains("IReadOnlyList<OperationJob> jobs", dialog, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void 单资源删除必须拒绝虚拟机类型()
     {
         var handler = File.ReadAllText(Path.Combine(

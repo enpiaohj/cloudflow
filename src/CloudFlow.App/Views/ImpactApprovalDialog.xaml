@@ -31,12 +31,15 @@
             <TextBlock Text="{Binding OperationText}" FontSize="13" TextWrapping="Wrap" />
         </Border>
 
-        <!-- 目标资源（Azure Resource ID 是唯一主键） -->
-        <TextBlock Text="目标资源" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
+        <!-- 目标资源（Azure Resource ID 是唯一主键）。批量时每行一个；
+             限高滚动，否则一次勾选十几项会把对话框撑出屏幕、按钮落到屏幕外。 -->
+        <TextBlock Text="{Binding TargetLabel}" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
         <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
                 Padding="10,7" Margin="0,4,0,0">
-            <TextBlock Text="{Binding ResourceId}" FontSize="11.5" TextWrapping="Wrap"
-                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+            <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                <TextBlock Text="{Binding ResourceId}" FontSize="11.5" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+            </ScrollViewer>
         </Border>
 
         <!-- 影响面 -->
@@ -44,19 +47,21 @@
         <Border Background="{DynamicResource Cf.Surface.WarningBrush}" BorderBrush="{DynamicResource Cf.Surface.WarningBorderBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="12,9" Margin="0,4,0,0">
             <StackPanel>
-                <TextBlock Text="{Binding ImpactText}" FontSize="12.5" TextWrapping="Wrap"
-                           Foreground="{DynamicResource Cf.WarningStrongTextBrush}" />
+                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                    <TextBlock Text="{Binding ImpactText}" FontSize="12.5" TextWrapping="Wrap"
+                               Foreground="{DynamicResource Cf.WarningStrongTextBrush}" />
+                </ScrollViewer>
                 <TextBlock Text="{Binding AffectedText}" FontSize="12" Margin="0,6,0,0"
                            Foreground="{DynamicResource Cf.WarningStrongTextBrush}"
                            Visibility="{Binding AffectedText, Converter={StaticResource NonEmptyToVisibility}}" />
             </StackPanel>
         </Border>
 
-        <TextBlock Text="选择“取消”不会执行任何变更，该任务会保留在任务中心的待审批状态。"
+        <TextBlock Text="{Binding CancelHint}"
                    Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,8,0,0"
                    TextWrapping="Wrap" />
 
-        <!-- 破坏半径更大的操作（如删除资源组）额外要求输入确认文本才能继续 -->
+        <!-- 破坏半径更大的操作（如删除资源组、批量删除）额外要求输入确认文本才能继续 -->
         <StackPanel Visibility="{Binding RequiresConfirmText, Converter={StaticResource BoolToVisibility}}"
                     Margin="0,12,0,0">
             <Grid>

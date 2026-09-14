@@ -15,17 +15,23 @@ public partial class ImpactApprovalDialog : CfDialogWindow
 {
     private readonly Func<Action<string>, CancellationToken, Task<ApprovalSubmitOutcome>>? _submitAsync;
 
-    /// <summary>非空时要求的确认文本（当前唯一用法：删除资源组要求输入资源组名称本身，
-    /// 对齐 Azure Portal 自己删资源组的交互）——大小写敏感，避免"随手打错还是通过了"。</summary>
+    /// <summary>非空时要求的确认文本（删除资源组 / 单个资源要求输入名称本身，批量删除要求输入
+    /// "删除 N 个…"，对齐 Azure Portal 删除时的交互）——大小写敏感，避免"随手打错还是通过了"。</summary>
     private readonly string? _confirmText;
 
     public string OperationText { get; }
+
+    /// <summary>"目标资源"标签；批量时带上个数。</summary>
+    public string TargetLabel { get; }
 
     public string ResourceId { get; }
 
     public string ImpactText { get; }
 
     public string AffectedText { get; }
+
+    /// <summary>取消按钮的后果说明：单个 Job 保留在待审批，批量提交的 Job 由调用方一并作废。</summary>
+    public string CancelHint { get; }
 
     /// <summary>确认输入框的提示文案；<see cref="RequiresConfirmText"/> 为 false 时不使用。</summary>
     public string ConfirmHint => $"请输入「{_confirmText}」以确认";
@@ -52,18 +58,57 @@ public partial class ImpactApprovalDialog : CfDialogWindow
         _confirmText = confirmText;
 
         OperationText = string.IsNullOrWhiteSpace(job.Display) ? job.OperationType : job.Display;
+        TargetLabel = "目标资源";
         ResourceId = job.ResourceId;
-        ImpactText = string.IsNullOrWhiteSpace(job.Summary)
-            ? "该操作需要审批，但引擎未提供影响说明。"
-            : job.Summary;
+        ImpactText = ImpactOf(job);
         AffectedText = job.ImpactAffectedResources is { } count and > 0
             ? $"预计影响资源数：{count}"
             : "";
+        CancelHint = "选择“取消”不会执行任何变更，该任务会保留在任务中心的待审批状态。";
 
         InitializeComponent();
         DataContext = this;
         ContinueButton.IsEnabled = !RequiresConfirmText;
     }
+
+    /// <summary>
+    /// 批量确认：一次提交的多个待审批 Job 合并成一个对话框。逐个弹 N 次既繁琐，也容易让人
+    /// 机械地连点"继续"而不再细看；合并后全部目标与各自的影响一次摆全，输入确认文本的门槛
+    /// 也只过一次。每个 Job 仍各自走完整流水线、各自留审计记录——合并的只是确认这一步。
+    /// </summary>
+    public ImpactApprovalDialog(
+        IReadOnlyList<OperationJob> jobs,
+        string operationText,
+        Func<Action<string>, CancellationToken, Task<ApprovalSubmitOutcome>> submitAsync,
+        string confirmText)
+    {
+        ArgumentNullException.ThrowIfNull(jobs);
+        ArgumentNullException.ThrowIfNull(submitAsync);
+        if (jobs.Count == 0)
+        {
+            throw new ArgumentException("批量确认至少需要一个待审批任务。", nameof(jobs));
+        }
+
+        _submitAsync = submitAsync;
+        _confirmText = confirmText;
+
+        OperationText = operationText;
+        TargetLabel = $"目标资源（{jobs.Count} 个）";
+        ResourceId = string.Join(Environment.NewLine, jobs.Select(job => job.ResourceId));
+        ImpactText = string.Join(Environment.NewLine, jobs.Select(job => $"• {ImpactOf(job)}"));
+        var affected = jobs.Sum(job => job.ImpactAffectedResources ?? 0);
+        AffectedText = affected > 0 ? $"预计影响资源数合计：{affected}" : "";
+        CancelHint = $"选择“取消”不会执行任何变更，本次提交的 {jobs.Count} 个待审批任务会一并作废。";
+
+        InitializeComponent();
+        DataContext = this;
+        ContinueButton.IsEnabled = !RequiresConfirmText;
+    }
+
+    private static string ImpactOf(OperationJob job) =>
+        string.IsNullOrWhiteSpace(job.Summary)
+            ? "该操作需要审批，但引擎未提供影响说明。"
+            : job.Summary;
 
     private void ConfirmTextBox_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {

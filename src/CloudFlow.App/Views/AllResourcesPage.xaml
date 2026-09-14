@@ -57,7 +57,7 @@
             </Grid>
         </Border>
 
-        <!-- ===== 工具行：搜索 + 刷新 ===== -->
+        <!-- ===== 工具行：搜索 + 批量删除 + 刷新 ===== -->
         <Grid Grid.Row="2" Margin="0,16,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300" />
@@ -71,12 +71,25 @@
                             BorderThickness="0" Background="Transparent"
                             VerticalContentAlignment="Center" FontSize="13" />
             </Border>
-            <Button Grid.Column="2" Style="{StaticResource Cf.IconButton}"
-                    Command="{Binding RefreshCommand}"
-                    ToolTip="重新查询资源列表"
-                    automation:AutomationProperties.Name="刷新">
-                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
-            </Button>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <!-- 批量删除：勾选之后才出现，理由同资源组页；虚拟机行勾不上，不会混进来。 -->
+                <Button Style="{StaticResource Cf.DangerSubtleButton}" Margin="0,0,10,0"
+                        Command="{Binding BatchDeleteCommand}"
+                        Visibility="{Binding HasChecked, Converter={StaticResource BoolToVisibility}}"
+                        ToolTip="删除勾选的资源"
+                        automation:AutomationProperties.Name="删除所选资源">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Delete24" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding BatchDeleteText}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Cf.IconButton}"
+                        Command="{Binding RefreshCommand}"
+                        ToolTip="重新查询资源列表"
+                        automation:AutomationProperties.Name="刷新">
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- ===== 资源列表 ===== -->
@@ -88,6 +101,43 @@
                           HorizontalScrollBarVisibility="Auto"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
                     <DataGrid.Columns>
+                        <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁。 -->
+                        <DataGridTemplateColumn Width="44" MinWidth="44" CanUserResize="False"
+                                                CellStyle="{StaticResource Cf.GridCellCompact}">
+                            <DataGridTemplateColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader"
+                                       BasedOn="{StaticResource Cf.GridColumnHeader}">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </DataGridTemplateColumn.HeaderStyle>
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <!-- 只作用于当前可见（未被搜索过滤）的可删除行 -->
+                                    <CheckBox IsChecked="{Binding DataContext.IsAllChecked,
+                                                  RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              ToolTip="全选当前列表中可删除的资源"
+                                              automation:AutomationProperties.Name="全选"
+                                              Click="SelectAll_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- 虚拟机行 CanDelete 为 false，复选框禁用：虚拟机有自己专门的删除流程 -->
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}"
+                                              IsEnabled="{Binding CanDelete}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              automation:AutomationProperties.Name="{Binding Name, StringFormat=选择 {0}}"
+                                              Click="RowCheck_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <!-- 名称前放类型图标：一眼能分出网卡、磁盘、虚拟网络，不必逐行读类型列 -->
                         <DataGridTemplateColumn Header="名称" Width="1.3*" MinWidth="180">
                             <DataGridTemplateColumn.CellTemplate>

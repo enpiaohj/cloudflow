@@ -37,12 +37,26 @@
                 <TextBlock Text="按资源组查看当前 Scope 内的资源，整组清理不再使用的环境。"
                            Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
             </StackPanel>
-            <Button Grid.Column="1" Style="{StaticResource Cf.IconButton}" VerticalAlignment="Bottom"
-                    Command="{Binding RefreshCommand}"
-                    ToolTip="重新查询资源组列表"
-                    automation:AutomationProperties.Name="刷新">
-                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
-            </Button>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <!-- 批量删除：勾选之后才出现。与行内"⋯"同一条理由，不做常驻可见的删除按钮——
+                     勾选本身就是一步额外的、有意的动作；真正执行前还要在确认框里输入确认文本。 -->
+                <Button Style="{StaticResource Cf.DangerSubtleButton}" Margin="0,0,10,0"
+                        Command="{Binding BatchDeleteCommand}"
+                        Visibility="{Binding HasChecked, Converter={StaticResource BoolToVisibility}}"
+                        ToolTip="删除勾选的资源组（会一并删除组内全部资源）"
+                        automation:AutomationProperties.Name="删除所选资源组">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Delete24" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding BatchDeleteText}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Cf.IconButton}"
+                        Command="{Binding RefreshCommand}"
+                        ToolTip="重新查询资源组列表"
+                        automation:AutomationProperties.Name="刷新">
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- ===== 操作反馈 InfoBar ===== -->
@@ -77,6 +91,44 @@
                           HorizontalScrollBarVisibility="Auto"
                           Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
                     <DataGrid.Columns>
+                        <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁
+                             （虚拟机列表页踩过同一个坑）。 -->
+                        <DataGridTemplateColumn Width="44" MinWidth="44" CanUserResize="False"
+                                                CellStyle="{StaticResource Cf.GridCellCompact}">
+                            <DataGridTemplateColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader"
+                                       BasedOn="{StaticResource Cf.GridColumnHeader}">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </DataGridTemplateColumn.HeaderStyle>
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <!-- 表头内容的 DataContext 不继承自 DataGrid，必须沿祖先链取
+                                         （见虚拟机列表页同一列的注释，实测确认）。 -->
+                                    <CheckBox IsChecked="{Binding DataContext.IsAllChecked,
+                                                  RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              ToolTip="全选" automation:AutomationProperties.Name="全选"
+                                              Click="SelectAll_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- OneWay + 代码后置写回，不能靠 TwoWay：Cf.DataGrid 只读，TwoWay 不会提交。 -->
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}"
+                                              IsEnabled="{Binding CanDelete}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              automation:AutomationProperties.Name="{Binding Name, StringFormat=选择 {0}}"
+                                              Click="RowCheck_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTemplateColumn Header="名称" Width="1.2*" MinWidth="180">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
