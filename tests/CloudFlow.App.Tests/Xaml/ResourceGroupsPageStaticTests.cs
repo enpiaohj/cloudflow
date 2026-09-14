@@ -156,14 +156,21 @@ public sealed class ResourceGroupsPageStaticTests
         foreach (var file in new[] { "ResourceGroupsViewModel.cs", "AllResourcesViewModel.cs" })
         {
             var viewModel = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", file));
-            // 传给对话框的是"名称（区域）"这种人类可读标签，不是 item.Job.ResourceId。
+            // 传给对话框的是 JobPresentation.BatchTargetLabel 生成的人类可读标签，不是 item.Job.ResourceId。
             Assert.Contains(
-                "AzureRegionCatalog.DisplayName(item.Row.Location)", viewModel, StringComparison.Ordinal);
+                "JobPresentation.BatchTargetLabel(item.Row.Name, item.Row.Location)",
+                viewModel, StringComparison.Ordinal);
             // 批量执行循环内不再逐项 Rows.Remove——收集到 succeededRows，跑完整批才一次性重建 Rows。
             Assert.DoesNotContain("succeededRows.Add(row);\n                    Rows.Remove", viewModel);
             Assert.Contains("succeededRows.Add(row);", viewModel, StringComparison.Ordinal);
             Assert.Contains("new ObservableCollection<", viewModel, StringComparison.Ordinal);
         }
+
+        var presentation = File.ReadAllText(Path.Combine(AppDirectory(), "ViewModels", "JobPresentation.cs"));
+        // 区域真实值（代码）必须留着，中文名只是加在后面方便读，顺序与详情页的
+        // AzureRegionCatalog.DisplayNameWithCode（中文在前）刻意相反——这里要先核对"是不是这个真实区域"。
+        Assert.Contains("public static string BatchTargetLabel(string name, string? location)", presentation, StringComparison.Ordinal);
+        Assert.Contains("$\"{name}（{location} · {chineseName}）\"", presentation, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -458,7 +458,7 @@ public partial class AllResourcesViewModel : ObservableObject
             var result = new BatchDeleteResult();
             var dialog = new Views.ImpactApprovalDialog(
                 [.. waiting.Select(item => item.Job)],
-                [.. waiting.Select(item => $"{item.Row.Name}（{AzureRegionCatalog.DisplayName(item.Row.Location)}）")],
+                [.. waiting.Select(item => JobPresentation.BatchTargetLabel(item.Row.Name, item.Row.Location))],
                 $"批量删除资源（{waiting.Count} 项）",
                 (onProgress, ct) => ApproveBatchAsync(waiting, result, onProgress, ct),
                 confirmText: $"删除 {waiting.Count} 项资源")

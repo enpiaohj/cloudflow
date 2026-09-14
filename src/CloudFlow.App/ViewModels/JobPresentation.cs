@@ -1,4 +1,5 @@
 using CloudFlow.App.Converters;
+using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 
 namespace CloudFlow.App.ViewModels;
@@ -55,6 +56,29 @@ public static class JobPresentation
         }
 
         return Humanize(job.Summary);
+    }
+
+    /// <summary>
+    /// 批量删除确认框里一个目标的显示标签，如 <c>rg-test（koreacentral · 韩国中部）</c>。
+    /// </summary>
+    /// <remarks>
+    /// 真实值（区域代码）必须留着——中文名是翻译，翻译可能有歧义或漏收（<see cref="AzureRegionCatalog"/>
+    /// 是手工维护的对照表，不认识的区域会原样返回代码，这时候只显示代码也不能被误读成"翻译失败
+    /// 就不显示了"）；中文名放在真实值后面只是方便读，不能取代真实值本身。与详情页
+    /// <see cref="AzureRegionCatalog.DisplayNameWithCode"/>（中文名在前）刻意用了不同的顺序——
+    /// 那里是给人"认识这是哪"，这里是批量删除确认，用户需要先核对的是"是不是这个真实区域"。
+    /// </remarks>
+    public static string BatchTargetLabel(string name, string? location)
+    {
+        if (string.IsNullOrWhiteSpace(location))
+        {
+            return name;
+        }
+
+        var chineseName = AzureRegionCatalog.DisplayName(location);
+        return string.Equals(chineseName, location, StringComparison.Ordinal)
+            ? $"{name}（{location}）"
+            : $"{name}（{location} · {chineseName}）";
     }
 
     /// <summary>页面顶部操作反馈横幅的一句话。</summary>
