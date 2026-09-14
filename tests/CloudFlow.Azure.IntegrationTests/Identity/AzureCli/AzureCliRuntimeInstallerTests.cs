@@ -128,11 +128,35 @@ public sealed class AzureCliRuntimeInstallerRealDownloadTests : IDisposable
             "已安装时不应再上报下载进度"), CancellationToken.None);
     }
 
+    /// <summary>
+    /// 真实起过一个 az 进程（Azure CLI 底下是 Python 解释器）验证 az version，进程退出后
+    /// 操作系统释放它对 AzureCLI\bin 下文件句柄的时机不严格跟 WaitForExit 同步——真实报过
+    /// 好几次 IOException（"文件正被另一个进程使用"），单独重跑必过，是清理时序问题不是
+    /// 产品代码的 Bug。短暂重试几次，给操作系统一点时间释放句柄。
+    /// </summary>
     public void Dispose()
     {
-        if (Directory.Exists(_root))
+        if (!Directory.Exists(_root))
         {
-            Directory.Delete(_root, recursive: true);
+            return;
+        }
+
+        const int maxAttempts = 5;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                Directory.Delete(_root, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(200 * attempt);
+            }
+            catch (UnauthorizedAccessException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(200 * attempt);
+            }
         }
     }
 }
