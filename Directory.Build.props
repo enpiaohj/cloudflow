@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.5.1</Version>
+    <Version>0.6.0</Version>
     <Product>CloudFlow</Product>
     <Authors>CloudFlow</Authors>
     <!-- 不隐藏 Warning（全局开发规范 §14/15） -->
