@@ -22,6 +22,12 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     private readonly IAccountSessionManager _sessions;
     private readonly ISubscriptionDiscoveryService _subscriptionDiscovery;
     private readonly CloudAccountDirectory _directory;
+    /// <summary>
+    /// Scope 下拉里"全部订阅"那一项，措辞与 Azure 门户订阅筛选器一致。同一个字符串既是展示文本
+    /// 又是 <see cref="ApplyScope"/> 的判别键——集中成一个常量，改文案时不会漏掉某一处比较。
+    /// </summary>
+    private const string AllSubscriptionsOption = "所有订阅";
+
     private long _accountSwitchId;
     private bool _suppressAccountSelection;
 
@@ -123,10 +129,10 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     [ObservableProperty]
     private string? _message;
 
-    public IReadOnlyList<string> ScopeOptions { get; private set; } = ["全部可访问订阅"];
+    public IReadOnlyList<string> ScopeOptions { get; private set; } = [AllSubscriptionsOption];
 
     [ObservableProperty]
-    private string _selectedScope = "全部可访问订阅";
+    private string _selectedScope = AllSubscriptionsOption;
 
     public string ScopeSubtitle
     {
@@ -333,7 +339,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         var realSub = _scopeContext.AvailableSubscriptions.FirstOrDefault(
             s => string.Equals(s.DisplayName, option, StringComparison.OrdinalIgnoreCase));
 
-        if (option == "全部可访问订阅")
+        if (option == AllSubscriptionsOption)
         {
             scope = new ResourceScope { ScopeName = option, Mode = ScopeMode.AllAccessible };
         }
@@ -451,7 +457,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         _scopeContext.SetActiveAccount(account);
         await RefreshAccountOptionsAsync(account.AccountId).ConfigureAwait(true);
         BuildScopeOptions();
-        SelectedScope = "全部可访问订阅";
+        SelectedScope = AllSubscriptionsOption;
         ApplyScope(SelectedScope);
 
         try
@@ -465,7 +471,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             _activeAccountStore.Save(account.AccountId);
             _scopeContext.SetAvailableSubscriptions(subscriptions);
             BuildScopeOptions();
-            SelectedScope = "全部可访问订阅";
+            SelectedScope = AllSubscriptionsOption;
             ApplyScope(SelectedScope);
         }
         catch
@@ -551,7 +557,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     private void BuildScopeOptions()
     {
-        var options = new List<string> { "全部可访问订阅" };
+        var options = new List<string> { AllSubscriptionsOption };
         if (_scopeContext.AvailableSubscriptions.Count > 0)
         {
             options.AddRange(_scopeContext.AvailableSubscriptions

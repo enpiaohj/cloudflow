@@ -49,7 +49,8 @@ public sealed class ResourceScope
             ScopeMode.MultipleSubscriptions => $"{ScopeName}（{SubscriptionIds.Count} 个订阅）",
             ScopeMode.Tenant => $"{ScopeName}（租户）",
             ScopeMode.ManagementGroup => $"{ScopeName}（管理组）",
-            ScopeMode.AllAccessible => "全部可访问订阅",
+            // 与 Azure 门户订阅筛选器的措辞一致
+            ScopeMode.AllAccessible => "所有订阅",
             ScopeMode.AllAccounts => "全部账户",
             _ => ScopeName
         };
