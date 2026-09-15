@@ -1,0 +1,59 @@
+# ===== .NET / Visual Studio =====
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# 测试结果
+[Tt]est[Rr]esult*/
+*.trx
+
+# NuGet
+*.nupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# 发布产物
+publish/
+[Dd]ebug/
+[Rr]elease/
+
+# ===== CloudFlow 本地配置（含 TenantId / ClientId，不入库） =====
+src/CloudFlow.App/appsettings.json
+tools/CloudFlow.Spike/appsettings.json
+tests/CloudFlow.Azure.IntegrationTests/appsettings.json
+
+# 本地数据
+*.jsonl.local
+*.db
+*.db-shm
+*.db-wal
+
+# ===== Release 快照：source/ 与 CHANGELOG.md 入库，二进制产物不入库 =====
+releases/**
+!releases/**/
+# 快照源码必须入库 —— 只放行 *.md 是不够的：那样 source/ 里的 .cs / .csproj 全被忽略，
+# 而规范要求 releases/vX.Y.Z/source/ 与 CHANGELOG.md 都入库（二进制才不入库）。
+!releases/**/source/**
+!releases/**/*.md
+# 但快照里绝不能混进构建产物（否则会把几百 MB 的 bin/obj 提交进历史）
+releases/**/source/**/bin/
+releases/**/source/**/obj/
+
+# ===== P0 嵌入式 Azure CLI Runtime（本机下载/解包，不入库；认证版本记录见 docs/Identity-Spike.md） =====
+/runtime/
+
+# ===== 操作系统 =====
+Thumbs.db
+.DS_Store
+
+# ===== Claude Code 本地工作目录 =====
+# 含 UI 验证截图与诊断脚本，截图会拍到真实 Azure 环境（公网 IP / 订阅名 / 账户邮箱），不入库。
+# 若之后要共享 .claude/settings.json 等配置，改为忽略 .claude/*.png 并显式放行配置文件。
+/.claude/

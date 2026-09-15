@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-当前版本：**v0.7.0**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口、系统托盘图标（开机启动 / 关闭到通知区域）。
+当前版本：**v0.8.0**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口、系统托盘图标（开机启动 / 关闭到通知区域）、NSG 规则 Allow/Deny 创建。
 
 - 变更记录：根目录 `CHANGELOG.md`；每个版本的完整记录见 `releases/vX.Y.Z/CHANGELOG.md`
 - 许可证：[GPL-3.0](LICENSE)；随源码分发的第三方组件见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)

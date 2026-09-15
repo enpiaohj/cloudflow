@@ -1,0 +1,194 @@
+<themes:CfDialogWindow x:Class="CloudFlow.App.Views.CreateVmWizardDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+        Title="创建虚拟机"
+        Width="680" Height="650"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource Cf.DialogBackgroundBrush}"
+        TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+
+    <!-- 固定高度 + 内容区滚动：向导第二步有公钥 / 密码输入，不能把按钮行挤出小屏。 -->
+    <Grid Margin="24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="创建虚拟机" FontSize="18" FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+            <TextBlock Text="仅在已有资源组和子网中创建 VM、网卡及可选公网 IP；不会创建 VNet、子网或 NSG。"
+                       Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- 步骤条。不是可点击的导航，必须先通过当前步骤校验才能继续。 -->
+        <Grid Grid.Row="1" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Border x:Name="BasicStepBadge" Width="24" Height="24" CornerRadius="12"
+                        Background="{DynamicResource Cf.PrimaryBrush}">
+                    <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
+                               Foreground="White" />
+                </Border>
+                <TextBlock Text="基本信息" Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" />
+            </StackPanel>
+            <Border Grid.Column="1" Height="1" VerticalAlignment="Center"
+                    Background="{DynamicResource Cf.BorderBrush}" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Border x:Name="NetworkStepBadge" Width="24" Height="24" CornerRadius="12"
+                        Background="{DynamicResource Cf.PageBackgroundBrush}">
+                    <TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                </Border>
+                <TextBlock x:Name="NetworkStepText" Text="网络与凭据" Margin="8,0,0,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="2" Margin="0,18,0,0"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <!-- 第 1 步：基本信息 -->
+                <StackPanel x:Name="BasicPanel">
+                    <TextBlock Text="确定目标范围与实例配置" FontWeight="SemiBold" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="订阅" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="SubscriptionBox" MinHeight="34" IsEditable="True" FontSize="13" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="资源组" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="ResourceGroupBox" MinHeight="34" IsEditable="True" FontSize="13" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="区域" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="RegionBox" MinHeight="34" IsEditable="True" FontSize="13" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="虚拟机名称" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" x:Name="VmNameBox" FontSize="13" Padding="8,6"
+                                 TextChanged="VmNameBox_TextChanged" />
+                    </Grid>
+                    <TextBlock Text="名称只能包含字母、数字和连字符；Windows VM 最多 15 个字符。"
+                               Style="{StaticResource Cf.Muted}" FontSize="11" Margin="112,4,0,0" />
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="镜像" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="ImageBox" MinHeight="34" FontSize="13"
+                                  SelectionChanged="ImageBox_SelectionChanged">
+                            <ComboBoxItem Tag="Canonical:ubuntu-24_04-lts:server:latest" Content="Ubuntu Server 24.04 LTS" />
+                            <ComboBoxItem Tag="Canonical:ubuntu-22_04-lts:server:latest" Content="Ubuntu Server 22.04 LTS" />
+                            <ComboBoxItem Tag="MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure:latest" Content="Windows Server 2022 Datacenter" />
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="规格" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="VmSizeBox" MinHeight="34" FontSize="13">
+                            <ComboBoxItem Content="Standard_B1s" />
+                            <ComboBoxItem Content="Standard_B2s" />
+                            <ComboBoxItem Content="Standard_B2ms" />
+                            <ComboBoxItem Content="Standard_D2s_v5" />
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="管理员用户名" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" x:Name="AdminUsernameBox" FontSize="13" Padding="8,6" Text="azureuser" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- 第 2 步：网络与凭据 -->
+                <StackPanel x:Name="NetworkPanel" Visibility="Collapsed">
+                    <TextBlock Text="挂接已有网络并设定操作系统凭据" FontWeight="SemiBold" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="已有子网" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="SubnetIdBox" FontSize="12.5" Padding="8,6" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0"
+                                   TextWrapping="Wrap" Text="粘贴已有子网的完整 Azure Resource ID（…/virtualNetworks/…/subnets/…）。本版本不会新建或变更网络资源。" />
+                    </Grid>
+
+                    <CheckBox x:Name="PublicIpBox" Content="创建 Standard 静态公网 IP" FontSize="12.5" Margin="112,14,0,0" />
+                    <TextBlock Style="{StaticResource Cf.Muted}" FontSize="11" Margin="112,4,0,0" TextWrapping="Wrap"
+                               Text="公网 IP 会产生费用；不勾选则只创建私网网卡。" />
+
+                    <TextBlock Text="认证方式" Style="{StaticResource Cf.Muted}" Margin="0,18,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <RadioButton x:Name="SshAuthBox" Content="SSH 公钥" IsChecked="True" Margin="0,0,22,0"
+                                     Checked="AuthType_Changed" />
+                        <RadioButton x:Name="PasswordAuthBox" Content="密码" Checked="AuthType_Changed" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="SshKeyPanel">
+                        <TextBlock Text="SSH 公钥" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+                        <TextBox x:Name="SshPublicKeyBox" FontFamily="Consolas" FontSize="12" Padding="8,6"
+                                 MinHeight="84" AcceptsReturn="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" />
+                        <TextBlock Text="只保存公开部分；私钥不得粘贴到 CloudFlow。"
+                                   Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="PasswordPanel" Visibility="Collapsed">
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="管理员密码" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                            <PasswordBox Grid.Column="1" x:Name="AdminPasswordBox" FontSize="13" Padding="8,6" />
+                        </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="凭据名称" Style="{StaticResource Cf.Muted}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="0" Grid.Column="1" x:Name="CredentialNameBox" FontSize="13" Padding="8,6"
+                                     TextChanged="CredentialNameBox_TextChanged" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,4,0,0"
+                                       TextWrapping="Wrap" Text="密码会加密保存到全局凭据库，创建完成后可用于 SSH 连接。名称不可重复（忽略大小写）。" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="上一步" x:Name="BackButton" Padding="14,6" Margin="0,0,10,0"
+                        Visibility="Collapsed" Click="Back_Click" />
+                <Button Content="取消" Padding="14,6" Margin="0,0,10,0" IsCancel="True" />
+                <Button Content="下一步" x:Name="NextButton" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
+                        IsDefault="True" Click="Next_Click" />
+                <Button Content="创建" x:Name="CreateButton" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
+                        Visibility="Collapsed" Click="Create_Click" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 就地校验错误，避免系统 MessageBox 覆盖输入内容且不跟随主题。 -->
+        <Border x:Name="ErrorPanel" Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                MaxWidth="350" CornerRadius="6" Padding="10,6"
+                Background="{DynamicResource Cf.Status.Danger.Bg}" Visibility="Collapsed">
+            <TextBlock x:Name="ErrorText" Foreground="{DynamicResource Cf.Status.Danger.Fg}"
+                       FontSize="11.5" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
+</themes:CfDialogWindow>
