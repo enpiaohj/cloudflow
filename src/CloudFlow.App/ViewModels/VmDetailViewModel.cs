@@ -995,6 +995,22 @@ public partial class VmDetailViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 手动关闭操作反馈条——此前这里没有关闭入口，"更改端口"这类操作完成后的反馈会一直
+    /// 停在页面上，直到离开再回到这个 VM 才会被 <see cref="Initialize"/> 清掉。虚拟机列表 /
+    /// 所有资源 / 资源组三个页面已经有同款关闭按钮，这里补齐同一套体验。
+    /// 一并清掉 <see cref="PendingApprovalJob"/>：它专属这条反馈条驱动"批准执行/作废"两个
+    /// 按钮，关掉反馈条却留着它会变成两个按钮消失但状态还在的死角。任务本身不会因此丢失——
+    /// "任务"页对 WaitingApproval 的任务有独立的批准/作废入口，随时能找回去处理。
+    /// </summary>
+    [RelayCommand]
+    private void DismissInfo()
+    {
+        InfoText = null;
+        InfoSeverity = null;
+        PendingApprovalJob = null;
+    }
+
     /// <summary>启动（Stopped / Deallocated → Running）。</summary>
     [RelayCommand]
     private async Task StartAsync()

@@ -288,27 +288,41 @@
             </Grid>
         </Border>
 
-        <!-- ===== 操作反馈 + 审批 ===== -->
+        <!-- ===== 操作反馈 + 审批 =====
+             必须能手动关掉——不然"更改端口"这类操作完成后的反馈会一直停在页面上，直到离开
+             再回到这个 VM 才会被清掉，跟虚拟机列表 / 所有资源 / 资源组三个页面已有的关闭按钮
+             是同一套体验，这里之前漏掉了。 -->
         <Grid Grid.Row="2" Margin="0,12,0,0"
               Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
             <Border Style="{StaticResource Cf.InfoBar}"
                     Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}">
-                <StackPanel Orientation="Horizontal">
-                    <ui:SymbolIcon Symbol="{Binding InfoSeverity, Converter={StaticResource SeverityIcon}}"
-                                   FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="{Binding InfoSeverity, Converter={StaticResource SeverityIcon}}"
+                                       FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                                       Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                        <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
                                    Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
-                    <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
-                               Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
-                    <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
-                            Margin="14,0,0,0" FontSize="12"
-                            Command="{Binding ApproveCommand}"
-                            Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
-                    <Button Content="作废" Style="{StaticResource Cf.DangerSubtleButton}"
-                            Padding="10,3" FontSize="12" Margin="8,0,0,0"
-                            ToolTip="作废此任务：不再执行，状态变为已取消并写入审计"
-                            Command="{Binding RejectCommand}"
-                            Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
-                </StackPanel>
+                        <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
+                                Margin="14,0,0,0" FontSize="12"
+                                Command="{Binding ApproveCommand}"
+                                Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
+                        <Button Content="作废" Style="{StaticResource Cf.DangerSubtleButton}"
+                                Padding="10,3" FontSize="12" Margin="8,0,0,0"
+                                ToolTip="作废此任务：不再执行，状态变为已取消并写入审计"
+                                Command="{Binding RejectCommand}"
+                                Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource Cf.IconButton}" Padding="4" Width="24" Height="24"
+                            Command="{Binding DismissInfoCommand}" ToolTip="关闭"
+                            automation:AutomationProperties.Name="关闭这条提示">
+                        <ui:SymbolIcon Symbol="Dismiss16" FontSize="12" />
+                    </Button>
+                </Grid>
             </Border>
         </Grid>
 
