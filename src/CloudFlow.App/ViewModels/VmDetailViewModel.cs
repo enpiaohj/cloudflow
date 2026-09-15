@@ -822,11 +822,13 @@ public partial class VmDetailViewModel : ObservableObject
 
         // 用户填的对端按方向落到对应的 payload 键：入站是来源，出站是目标。
         // 两个键都写全，Handler 按 direction 取用 —— 不靠它去猜哪一侧是用户填的。
+        var isDeny = result.Action == Modules.Network.Models.NsgRuleAction.Deny;
+        var actionVerb = isDeny ? "拒绝" : (isOutbound ? "开放" : "打开");
         var job = await _engine.SubmitAsync(_requests.Create(
             "network.open_port",
             _vm.SubscriptionId,
             _vm.ResourceId,
-            isOutbound ? $"开放出站端口 {result.Port}" : $"打开端口 {result.Port}",
+            isOutbound ? $"{actionVerb}出站端口 {result.Port}" : $"{actionVerb}端口 {result.Port}",
             risk: risk,
             preApproved: preApproved,
             payload: new Dictionary<string, string>
@@ -835,6 +837,7 @@ public partial class VmDetailViewModel : ObservableObject
                 ["ruleName"] = result.RuleName,
                 ["port"] = result.Port.ToString(),
                 ["protocol"] = result.Protocol,
+                ["action"] = result.Action.ToString(),
                 ["direction"] = result.Direction,
                 ["origin"] = result.Origin,
                 ["priority"] = result.Priority.ToString(),

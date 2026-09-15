@@ -20,7 +20,8 @@ public sealed record OpenPortResult(
     string PeerDisplay,
     string Origin,
     string Direction,
-    int Priority);
+    int Priority,
+    NsgRuleAction Action);
 
 /// <summary>
 /// 打开端口对话框（概念图 2 右侧面板）。入站与出站共用这一个窗体：
@@ -33,15 +34,28 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
     private const string AnyOutboundOption = "任意目标 (Any)";
     private const string InternetOption = "Internet";
     private const string VirtualNetworkOption = "虚拟网络 (VirtualNetwork)";
+    private const string AllowOption = "允许 (Allow)";
+    private const string DenyOption = "拒绝 (Deny)";
 
-    private string _ruleName = "AppAccess";
+    private string _ruleName = "";
     private string _portText = "";
     private string _selectedProtocol = "TCP";
     private string? _selectedPeer;
     private string _priorityText = "400";
     private string _selectedApplyTo = "网卡 NSG（仅本虚拟机）";
     private string _selectedDirection = DirectionOption(NsgRuleDirection.Inbound);
+    private string _selectedAction = AllowOption;
     private string _errorText = "";
+
+    /// <summary>
+    /// 规则名称是否还在跟着 操作/端口/方向 自动生成——照 Azure 自己的"新建规则"面板同款体验：
+    /// 自动填一个像 AllowVnetInBound 那样的名字，但用户一旦手改过就不再覆盖。
+    /// </summary>
+    private bool _ruleNameIsAuto = true;
+
+    /// <summary>为 true 时 <see cref="RuleName"/> 的赋值来自本类自己（<see cref="SetAutoRuleName"/>），
+    /// 不应被当成"用户手改"而关掉自动命名。</summary>
+    private bool _isSettingRuleNameProgrammatically;
 
     /// <summary>「我的当前 IP」选项文本；无法确定公网 IP 时为 null，该选项不出现。</summary>
     private readonly string? _myIpDisplay;
@@ -70,6 +84,10 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
 
     public string[] ApplyToOptions { get; } = ["网卡 NSG（仅本虚拟机）", "子网 NSG（共享）"];
 
+    /// <summary>允许 / 拒绝。此前这里没有这一项，新建的规则永远是 Allow——
+    /// 跟 Azure 门户自己的"新建规则"面板不一致，也没法用它建一条拒绝规则。</summary>
+    public string[] ActionOptions { get; } = [AllowOption, DenyOption];
+
     public OpenPortResult? Result { get; private set; }
 
     /// <param name="currentIp">当前公网 IP；Demo 模式为演示地址，真实模式无法确定时为 null。</param>
@@ -93,19 +111,22 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
 
         SubnetCidr = subnetCidr;
         _selectedDirection = DirectionOption(direction);
-        // 端口默认值按方向分开：8443 是"对外提供服务的端口"的思路，
-        // 出站最常见的需求是访问外部的标准端口，给 443 比给 8443 更贴近实际
-        _portText = direction == NsgRuleDirection.Outbound ? "443" : "8443";
+        // 8080 是最常见的自定义服务端口，入站/出站统一给这一个默认值，减少每次都要
+        // 先删掉默认值再手打的次数。
+        _portText = "8080";
 
         InitializeComponent();
         DataContext = this;
 
         RebuildPeers();
 
-        // 默认选"仅自己 / 仅本虚拟网络"，但只有真的知道选什么时才敢默认；否则留空强制用户明确指定
+        // 默认选"任意 (Any)"：这是用户实际创建规则时最常用的选择——先建好规则、
+        // 用优先级和后续规则收紧范围，比每次都要把默认值从"仅自己"改成"任意"更顺手。
         _selectedPeer = DefaultPeer();
         OnPropertyChanged(nameof(SelectedPeer));
         OnPropertyChanged(nameof(PeerHint));
+
+        SetAutoRuleName(SuggestedRuleName());
     }
 
     private static string DirectionOption(NsgRuleDirection direction) =>
@@ -130,10 +151,14 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         ? "新建出站规则"
         : "新建入站规则";
 
-    /// <summary>副标题，随方向变化 —— 建出站规则时写"入站"是直接说反了。</summary>
-    public string SubtitleText => Direction == NsgRuleDirection.Outbound
-        ? "创建新的出站安全规则：允许这台虚拟机访问外部地址。"
-        : "创建新的入站安全规则：允许外部访问这台虚拟机的端口。";
+    /// <summary>副标题，随方向和动作变化 —— 选了"拒绝"却还写"允许"是直接说反了。</summary>
+    public string SubtitleText => (Direction, Action) switch
+    {
+        (NsgRuleDirection.Outbound, NsgRuleAction.Deny) => "创建新的出站安全规则：拒绝这台虚拟机访问外部地址。",
+        (NsgRuleDirection.Outbound, _) => "创建新的出站安全规则：允许这台虚拟机访问外部地址。",
+        (_, NsgRuleAction.Deny) => "创建新的入站安全规则：拒绝外部访问这台虚拟机的端口。",
+        _ => "创建新的入站安全规则：允许外部访问这台虚拟机的端口。"
+    };
 
     /// <summary>对端那一行的标签。入站填来源、出站填目标，同一个输入框两种含义。</summary>
     public string PeerLabel => Direction == NsgRuleDirection.Outbound ? "目标" : "来源";
@@ -154,10 +179,23 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         ? "本机要访问的对端端口。"
         : "本机被访问的端口。";
 
-    /// <summary>该动作的风险提示，随方向变化。</summary>
-    public string WarningText => Direction == NsgRuleDirection.Outbound
-        ? "注意：目标是“任意目标 (Any)”时将显式放行这台虚拟机的全部出站流量，该操作将进入审批流程。"
-        : "注意：来源为“任意 (Any)”会将端口暴露给 Internet，该操作将进入审批流程。";
+    /// <summary>
+    /// 该动作的风险提示，随方向和 Allow/Deny 变化 —— 两者风险性质不同，不能套同一句话：
+    /// Allow + 任意是"新增暴露面"；Deny + 任意反而是"新增一条可能连带挡住其他规则的封堵"，
+    /// 说成"暴露给 Internet"对一条拒绝规则是说反的。
+    /// </summary>
+    public string WarningText => (Direction, Action) switch
+    {
+        (NsgRuleDirection.Outbound, NsgRuleAction.Deny) =>
+            "注意：目标是“任意目标 (Any)”时将拒绝这台虚拟机的全部出站流量；若优先级低于某条放行规则，"
+            + "可能连带挡住原本该放行的流量。该操作将进入审批流程。",
+        (NsgRuleDirection.Outbound, _) =>
+            "注意：目标是“任意目标 (Any)”时将显式放行这台虚拟机的全部出站流量，该操作将进入审批流程。",
+        (_, NsgRuleAction.Deny) =>
+            "注意：来源为“任意 (Any)”时将拒绝所有来源访问该端口；若优先级低于某条放行规则，"
+            + "可能连带挡住原本该放行的流量。该操作将进入审批流程。",
+        _ => "注意：来源为“任意 (Any)”会将端口暴露给 Internet，该操作将进入审批流程。"
+    };
 
     /// <summary>对端下拉的辅助说明，提示为什么没有"我的当前 IP"选项。</summary>
     public string? PeerHint => Direction == NsgRuleDirection.Outbound
@@ -176,6 +214,11 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         set
         {
             _ruleName = value;
+            if (!_isSettingRuleNameProgrammatically)
+            {
+                // 用户手改过名字：以后 操作/端口/方向 再变，也不要覆盖用户自己起的名字。
+                _ruleNameIsAuto = false;
+            }
             OnPropertyChanged(nameof(RuleName));
         }
     }
@@ -188,6 +231,7 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
             _portText = value;
             ErrorText = "";
             OnPropertyChanged(nameof(PortText));
+            RefreshAutoRuleName();
         }
     }
 
@@ -200,6 +244,28 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedProtocol));
         }
     }
+
+    /// <summary>允许 / 拒绝。</summary>
+    public string SelectedAction
+    {
+        get => _selectedAction;
+        set
+        {
+            if (string.Equals(_selectedAction, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _selectedAction = value;
+            OnPropertyChanged(nameof(SelectedAction));
+            OnPropertyChanged(nameof(Action));
+            OnPropertyChanged(nameof(SubtitleText));
+            OnPropertyChanged(nameof(WarningText));
+            RefreshAutoRuleName();
+        }
+    }
+
+    public NsgRuleAction Action => SelectedAction == DenyOption ? NsgRuleAction.Deny : NsgRuleAction.Allow;
 
     public string? SelectedPeer
     {
@@ -261,7 +327,40 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
             _selectedPeer = DefaultPeer();
             OnPropertyChanged(nameof(SelectedPeer));
             ErrorText = "";
+            RefreshAutoRuleName();
         }
+    }
+
+    /// <summary>
+    /// 还在自动命名时，把名字重算成 <see cref="SuggestedRuleName"/>——用户手改过就不再覆盖
+    /// （见 <see cref="RuleName"/> 的 setter）。
+    /// </summary>
+    private void RefreshAutoRuleName()
+    {
+        if (_ruleNameIsAuto)
+        {
+            SetAutoRuleName(SuggestedRuleName());
+        }
+    }
+
+    private void SetAutoRuleName(string value)
+    {
+        _isSettingRuleNameProgrammatically = true;
+        RuleName = value;
+        _isSettingRuleNameProgrammatically = false;
+        _ruleNameIsAuto = true;
+    }
+
+    /// <summary>
+    /// 照 Azure 自己给内置默认规则起名的方式（AllowVnetInBound / DenyAllOutBound 那种
+    /// 「操作+描述+方向」拼法）生成建议名——不再是一个跟这条规则毫无关系的固定值。
+    /// </summary>
+    private string SuggestedRuleName()
+    {
+        var actionWord = Action == NsgRuleAction.Deny ? "Deny" : "Allow";
+        var directionWord = Direction == NsgRuleDirection.Outbound ? "OutBound" : "InBound";
+        var portWord = int.TryParse(PortText.Trim(), out var port) ? port.ToString() : "Port";
+        return $"{actionWord}{portWord}{directionWord}";
     }
 
     public string ErrorText
@@ -279,11 +378,15 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
     private void OnPropertyChanged(string name)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
+    /// <summary>
+    /// 默认对端。改成"任意"之前默认给的是"仅自己 / 仅本虚拟网络"，理由是不让新规则默认就
+    /// 放最大范围——但实测下来这不是用户真实的用法：大多数场景就是要对公网开放，默认收紧
+    /// 反而变成每次都要手改一遍。真正的安全阀不在这个默认值上，而在于"对端为任意"始终会
+    /// 触发审批（见 AssessImpactAsync），不会因为默认值改了就绕开确认。
+    /// </summary>
     private string? DefaultPeer() => Direction == NsgRuleDirection.Outbound
-        // 出站默认收在虚拟网络内：最常见的出站需求是访问同 VNet 里的数据库之类的服务，
-        // 默认给 Internet 等于每次新建都顺手放开公网出口
-        ? VirtualNetworkOption
-        : _myIpDisplay;
+        ? AnyOutboundOption
+        : AnyInboundOption;
 
     /// <summary>
     /// 按方向重建"已知对端"列表。只列真实已知的值：过去的 10.0.2.0/24 是 Demo 数据集里的
@@ -396,7 +499,7 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         var origin = SelectedApplyTo.StartsWith("子网") ? "Subnet" : "Nic";
 
         Result = new OpenPortResult(
-            name, port, SelectedProtocol, prefix, display, origin, Direction.ToString(), priority);
+            name, port, SelectedProtocol, prefix, display, origin, Direction.ToString(), priority, Action);
         DialogResult = true;
     }
 

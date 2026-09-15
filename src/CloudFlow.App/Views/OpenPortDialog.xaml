@@ -57,6 +57,13 @@
             </StackPanel>
         </Grid>
 
+        <!-- Action：允许 / 拒绝。这是跟 Azure 自己"新建规则"面板对齐的最关键一项——
+             之前这里没有，新建的规则永远是 Allow。 -->
+        <TextBlock Text="操作" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <ComboBox FontSize="13" Margin="0,4,0,0" MinHeight="34"
+                  ItemsSource="{Binding ActionOptions}"
+                  SelectedItem="{Binding SelectedAction}" />
+
         <!-- 对端：入站填来源、出站填目标。标签随方向变，不要写死"来源" -->
         <TextBlock Text="{Binding PeerLabel}" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
         <!-- 只绑 Text，不绑 SelectedItem：可编辑 ComboBox 上两者同时绑定时，

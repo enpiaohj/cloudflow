@@ -41,9 +41,34 @@ public class OpenPortDirectionTests
         string ruleName,
         bool preApproved = true,
         string? directionText = null,
-        NsgRuleOrigin origin = NsgRuleOrigin.Nic)
+        NsgRuleOrigin origin = NsgRuleOrigin.Nic,
+        NsgRuleAction? action = null,
+        string? actionText = null)
     {
         var isOutbound = direction == NsgRuleDirection.Outbound;
+
+        var payload = new Dictionary<string, string>
+        {
+            ["nsgId"] = nsgId,
+            ["ruleName"] = ruleName,
+            ["port"] = "8443",
+            ["protocol"] = "TCP",
+            ["direction"] = directionText ?? direction.ToString(),
+            ["origin"] = origin.ToString(),
+            ["priority"] = "400",
+            ["sourcePrefix"] = isOutbound ? "*" : peer,
+            ["sourceDisplay"] = isOutbound ? "Any" : peer,
+            ["destinationPrefix"] = isOutbound ? peer : "*",
+            ["destinationDisplay"] = isOutbound ? peer : "Any"
+        };
+        if (actionText is not null)
+        {
+            payload["action"] = actionText;
+        }
+        else if (action is not null)
+        {
+            payload["action"] = action.Value.ToString();
+        }
 
         return new OperationRequest
         {
@@ -53,20 +78,7 @@ public class OpenPortDirectionTests
             SubscriptionId = "11111111-1111-1111-1111-111111111111",
             ResourceId = VmResourceId,
             PreApproved = preApproved,
-            Payload = new Dictionary<string, string>
-            {
-                ["nsgId"] = nsgId,
-                ["ruleName"] = ruleName,
-                ["port"] = "8443",
-                ["protocol"] = "TCP",
-                ["direction"] = directionText ?? direction.ToString(),
-                ["origin"] = origin.ToString(),
-                ["priority"] = "400",
-                ["sourcePrefix"] = isOutbound ? "*" : peer,
-                ["sourceDisplay"] = isOutbound ? "Any" : peer,
-                ["destinationPrefix"] = isOutbound ? peer : "*",
-                ["destinationDisplay"] = isOutbound ? peer : "Any"
-            }
+            Payload = payload
         };
     }
 
@@ -219,6 +231,50 @@ public class OpenPortDirectionTests
         var impact = await handler.AnalyzeImpactAsync(request, CancellationToken.None);
 
         Assert.False(impact.RequiresApproval);
+    }
+
+    // ==== Allow / Deny：此前这里没有这个字段，执行器一律写死 Allow ====
+
+    [Fact]
+    public async Task 指定Deny时_规则的Action是拒绝而不是默认的允许()
+    {
+        var (handler, network) = Build();
+        var nicNsgId = await NicNsgIdAsync(network);
+
+        await handler.ExecuteAsync(
+            Request(nicNsgId, NsgRuleDirection.Inbound, "203.0.113.10/32", "Deny-8443", action: NsgRuleAction.Deny),
+            CancellationToken.None);
+
+        var rule = (await network.GetInboundRulesAsync(VmResourceId)).Single(r => r.Name == "Deny-8443");
+        Assert.Equal(NsgRuleAction.Deny, rule.Action);
+    }
+
+    [Fact]
+    public async Task 入站规则_操作为拒绝且对端为任意时_文案不能说成暴露()
+    {
+        var (handler, network) = Build();
+        var nicNsgId = await NicNsgIdAsync(network);
+        var request = Request(nicNsgId, NsgRuleDirection.Inbound, "*", "Deny-Any",
+            preApproved: false, action: NsgRuleAction.Deny);
+
+        var impact = await handler.AnalyzeImpactAsync(request, CancellationToken.None);
+
+        // Allow + 任意才是"新增暴露面"；Deny + 任意是封堵，说成"暴露"是说反了。
+        Assert.True(impact.RequiresApproval);
+        Assert.DoesNotContain("暴露", impact.Description);
+        Assert.Contains("拒绝", impact.Description);
+    }
+
+    [Fact]
+    public async Task action取值非法时校验阶段直接拒绝()
+    {
+        var (handler, network) = Build();
+        var nicNsgId = await NicNsgIdAsync(network);
+        var request = Request(nicNsgId, NsgRuleDirection.Inbound, "*", "Bad-Action", actionText: "Maybe");
+
+        // 猜成 Allow 会建出一条方向相反的规则（该拒绝的被放行），所以不认识的值必须拒绝
+        await Assert.ThrowsAsync<CloudFlow.Core.Errors.OperationValidationException>(() =>
+            handler.ValidateAsync(request, CancellationToken.None));
     }
 
     // ==== 设计文档 §25：共享子网 NSG 的影响面确认 ====

@@ -164,7 +164,11 @@ public sealed class ChangePortHandler(
         Network.FindRuleAsync(request.ResourceId, request.Payload["ruleId"], ct);
 }
 
-/// <summary>network.open_port：在指定 NSG 上新建入站 / 出站允许规则（§23）。</summary>
+/// <summary>
+/// network.open_port：在指定 NSG 上新建入站 / 出站安全规则（§23）。
+/// 尽管操作名和历史上一直叫"打开端口"，实际能创建 Allow 也能创建 Deny——
+/// 跟 Azure 门户自己的"新建规则"面板一致，不是只能开放、不能拒绝。
+/// </summary>
 public sealed class OpenPortHandler(
     IVmNetworkService network,
     IVmNetworkRuleExecutor executor,
@@ -215,6 +219,15 @@ public sealed class OpenPortHandler(
                 $"direction 必须是 {nameof(NsgRuleDirection.Inbound)} 或 {nameof(NsgRuleDirection.Outbound)}。");
         }
 
+        // Allow/Deny 写错会创建出一条方向相反的规则（该放行的被拒绝、该拒绝的被放行），
+        // 不认识的取值直接拒绝，不默默按 Allow 处理。
+        if (request.Payload.TryGetValue("action", out var actionText) &&
+            !Enum.TryParse<NsgRuleAction>(actionText, ignoreCase: true, out _))
+        {
+            throw new OperationValidationException(
+                $"action 必须是 {nameof(NsgRuleAction.Allow)} 或 {nameof(NsgRuleAction.Deny)}。");
+        }
+
         return Task.CompletedTask;
     }
 
@@ -224,32 +237,47 @@ public sealed class OpenPortHandler(
         var context = await GetContextAsync(request, ct).ConfigureAwait(false);
         var origin = OriginOf(request);
         var direction = DirectionOf(request);
+        var action = ActionOf(request);
         var peer = request.Payload.GetValueOrDefault(PeerPrefixKey(direction), "*");
         var port = request.Payload.GetValueOrDefault("port");
         var isOutbound = direction == NsgRuleDirection.Outbound;
+        var isDeny = action == NsgRuleAction.Deny;
 
         var shared = await SharedNsgImpactAsync(
-            request, context, origin, isOutbound ? $"新增出站规则开放端口 {port}" : $"新增规则开放端口 {port}", ct)
-            .ConfigureAwait(false);
+            request, context, origin,
+            isDeny
+                ? (isOutbound ? $"新增出站规则拒绝端口 {port}" : $"新增规则拒绝端口 {port}")
+                : (isOutbound ? $"新增出站规则开放端口 {port}" : $"新增规则开放端口 {port}"),
+            ct).ConfigureAwait(false);
         if (shared.RequiresApproval)
         {
             return shared;
         }
 
-        // 对端是"任意"都要审批，但两边的风险不是一回事，措辞不能互换：
-        // 入站是"这个端口将被整个 Internet 访问到"，出站是"这台机器可以访问任意目标"。
-        // 出站这条并没有超出 Azure 默认出站规则本来就允许的范围，要求确认是因为它是一条
-        // 显式写死的放行（后续若加了拒绝规则，这条会压过默认拒绝），不是因为引入了新暴露面。
-        return IsInternet(peer)
-            ? new ImpactAssessment
-            {
-                RequiresApproval = true,
-                AffectedResources = 1,
-                Description = isOutbound
-                    ? "该出站规则的目标是任意地址（含 Internet），将显式放行这台虚拟机的所有出站流量。"
-                    : $"开放端口 {port} 将对 Internet 暴露该服务。"
-            }
-            : ImpactAssessment.None;
+        // 对端是"任意"都要审批，但 Allow / Deny 的风险是两回事，措辞不能套同一句：
+        // Allow + 任意是"新增暴露面"（入站是"整个 Internet 能访问到"，出站是"这台机器
+        // 能访问任意目标"）；Deny + 任意反而是"新增一条可能连带挡住其他规则的封堵"——
+        // 该不该批必须看这条规则实际生效后是"开了什么"还是"堵了什么"，不能不分青红皂白
+        // 都说成"暴露"，那对 Deny 规则是说反的。
+        if (!IsInternet(peer))
+        {
+            return ImpactAssessment.None;
+        }
+
+        var description = isDeny
+            ? (isOutbound
+                ? "该出站规则将拒绝这台虚拟机访问任意目标；若优先级低于某条放行规则，可能连带挡住原本该放行的流量。"
+                : $"该规则将拒绝任意来源访问端口 {port}；若优先级低于某条放行规则，可能连带挡住原本该放行的流量。")
+            : (isOutbound
+                ? "该出站规则的目标是任意地址（含 Internet），将显式放行这台虚拟机的所有出站流量。"
+                : $"开放端口 {port} 将对 Internet 暴露该服务。");
+
+        return new ImpactAssessment
+        {
+            RequiresApproval = true,
+            AffectedResources = 1,
+            Description = description
+        };
     }
 
     public override async Task<string?> ExecuteAsync(OperationRequest request, CancellationToken ct)
@@ -270,6 +298,7 @@ public sealed class OpenPortHandler(
             Protocol = Enum.TryParse<NsgProtocol>(request.Payload.GetValueOrDefault("protocol", "TCP"), out var protocol)
                 ? protocol
                 : NsgProtocol.TCP,
+            Action = ActionOf(request),
             SourcePrefix = isOutbound ? "*" : peerPrefix,
             SourceDisplay = isOutbound ? "Any" : peerDisplay,
             Priority = int.TryParse(request.Payload.GetValueOrDefault("priority"), out var priority) ? priority : 400,
@@ -324,6 +353,15 @@ public sealed class OpenPortHandler(
         Enum.TryParse<NsgRuleOrigin>(request.Payload.GetValueOrDefault("origin", "Nic"), out var origin)
             ? origin
             : NsgRuleOrigin.Nic;
+
+    /// <summary>缺省 Allow——沿用这个字段加入之前唯一支持的行为，不让老 payload 突然变成 Deny。</summary>
+    private static NsgRuleAction ActionOf(OperationRequest request) =>
+        Enum.TryParse<NsgRuleAction>(
+            request.Payload.GetValueOrDefault("action", nameof(NsgRuleAction.Allow)),
+            ignoreCase: true,
+            out var action)
+            ? action
+            : NsgRuleAction.Allow;
 }
 
 /// <summary>network.delete_rule：删除入站 / 出站规则（§21 Delete Rule）。</summary>

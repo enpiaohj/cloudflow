@@ -14,6 +14,10 @@ public sealed record NsgRuleDraft
 
     public required NsgProtocol Protocol { get; init; }
 
+    /// <summary>允许还是拒绝。此前这里没有这个字段——执行器一律写死 Allow，
+    /// 新建规则对话框也就没地方选，跟 Azure 自己的"新建规则"面板不一致。</summary>
+    public required NsgRuleAction Action { get; init; }
+
     /// <summary>
     /// 源地址前缀，如 *、0.0.0.0/0、203.0.113.10/32、AzureLoadBalancer、VirtualNetwork。
     /// 入站规则上它是用户填的对端；出站规则上恒为 "*"（代表本机发起）。

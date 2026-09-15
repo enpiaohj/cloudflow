@@ -26,7 +26,7 @@ public sealed class MockVmNetworkRuleExecutor(MockVmNetworkService network) : IV
             DestinationPrefix = draft.DestinationPrefix,
             DestinationPort = draft.Port,
             Protocol = draft.Protocol,
-            Action = NsgRuleAction.Allow,
+            Action = draft.Action,
             Origin = OriginOf(request),
             Priority = draft.Priority,
             Direction = draft.Direction

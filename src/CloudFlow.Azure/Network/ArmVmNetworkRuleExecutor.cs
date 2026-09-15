@@ -43,16 +43,20 @@ public sealed class ArmVmNetworkRuleExecutor(
         var data = new SecurityRuleData
         {
             Protocol = ToArmProtocol(draft.Protocol),
-            Access = SecurityRuleAccess.Allow,
+            Access = ToArmAccess(draft.Action),
             Direction = isOutbound ? SecurityRuleDirection.Outbound : SecurityRuleDirection.Inbound,
             Priority = draft.Priority,
             SourceAddressPrefix = draft.SourcePrefix,
             SourcePortRange = "*",
             DestinationAddressPrefix = draft.DestinationPrefix,
             DestinationPortRange = draft.Port.ToString(),
-            Description = isOutbound
-                ? $"CloudFlow 开放出站端口 {draft.Port}（目标 {draft.DestinationDisplay ?? draft.DestinationPrefix}）"
-                : $"CloudFlow 打开端口 {draft.Port}（来源 {draft.SourceDisplay}）"
+            Description = draft.Action == NsgRuleAction.Deny
+                ? (isOutbound
+                    ? $"CloudFlow 拒绝出站端口 {draft.Port}（目标 {draft.DestinationDisplay ?? draft.DestinationPrefix}）"
+                    : $"CloudFlow 拒绝端口 {draft.Port}（来源 {draft.SourceDisplay}）")
+                : (isOutbound
+                    ? $"CloudFlow 开放出站端口 {draft.Port}（目标 {draft.DestinationDisplay ?? draft.DestinationPrefix}）"
+                    : $"CloudFlow 打开端口 {draft.Port}（来源 {draft.SourceDisplay}）")
         };
 
         var operation = await nsg.GetSecurityRules()
@@ -151,6 +155,9 @@ public sealed class ArmVmNetworkRuleExecutor(
             : protocol == NsgProtocol.Any
                 ? SecurityRuleProtocol.Asterisk
                 : SecurityRuleProtocol.Tcp;
+
+    private static SecurityRuleAccess ToArmAccess(NsgRuleAction action) =>
+        action == NsgRuleAction.Deny ? SecurityRuleAccess.Deny : SecurityRuleAccess.Allow;
 
     private static string? RequestIdOf(Response? response) =>
         response is not null && response.Headers.TryGetValue("x-ms-request-id", out var requestId)
