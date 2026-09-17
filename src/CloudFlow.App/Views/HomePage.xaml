@@ -409,7 +409,7 @@
                                 <StackPanel>
                                     <ui:SymbolIcon Symbol="Shield24" FontSize="20" HorizontalAlignment="Center"
                                                    Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                                    <TextBlock Text="新建入站规则" FontSize="12.5" Margin="0,8,0,0"
+                                    <TextBlock Text="新建入站规则…" FontSize="12.5" Margin="0,8,0,0"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Button>

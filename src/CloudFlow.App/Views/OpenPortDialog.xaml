@@ -80,7 +80,7 @@
         <TextBlock Text="优先级" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
         <TextBox FontSize="13" Padding="8,6" Margin="0,4,0,0" MaxWidth="140" HorizontalAlignment="Left"
                  Text="{Binding PriorityText, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Text="数值越小优先级越高（100 – 4096）。"
+        <TextBlock Text="数值越小优先级越高（100–4096）。"
                    Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,3,0,0" />
 
         <!-- Apply to -->

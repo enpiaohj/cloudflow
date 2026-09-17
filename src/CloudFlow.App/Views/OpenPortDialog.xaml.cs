@@ -187,14 +187,14 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
     public string WarningText => (Direction, Action) switch
     {
         (NsgRuleDirection.Outbound, NsgRuleAction.Deny) =>
-            "注意：目标是“任意目标 (Any)”时将拒绝这台虚拟机的全部出站流量；若优先级低于某条放行规则，"
+            "注意：目标是「任意目标 (Any)」时将拒绝这台虚拟机的全部出站流量；若优先级低于某条放行规则，"
             + "可能连带挡住原本该放行的流量。该操作将进入审批流程。",
         (NsgRuleDirection.Outbound, _) =>
-            "注意：目标是“任意目标 (Any)”时将显式放行这台虚拟机的全部出站流量，该操作将进入审批流程。",
+            "注意：目标是「任意目标 (Any)」时将显式放行这台虚拟机的全部出站流量，该操作将进入审批流程。",
         (_, NsgRuleAction.Deny) =>
-            "注意：来源为“任意 (Any)”时将拒绝所有来源访问该端口；若优先级低于某条放行规则，"
+            "注意：来源为「任意 (Any)」时将拒绝所有来源访问该端口；若优先级低于某条放行规则，"
             + "可能连带挡住原本该放行的流量。该操作将进入审批流程。",
-        _ => "注意：来源为“任意 (Any)”会将端口暴露给 Internet，该操作将进入审批流程。"
+        _ => "注意：来源为「任意 (Any)」会将端口暴露给 Internet，该操作将进入审批流程。"
     };
 
     /// <summary>对端下拉的辅助说明，提示为什么没有"我的当前 IP"选项。</summary>
@@ -488,8 +488,8 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
                     normalized, @"^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$"))
             {
                 ErrorText = Direction == NsgRuleDirection.Outbound
-                    ? "目标必须是下拉中的选项、“任意目标 (Any)”，或有效的 IP/CIDR（例如 1.2.3.4/32）。"
-                    : "来源必须是下拉中的选项、“任意 (Any)”，或有效的 IP/CIDR（例如 1.2.3.4/32）。";
+                    ? "目标必须是下拉中的选项、「任意目标 (Any)」，或有效的 IP/CIDR（例如 1.2.3.4/32）。"
+                    : "来源必须是下拉中的选项、「任意 (Any)」，或有效的 IP/CIDR（例如 1.2.3.4/32）。";
                 return;
             }
             prefix = normalized;

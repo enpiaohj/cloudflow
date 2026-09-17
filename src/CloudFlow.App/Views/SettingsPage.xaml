@@ -112,7 +112,7 @@
                                     Content="{Binding SignInButtonText}" />
                             <Button Grid.Column="2" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6" Margin="0,0,8,0"
                                     Command="{Binding AddPersonalAccountCommand}"
-                                    Content="添加个人 Microsoft 账户" />
+                                    Content="添加个人 Microsoft 账户…" />
                             <!-- 原来这个按钮没有套样式，落到 WPF-UI 默认按钮上，高度、圆角都和旁边两个不一样 -->
                             <Button Grid.Column="3" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6"
                                     Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibility}}"
@@ -326,7 +326,7 @@
                                         </StackPanel>
 
                                         <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}"
-                                                Padding="10,4" FontSize="12" VerticalAlignment="Top" Content="编辑"
+                                                Padding="10,4" FontSize="12" VerticalAlignment="Top" Content="编辑…"
                                                 Command="{Binding DataContext.EditCredentialCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
                                         <Button Grid.Column="2" Style="{StaticResource Cf.DangerSubtleButton}"

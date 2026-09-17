@@ -31,7 +31,7 @@ public static class AzureResourceTypeCatalog
         ["microsoft.compute/sshpublickeys"] = new("SSH 公钥", SymbolRegular.Key24),
         ["microsoft.network/virtualnetworks"] = new("虚拟网络", SymbolRegular.Diagram24),
         ["microsoft.network/networkinterfaces"] = new("网络接口", SymbolRegular.PlugConnected24),
-        ["microsoft.network/publicipaddresses"] = new("公共 IP 地址", SymbolRegular.Globe24),
+        ["microsoft.network/publicipaddresses"] = new("公网 IP 地址", SymbolRegular.Globe24),
         ["microsoft.network/networksecuritygroups"] = new("网络安全组", SymbolRegular.Shield24),
         ["microsoft.network/networkwatchers"] = new("网络观察程序", SymbolRegular.Eye24),
         ["microsoft.network/loadbalancers"] = new("负载均衡器", SymbolRegular.ServerMultiple20),

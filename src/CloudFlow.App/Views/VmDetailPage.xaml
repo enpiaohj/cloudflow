@@ -8,7 +8,7 @@
         <!-- 行操作菜单：⋯ 按钮（左键）与整行右键共用同一份定义。
              x:Shared="False" 让每处引用各得一个实例 —— ContextMenu 只能有一个逻辑父级。 -->
         <ContextMenu x:Key="Cf.RuleRowMenu" x:Shared="False">
-            <MenuItem Header="更改端口" Click="MenuChangePort_Click" />
+            <MenuItem Header="更改端口…" Click="MenuChangePort_Click" />
             <MenuItem Header="删除规则" Click="MenuDeleteRule_Click" />
         </ContextMenu>
         <ContextMenu x:Key="Cf.DiskRowMenu" x:Shared="False">
@@ -190,7 +190,7 @@
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Symbol="Globe24" FontSize="13"
                                            Foreground="{DynamicResource Cf.TextMutedBrush}" />
-                            <TextBlock Text="公共 IP" FontSize="11.5"
+                            <TextBlock Text="公网 IP" FontSize="11.5"
                                        Foreground="{DynamicResource Cf.TextMutedBrush}" Margin="5,0,0,0" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
@@ -263,7 +263,7 @@
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Symbol="Add24" FontSize="13"
                                            Foreground="{DynamicResource Cf.PrimaryBrush}" />
-                            <TextBlock Text="新建规则" Margin="6,0,0,0"
+                            <TextBlock Text="新建规则…" Margin="6,0,0,0"
                                        Foreground="{DynamicResource Cf.PrimaryBrush}" />
                         </StackPanel>
                     </Button>
@@ -277,7 +277,7 @@
                         <Button.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="启动虚拟机" Click="MenuStart_Click" />
-                                <MenuItem Header="更改规格" Click="MenuResize_Click" />
+                                <MenuItem Header="更改规格…" Click="MenuResize_Click" />
                                 <MenuItem Header="停止并解除分配" Click="MenuDeallocate_Click" />
                                 <Separator />
                                 <MenuItem Header="复制资源 ID" Click="MenuCopyResourceId_Click" />
@@ -313,7 +313,7 @@
                                 Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
                         <Button Content="作废" Style="{StaticResource Cf.DangerSubtleButton}"
                                 Padding="10,3" FontSize="12" Margin="8,0,0,0"
-                                ToolTip="作废此任务：不再执行，状态变为已取消并写入审计"
+                                ToolTip="作废此任务：不再执行，状态变为已取消并记入审计日志"
                                 Command="{Binding RejectCommand}"
                                 Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
                     </StackPanel>
@@ -434,7 +434,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
                                     <ui:SymbolIcon Symbol="Globe24" FontSize="13"
                                                    Foreground="{DynamicResource Cf.TextMutedBrush}" />
-                                    <TextBlock Text="公共 IP" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                    <TextBlock Text="公网 IP" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
                                 </StackPanel>
                                 <!-- 值 + 复制按钮用 Grid，不用横向 StackPanel：横排给子元素的是无限宽度，
                                      TextWrapping="Wrap" 于是形同虚设，长值会直接溢出被卡片裁掉。 -->
@@ -586,7 +586,7 @@
                                                 FontSize="12.5">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="＋" FontWeight="Bold" />
-                                                <TextBlock Text="新建入站规则" Margin="5,0,0,0" />
+                                                <TextBlock Text="新建入站规则…" Margin="5,0,0,0" />
                                             </StackPanel>
                                         </Button>
                                     </Grid>
@@ -673,7 +673,7 @@
                                                 FontSize="12.5">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="＋" FontWeight="Bold" />
-                                                <TextBlock Text="新建出站规则" Margin="5,0,0,0" />
+                                                <TextBlock Text="新建出站规则…" Margin="5,0,0,0" />
                                             </StackPanel>
                                         </Button>
                                     </Grid>

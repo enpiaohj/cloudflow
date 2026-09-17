@@ -899,7 +899,7 @@ public partial class VmDetailViewModel : ObservableObject
 
         var confirmed = Views.ConfirmDialog.Show(
             "删除规则",
-            $"确定要删除规则“{rule.Name}”（端口 {rule.DestinationPort}）吗？该操作会先经过影响分析。",
+            $"确定要删除规则「{rule.Name}」（端口 {rule.DestinationPort}）吗？该操作会先经过影响分析。",
             "删除", isDanger: true);
         if (!confirmed)
         {

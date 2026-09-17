@@ -64,7 +64,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
         AffectedText = job.ImpactAffectedResources is { } count and > 0
             ? $"预计影响资源数：{count}"
             : "";
-        CancelHint = "选择“取消”不会执行任何变更，该任务会保留在任务中心的待审批状态。";
+        CancelHint = "选择「取消」不会执行任何变更，该任务会保留在任务中心的待审批状态。";
 
         InitializeComponent();
         DataContext = this;
@@ -111,7 +111,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
         ImpactText = string.Join(Environment.NewLine, jobs.Select(job => $"• {ImpactOf(job)}"));
         var affected = jobs.Sum(job => job.ImpactAffectedResources ?? 0);
         AffectedText = affected > 0 ? $"预计影响资源数合计：{affected}" : "";
-        CancelHint = $"选择“取消”不会执行任何变更，本次提交的 {jobs.Count} 个待审批任务会一并作废。";
+        CancelHint = $"选择「取消」不会执行任何变更，本次提交的 {jobs.Count} 个待审批任务会一并作废。";
 
         InitializeComponent();
         DataContext = this;
