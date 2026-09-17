@@ -24,6 +24,12 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
     private readonly IAzureCliProfileManager _profiles;
     private readonly Func<string> _resolveAzCmd;
 
+    /// <summary>
+    /// 幂等读操作（取令牌 / 列订阅）的瞬断重试次数。这些调用不产生副作用，重试成功即自愈；
+    /// 网络瞬断（如代理握手 ConnectionReset）是"重试大概率成功"的失败，不该一次就判账户不可用。
+    /// </summary>
+    private const int MaxTransientRetries = 3;
+
     public EmbeddedAzureCliIdentityProvider(
         IAzureCliProcessRunner runner,
         IAzureCliProfileManager profiles,
@@ -60,6 +66,9 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
         var profileId = _profiles.CreateProfile();
         var profilePath = _profiles.GetProfilePath(profileId);
 
+        // 登录是交互式设备码流、有副作用（创建 Profile），**不重试**——重试只会让用户
+        // 连着走两遍设备码。但失败的措辞仍要按网络瞬断收敛成可行动的话，而不是给一段
+        // Python traceback。
         AzureCliResult result;
         try
         {
@@ -82,7 +91,10 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
         {
             _profiles.DeleteProfile(profileId);
             throw new AzureCliException(
-                $"个人账户登录失败（退出码 {result.ExitCode}）：{AzureCliOutputRedactor.Redact(result.StandardError)}",
+                AzureCliFailure.Describe(
+                    "个人账户登录",
+                    result.ExitCode,
+                    AzureCliOutputRedactor.Redact(result.StandardError)),
                 result.ExitCode);
         }
 
@@ -114,19 +126,15 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
     {
         var profilePath = ResolveProfilePath(account);
 
-        var result = await _runner.RunAsync(new AzureCliInvocation
-        {
-            ExecutablePath = _resolveAzCmd(),
-            Arguments = ["account", "list", "--all", "--output", "json"],
-            ConfigDirectory = profilePath
-        }, cancellationToken).ConfigureAwait(false);
-
-        if (!result.Succeeded)
-        {
-            throw new AzureCliException(
-                $"订阅发现失败（退出码 {result.ExitCode}）：{AzureCliOutputRedactor.Redact(result.StandardError)}",
-                result.ExitCode);
-        }
+        var result = await RunWithTransientRetryAsync(
+            "获取订阅列表",
+            token => _runner.RunAsync(new AzureCliInvocation
+            {
+                ExecutablePath = _resolveAzCmd(),
+                Arguments = ["account", "list", "--all", "--output", "json"],
+                ConfigDirectory = profilePath
+            }, token),
+            cancellationToken).ConfigureAwait(false);
 
         var subscriptions = ParseJsonArray(result.StandardOutput)
             .Select(row => new SubscriptionProfile
@@ -170,21 +178,17 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
                 var resource = (scopes.FirstOrDefault() ?? "https://management.azure.com/.default")
                     .Replace("/.default", string.Empty, StringComparison.OrdinalIgnoreCase);
 
-                var result = await _runner.RunAsync(new AzureCliInvocation
-                {
-                    ExecutablePath = _resolveAzCmd(),
-                    Arguments = ["account", "get-access-token",
-                        "--resource", resource, "--tenant", context.TenantId, "--output", "json"],
-                    ConfigDirectory = profilePath,
-                    Timeout = AuthTimeout
-                }, token).ConfigureAwait(false);
-
-                if (!result.Succeeded)
-                {
-                    throw new AzureCliException(
-                        $"获取访问令牌失败（退出码 {result.ExitCode}）：{AzureCliOutputRedactor.Redact(result.StandardError)}",
-                        result.ExitCode);
-                }
+                var result = await RunWithTransientRetryAsync(
+                    "获取访问令牌",
+                    t => _runner.RunAsync(new AzureCliInvocation
+                    {
+                        ExecutablePath = _resolveAzCmd(),
+                        Arguments = ["account", "get-access-token",
+                            "--resource", resource, "--tenant", context.TenantId, "--output", "json"],
+                        ConfigDirectory = profilePath,
+                        Timeout = AuthTimeout
+                    }, t),
+                    token).ConfigureAwait(false);
 
                 using var document = JsonDocument.Parse(result.StandardOutput);
                 return document.RootElement.GetProperty("accessToken").GetString()
@@ -197,6 +201,41 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
     {
         // 仅登出（清除 CLI Token），不删除 Profile，避免影响后续重新登录（规范 §二十一 单账户登出隔离）
         await _profiles.LogoutAsync(ResolveProfileId(account), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 幂等读操作的瞬断重试：只对 <see cref="AzureCliFailure.Classify"/> 判定为网络瞬断的
+    /// 失败重试，其余（权限 / 参数 / 账户问题）不重试、原样抛。重试之间做指数退避；最后一次
+    /// 失败用收敛后的可行动措辞抛出，不再把 az 的 Python traceback 原样甩给用户。
+    /// </summary>
+    private async Task<AzureCliResult> RunWithTransientRetryAsync(
+        string operationName,
+        Func<CancellationToken, Task<AzureCliResult>> run,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var result = await run(cancellationToken).ConfigureAwait(false);
+            if (result.Succeeded)
+            {
+                return result;
+            }
+
+            var redacted = AzureCliOutputRedactor.Redact(result.StandardError);
+            var isTransient = AzureCliFailure.Classify(result.ExitCode, redacted).IsTransientNetwork;
+            if (!isTransient || attempt >= MaxTransientRetries)
+            {
+                throw new AzureCliException(
+                    AzureCliFailure.Describe(operationName, result.ExitCode, redacted),
+                    result.ExitCode)
+                {
+                    IsTransientNetwork = isTransient
+                };
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))), cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     private string ResolveProfilePath(CloudAccount account)

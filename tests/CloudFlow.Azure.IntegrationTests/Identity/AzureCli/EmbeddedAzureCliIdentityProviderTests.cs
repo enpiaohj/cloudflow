@@ -209,6 +209,96 @@ public sealed class EmbeddedAzureCliIdentityProviderTests
     }
 
     [Fact]
+    public async Task GetCredential_网络瞬断时自动重试并在恢复后成功()
+    {
+        // 前两次返回真实的瞬断 stderr（连接被重置），第三次成功——模拟网波动一下又恢复。
+        var calls = 0;
+        var runner = new FakeRunner
+        {
+            Responder = _ => ++calls < 3
+                ? new AzureCliResult(1, "", "ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。")
+                : new AzureCliResult(0, AccessTokenOutput, "")
+        };
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\\rt\\az.cmd");
+        var context = new CloudCredentialContext
+        {
+            AccountId = "azurecli:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+            ProviderProfileId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        };
+
+        var credential = await provider.GetCredentialAsync(context);
+        var token = await credential.GetAsync(["https://management.azure.com/.default"], CancellationToken.None);
+
+        Assert.Equal("cli-arm-token-value", token);
+        Assert.True(calls == 3, $"应重试到第 3 次成功，实际调用 {calls} 次。");
+    }
+
+    [Fact]
+    public async Task GetCredential_非网络失败不重试_且标记为不可重试()
+    {
+        var calls = 0;
+        var runner = new FakeRunner
+        {
+            Responder = _ =>
+            {
+                calls++;
+                return new AzureCliResult(1, "", "ERROR: (AuthorizationFailed) denied");
+            }
+        };
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\\rt\\az.cmd");
+        var context = new CloudCredentialContext
+        {
+            AccountId = "azurecli:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+            ProviderProfileId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        };
+        var credential = await provider.GetCredentialAsync(context);
+
+        var ex = await Assert.ThrowsAsync<AzureCliException>(
+            () => credential.GetAsync(["https://management.azure.com/.default"], CancellationToken.None));
+
+        Assert.False(ex.IsTransientNetwork);
+        Assert.Equal(1, calls); // 权限类失败不该触发重试
+        Assert.Contains("AuthorizationFailed", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetCredential_网络瞬断最终仍失败时_标记为可重试()
+    {
+        var calls = 0;
+        var runner = new FakeRunner
+        {
+            Responder = _ =>
+            {
+                calls++;
+                return new AzureCliResult(1, "", "ConnectionResetError: [WinError 10054] 远程主机强迫关闭。");
+            }
+        };
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\\rt\\az.cmd");
+        var context = new CloudCredentialContext
+        {
+            AccountId = "azurecli:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            TenantId = "tenant-1",
+            SubscriptionId = "sub-1",
+            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+            ProviderProfileId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        };
+        var credential = await provider.GetCredentialAsync(context);
+
+        var ex = await Assert.ThrowsAsync<AzureCliException>(
+            () => credential.GetAsync(["https://management.azure.com/.default"], CancellationToken.None));
+
+        Assert.True(ex.IsTransientNetwork);
+        Assert.True(calls == 3, $"耗尽重试次数后抛出，实际调用 {calls} 次。");
+        Assert.Contains("网络连接中断", ex.Message);
+    }
+
+    [Fact]
     public async Task GetCredential_ProviderType不匹配时拒绝()
     {
         var provider = new EmbeddedAzureCliIdentityProvider(new FakeRunner(), new FakeProfiles(), "C:\\rt\\az.cmd");

@@ -185,12 +185,25 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             }
             catch (Exception ex)
             {
-                // Profile 已被清理等：移除失效登记并回到 Demo 模式，不得显示 Mock 数据冒充真实账户
-                _directory.ForgetAccount(saved.AccountId);
-                accounts = await _directory.GetAccountsAsync().ConfigureAwait(true);
-                RefreshAccountOptions(accounts, null);
-                ApplyDemoScope();
-                Message = $"上次使用的账户已不可用：{ex.Message}";
+                // 网络瞬断（如代理握手被重置）≠ 账户失效：账户本身没问题，是网络问题。
+                // 这时**不能**把用户的账户登记丢掉——下次启动网络恢复即可自动接回，
+                // 丢掉了就要重新登录一遍。仅当真的是 Profile 被清理等账户级失效才 Forget。
+                if (ex is CloudFlow.Azure.Identity.AzureCli.AzureCliException { IsTransientNetwork: true })
+                {
+                    RefreshAccountOptions(accounts, saved.AccountId);
+                    ApplyDemoScope();
+                    Message = $"网络连接中断，暂时无法使用账户 {saved.Username}。已保留账户登录状态，"
+                              + "请检查网络连接后重试；下次启动将自动恢复。";
+                }
+                else
+                {
+                    // Profile 已被清理等：移除失效登记并回到 Demo 模式，不得显示 Mock 数据冒充真实账户
+                    _directory.ForgetAccount(saved.AccountId);
+                    accounts = await _directory.GetAccountsAsync().ConfigureAwait(true);
+                    RefreshAccountOptions(accounts, null);
+                    ApplyDemoScope();
+                    Message = $"上次使用的账户已不可用：{ex.Message}";
+                }
             }
 
             await FinishInitializationAsync();
