@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SSH 终端（参考 RemoteFlow 连接逻辑）。
+    与 Azure 无关（不经 Operation Engine），独立成项目便于将来复用。
+    本项目只提供 SshSession 与 SshTerminalView；承载页在 App 层（VM 详情页「终端」标签）。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SSH 协议：RemoteFlow 同款纯托管实现 -->
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <!-- 终端渲染宿主（xterm.js） -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+    <!-- DPAPI 凭据保险库（.NET 8 需显式引用） -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+  </ItemGroup>
+
+  <!-- 终端前端资产（xterm.js 等，MIT）以虚拟主机方式由 WebView2 加载 -->
+  <ItemGroup>
+    <Content Include="Terminal\Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

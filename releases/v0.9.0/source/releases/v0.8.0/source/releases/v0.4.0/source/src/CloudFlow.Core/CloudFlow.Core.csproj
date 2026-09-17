@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Description>CloudFlow 平台核心模型：Identity / Scopes / Resources / Operations / Errors</Description>
+  </PropertyGroup>
+
+</Project>

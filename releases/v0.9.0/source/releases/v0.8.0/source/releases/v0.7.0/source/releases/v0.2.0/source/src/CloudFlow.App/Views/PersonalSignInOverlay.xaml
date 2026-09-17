@@ -1,0 +1,92 @@
+<UserControl x:Class="CloudFlow.App.Views.PersonalSignInOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!-- 遮罩：拦截对下层页面的点击，登录流程本身与当前页面无关 -->
+    <Grid Background="{DynamicResource Cf.ScrimBrush}">
+        <Border Width="480" Padding="22" CornerRadius="12"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{DynamicResource Cf.CardBrush}"
+                BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Person24" FontSize="20"
+                                   Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                    <TextBlock Text="登录个人 Microsoft 账户" FontSize="17" FontWeight="SemiBold"
+                               Margin="10,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Cf.Subtitle}"
+                           Margin="0,10,0,0" TextWrapping="Wrap" />
+
+                <Border Margin="0,14,0,0" Padding="16,14" CornerRadius="8" BorderThickness="1"
+                        Background="{DynamicResource Cf.PageBackgroundBrush}"
+                        BorderBrush="{DynamicResource Cf.BorderBrush}">
+                    <StackPanel>
+                        <StackPanel Visibility="{Binding HasDeviceCode, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="设备码" Style="{StaticResource Cf.Muted}" />
+                            <TextBlock Text="{Binding DeviceCode}" FontFamily="Consolas"
+                                       FontSize="26" FontWeight="SemiBold" Margin="0,2,0,0"
+                                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                        </StackPanel>
+
+                        <TextBlock Text="验证网址" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+                        <TextBlock Text="{Binding VerificationUrl}" FontSize="13" Margin="0,2,0,0"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Button Style="{StaticResource Cf.PrimaryButton}" Padding="12,5" Margin="0,0,8,0"
+                                    Command="{Binding OpenVerificationUrlCommand}"
+                                    Content="打开浏览器" />
+                            <Button Style="{StaticResource Cf.SecondaryButton}" Padding="12,5" Margin="0,0,8,0"
+                                    Visibility="{Binding HasDeviceCode, Converter={StaticResource BoolToVisibility}}"
+                                    Command="{Binding CopyDeviceCodeCommand}"
+                                    Content="复制设备码" />
+                            <Button Style="{StaticResource Cf.SecondaryButton}" Padding="12,5"
+                                    Command="{Binding CopyVerificationUrlCommand}"
+                                    Content="复制网址" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <ProgressBar Height="4" Margin="0,14,0,0" IsIndeterminate="True"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock Text="{Binding NoticeText}" Style="{StaticResource Cf.Muted}"
+                           Margin="0,10,0,0" TextWrapping="Wrap"
+                           Visibility="{Binding NoticeText, Converter={StaticResource NonEmptyToVisibility}}" />
+
+                <!-- 失败原因 + 原始 CLI 输出（仅在失败时展示，便于用户反馈问题） -->
+                <StackPanel Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                    <Border Margin="0,14,0,0" Padding="12,10" CornerRadius="8" BorderThickness="1"
+                            Background="{DynamicResource Cf.Surface.DangerBrush}" BorderBrush="{DynamicResource Cf.Surface.DangerBorderBrush}">
+                        <TextBlock Text="{Binding ErrorText}" FontSize="12.5" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Cf.DangerTextBrush}" />
+                    </Border>
+                    <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6"
+                            Background="{DynamicResource Cf.PageBackgroundBrush}">
+                        <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto">
+                            <TextBlock Text="{Binding LogText}" FontFamily="Consolas" FontSize="11.5"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Padding="14,6" Margin="0,0,8,0"
+                            Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}"
+                            Command="{Binding CancelCommand}"
+                            Content="取消登录" />
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Padding="14,6"
+                            Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"
+                            Command="{Binding DismissCommand}"
+                            Content="关闭" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

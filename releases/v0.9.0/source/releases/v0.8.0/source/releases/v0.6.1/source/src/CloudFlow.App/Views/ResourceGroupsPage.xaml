@@ -1,0 +1,276 @@
+<UserControl x:Class="CloudFlow.App.Views.ResourceGroupsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:CloudFlow.App.Controls"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
+
+    <UserControl.Resources>
+        <!-- 删除资源组的破坏面比删单台虚拟机更大——不能是一个悬在行上、一碰就着的红按钮，
+             必须先点开"⋯"这一步额外的、有意的动作，才能看到"删除资源组"。 -->
+        <ContextMenu x:Key="Cf.ResourceGroupRowMenu" x:Shared="False">
+            <MenuItem Header="删除资源组" Click="MenuDelete_Click" />
+        </ContextMenu>
+    </UserControl.Resources>
+
+    <Grid Margin="28,22,28,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== 面包屑 + 标题 ===== -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="资源" Style="{StaticResource Cf.BreadcrumbText}" />
+                    <TextBlock Text="  ›  " Style="{StaticResource Cf.BreadcrumbText}" />
+                    <TextBlock Text="资源组" Style="{StaticResource Cf.BreadcrumbCurrent}" />
+                </StackPanel>
+                <TextBlock Text="资源组" Style="{StaticResource Cf.PageTitle}" />
+                <TextBlock Text="按资源组查看当前 Scope 内的资源，整组清理不再使用的环境。"
+                           Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <!-- 批量删除：勾选之后才出现。与行内"⋯"同一条理由，不做常驻可见的删除按钮——
+                     勾选本身就是一步额外的、有意的动作；真正执行前还要在确认框里输入确认文本。 -->
+                <Button Style="{StaticResource Cf.DangerSubtleButton}" Margin="0,0,10,0"
+                        Command="{Binding BatchDeleteCommand}"
+                        Visibility="{Binding HasChecked, Converter={StaticResource BoolToVisibility}}"
+                        ToolTip="删除勾选的资源组（会一并删除组内全部资源）"
+                        automation:AutomationProperties.Name="删除所选资源组">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Delete24" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding BatchDeleteText}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Cf.IconButton}"
+                        Command="{Binding RefreshCommand}"
+                        ToolTip="重新查询资源组列表"
+                        automation:AutomationProperties.Name="刷新">
+                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ===== 操作反馈 InfoBar ===== -->
+        <Border Grid.Row="1" Style="{StaticResource Cf.InfoBar}" Margin="0,14,0,0"
+                Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}"
+                Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:SymbolIcon Grid.Column="0" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                               Symbol="{Binding InfoSeverity, Converter={StaticResource SeverityIcon}}"
+                               Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                <TextBlock Grid.Column="1" Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                <Button Grid.Column="2" Style="{StaticResource Cf.IconButton}" Padding="4" Width="24" Height="24"
+                        Command="{Binding DismissInfoCommand}" ToolTip="关闭"
+                        automation:AutomationProperties.Name="关闭这条提示">
+                    <ui:SymbolIcon Symbol="Dismiss16" FontSize="12" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ===== 按名称搜索 + 区域/订阅下拉筛选 =====
+             每个下拉旁边都有一个不随选中值变化的说明性文字（"区域"/"订阅"）——只靠下拉自己的
+             "全部 XX"默认值，一旦选中了具体的值，这行字就不再出现，又会分不清这个下拉是筛
+             哪一列的；固定在旁边的文字不受选中值影响。 -->
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource Cf.SearchField}">
+                <ui:TextBox PlaceholderText="按名称搜索…"
+                            Icon="{ui:SymbolIcon Search24}"
+                            Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                            BorderThickness="0" Background="Transparent"
+                            VerticalContentAlignment="Center" FontSize="13" />
+            </Border>
+            <!-- 两个下拉筛选器：各自精确匹配一列，"全部"表示不筛这一列，与名称关键字按 AND 组合。 -->
+            <TextBlock Grid.Column="1" Text="区域" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="2" MinWidth="110" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}"
+                      automation:AutomationProperties.Name="按区域筛选" />
+            <TextBlock Grid.Column="3" Text="订阅" Style="{StaticResource Cf.Muted}"
+                       VerticalAlignment="Center" Margin="14,0,6,0" />
+            <ComboBox Grid.Column="4" MinWidth="130" MinHeight="34" FontSize="13"
+                      ItemsSource="{Binding SubscriptionOptions}" SelectedItem="{Binding SelectedSubscription}"
+                      automation:AutomationProperties.Name="按订阅筛选" />
+        </Grid>
+
+        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,16,0,0">
+            <Grid>
+                <!-- IsVirtualizing=False：同 AllResourcesPage 的 AllResourcesGrid 那处注释——这个
+                     页面现在也有了搜索对应的 CollectionView.Filter，属于同一类已知会让
+                     ItemContainerGenerator 失步的组合，提前关掉虚拟化规避，不必等它真的崩一次。 -->
+                <DataGrid x:Name="ResourceGroupsGrid"
+                          ItemsSource="{Binding Rows}"
+                          Style="{StaticResource Cf.DataGrid}"
+                          HorizontalScrollBarVisibility="Auto"
+                          VirtualizingPanel.IsVirtualizing="False"
+                          Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
+                    <DataGrid.Columns>
+                        <!-- 批量勾选列。紧凑单元格：默认 12 的左右内边距会把 18px 的复选框挤扁
+                             （虚拟机列表页踩过同一个坑）。 -->
+                        <DataGridTemplateColumn Width="44" MinWidth="44" CanUserResize="False"
+                                                CellStyle="{StaticResource Cf.GridCellCompact}">
+                            <DataGridTemplateColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader"
+                                       BasedOn="{StaticResource Cf.GridColumnHeader}">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </DataGridTemplateColumn.HeaderStyle>
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <!-- 表头内容的 DataContext 不继承自 DataGrid，必须沿祖先链取
+                                         （见虚拟机列表页同一列的注释，实测确认）。 -->
+                                    <CheckBox IsChecked="{Binding DataContext.IsAllChecked,
+                                                  RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              ToolTip="全选" automation:AutomationProperties.Name="全选"
+                                              Click="SelectAll_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- OneWay + 代码后置写回，不能靠 TwoWay：Cf.DataGrid 只读，TwoWay 不会提交。 -->
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}"
+                                              IsEnabled="{Binding CanDelete}"
+                                              Width="18" Height="18"
+                                              FontSize="14" FontWeight="Normal"
+                                              Foreground="{DynamicResource Cf.TextPrimaryBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              automation:AutomationProperties.Name="{Binding Name, StringFormat=选择 {0}}"
+                                              Click="RowCheck_Click" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="名称" Width="1.2*" MinWidth="180">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="26" Height="26" CornerRadius="7" Margin="0,0,10,0"
+                                                Background="{DynamicResource Cf.Status.Info.Bg}">
+                                            <ui:SymbolIcon Symbol="Folder24" FontSize="14"
+                                                           Foreground="{DynamicResource Cf.PrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Name}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="区域" Width="0.8*" MinWidth="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Location, Converter={StaticResource RegionName}}"
+                                               FontSize="12.5" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Location}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <!-- 订阅显示名称；原来整列都是同一串 GUID，读不出是哪个订阅，GUID 留在 ToolTip -->
+                        <DataGridTemplateColumn Header="订阅" Width="1.2*" MinWidth="160">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding SubscriptionName}" FontSize="12.5" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding SubscriptionId}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="资源数" Width="90" MinWidth="90" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding ResourceCountText}" FontSize="12.5" VerticalAlignment="Center"
+                                               ToolTip="组内资源数（删除资源组会一并删除这些资源）" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Width="40" MinWidth="40" CanUserResize="False"
+                                                CellStyle="{StaticResource Cf.GridCellCompact}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource Cf.TopBarButton}"
+                                            Width="26" Height="26" Padding="0"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            IsEnabled="{Binding CanDelete}"
+                                            ToolTip="更多操作" automation:AutomationProperties.Name="更多操作"
+                                            Tag="{Binding}" Click="RowMenu_Click">
+                                        <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
+                                        <Button.ContextMenu>
+                                            <StaticResource ResourceKey="Cf.ResourceGroupRowMenu" />
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- 关键字一个都没匹配上：表头还在，给一句说明而不是一片空白 -->
+                <controls:EmptyState Margin="0,48,0,24" VerticalAlignment="Top"
+                                     Symbol="Search24" Title="未找到匹配的资源组"
+                                     Description="可以换个关键字，或调整区域/订阅筛选器。"
+                                     Visibility="{Binding IsFilteredEmpty, Converter={StaticResource BoolToVisibility}}" />
+
+                <controls:EmptyState Margin="0,24" Symbol="Folder24" Title="没有资源组"
+                                     Description="{Binding EmptyText}">
+                    <controls:EmptyState.Style>
+                        <Style TargetType="controls:EmptyState">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasRows}" Value="False" />
+                                        <Condition Binding="{Binding IsLoading}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </controls:EmptyState.Style>
+                </controls:EmptyState>
+
+                <Border Background="{DynamicResource Cf.LoadingScrimBrush}" CornerRadius="10"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Margin="24,18" VerticalAlignment="Center">
+                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="420" />
+                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="360" Margin="0,10,0,0" />
+                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="300" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="4" Text="{Binding SummaryText}" Style="{StaticResource Cf.Muted}" Margin="4,12,0,0"
+                   Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}" />
+    </Grid>
+</UserControl>
