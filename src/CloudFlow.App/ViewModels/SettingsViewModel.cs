@@ -169,9 +169,30 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSignedIn;
 
-    public string AppVersion => _scopeContext.ActiveAccount is null
-        ? $"{AppInfo.DisplayName} · 演示模式（模拟数据）"
-        : $"{AppInfo.DisplayName} · 已连接 Azure（真实数据）";
+    // ---- 关于 ----
+    // 「关于」里每一行拆成独立属性而不是拼一整句：版本号、运行模式、开发者、源码地址
+    // 各有各的更新节奏，拼在一句里下次要改其中一项就得动整句话。
+
+    /// <summary>版本号（如 "v0.8.0"）。版本取自程序集，不硬编码；读取失败时如实显示未知。</summary>
+    public string ProductVersionText =>
+        string.IsNullOrEmpty(AppInfo.Version) ? "未知" : AppInfo.Version;
+
+    /// <summary>当前运行模式。与版本号分行显示——版本是构建期常量，模式是运行期状态。</summary>
+    public string RuntimeModeText => _scopeContext.ActiveAccount is null
+        ? "演示模式（模拟数据）"
+        : "已连接 Azure（真实数据）";
+
+    /// <summary>副标题，与仓库 README 一致。</summary>
+    public string ProductSubtitle => AppInfo.ProductSubtitle;
+
+    /// <summary>开发者（GitHub 用户名）。</summary>
+    public string DeveloperName => AppInfo.DeveloperGitHub;
+
+    /// <summary>源码仓库地址，「关于」页超链接的目标。</summary>
+    public string RepositoryUrl => AppInfo.RepositoryUrl;
+
+    /// <summary>许可证名称，与仓库根目录 LICENSE 一致。</summary>
+    public string LicenseName => AppInfo.LicenseName;
 
     public string SignInButtonText => IsSigningIn ? "正在添加账户…" : "添加工作或学校账户";
 
@@ -841,7 +862,7 @@ public partial class SettingsViewModel : ObservableObject
         SignedInAs = _scopeContext.ActiveAccount is { } account
             ? $"当前账户：{account.DisplayName} ({account.Username})"
             : "（未登录，当前为 Demo 模式）";
-        OnPropertyChanged(nameof(AppVersion));
+        OnPropertyChanged(nameof(RuntimeModeText));
     }
 
     [RelayCommand]

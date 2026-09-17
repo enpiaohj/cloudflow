@@ -12,6 +12,18 @@ public static class AppInfo
     /// <summary>产品名，与仓库 README / 窗口标题一致。</summary>
     public const string ProductName = "CloudFlow";
 
+    /// <summary>副标题，与仓库 README 一致。</summary>
+    public const string ProductSubtitle = "CloudFlow for Microsoft Azure";
+
+    /// <summary>开发者 GitHub 用户名（仓库归属者）。「关于」页与未来的反馈入口共用。</summary>
+    public const string DeveloperGitHub = "enpiaohj";
+
+    /// <summary>源码仓库地址（GitHub，Private）。</summary>
+    public const string RepositoryUrl = $"https://github.com/{DeveloperGitHub}/cloudflow";
+
+    /// <summary>许可证名称，与仓库根目录 LICENSE 一致。</summary>
+    public const string LicenseName = "GPL-3.0";
+
     /// <summary>形如 <c>v0.1.0-dev</c>；读取不到时为空字符串。</summary>
     public static string Version { get; } = ReadVersion();
 
