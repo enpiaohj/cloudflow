@@ -81,6 +81,13 @@ public sealed class SshTerminalView : ContentControl, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "初始化终端失败");
+            // 会话状态必须离开 Idle：标签条上一旦停在「待连接」，用户得不到任何失败信号，
+            // 也不知道重新点「连接」就能换一个全新会话重试。这里把失败原因同时写进
+            // 会话（标签条显示「连接失败」+ 悬停可见原因）与终端本体（渲染器若起得来才可见）。
+            _session.MarkStartFailed(
+                "终端组件初始化失败，SSH 连接未能发起。常见原因：WebView2 运行时缺失、版本过旧或"
+                + "数据目录被占用。请关闭该会话后重新连接重试；若持续失败，请确认本机已安装"
+                + " Microsoft Edge WebView2 运行时。");
             SetStateLine("终端组件初始化失败。请确认本机已安装 Microsoft Edge WebView2 运行时。");
         }
     }

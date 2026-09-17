@@ -4,7 +4,6 @@ using System.Windows;
 using System.Windows.Controls;
 using CloudFlow.App.ViewModels;
 using CloudFlow.Terminal.Terminal;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CloudFlow.App.Views;
 
@@ -104,7 +103,9 @@ public partial class TerminalPanel : UserControl
             return;
         }
 
-        var view = new SshTerminalView(tab.Session, NullLogger.Instance);
+        // 日志器必须用面板 VM 的那份：视图初始化失败（WebView2 起不来等）是"待连接挂死"
+        // 的头号来源，记进 NullLogger 就永远无迹可寻。
+        var view = new SshTerminalView(tab.Session, _panel!.Logger);
         _views[tab] = view;
         TerminalHostArea.Children.Add(view);
     }

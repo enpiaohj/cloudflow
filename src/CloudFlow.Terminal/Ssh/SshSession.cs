@@ -412,6 +412,24 @@ public sealed class SshSession : IAsyncDisposable
         SetState(SshSessionState.Failed);
     }
 
+    /// <summary>
+    /// 连接<b>根本没能发起</b>（终端渲染层初始化失败等）时由视图层调用：把会话直接推到
+    /// Failed，标签条随之显示「连接失败」而不是永远停在「待连接」。只允许在从未发起过
+    /// 连接时生效——一旦进入 Connecting/Connected，状态归 <see cref="ConnectAsync"/> 管。
+    /// </summary>
+    public void MarkStartFailed(string reason)
+    {
+        if (_disposed || State is not SshSessionState.Idle)
+        {
+            return;
+        }
+
+        ErrorCode = SshConnectionErrorCode.Unknown;
+        ErrorMessage = reason;
+        _logger.LogError("SSH 会话 {SessionId} 连接未能发起：{Reason}", SessionId, reason);
+        SetState(SshSessionState.Failed);
+    }
+
     private void SetState(SshSessionState newState)
     {
         if (State == newState)

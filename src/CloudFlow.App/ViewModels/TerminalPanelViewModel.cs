@@ -35,6 +35,13 @@ public sealed partial class TerminalPanelViewModel : ObservableObject
 
     private readonly ILogger<TerminalPanelViewModel> _logger;
 
+    /// <summary>
+    /// 面板级日志器，交给 <c>TerminalPanel</c> 创建终端视图时使用。曾经视图拿着
+    /// <c>NullLogger</c>——"终端组件初始化失败"这类关键故障被记进黑洞，用户只见
+    /// 「待连接」挂死，日志里无迹可寻。
+    /// </summary>
+    public ILogger Logger => _logger;
+
     public TerminalPanelViewModel(ILogger<TerminalPanelViewModel>? logger = null)
     {
         _logger = logger ?? NullLogger<TerminalPanelViewModel>.Instance;
@@ -118,7 +125,8 @@ public sealed partial class TerminalPanelViewModel : ObservableObject
         // 终端控件会在 0 尺寸下完成首次布局与 fit，把默认的 80×24 推给远端。
         IsExpanded = true;
 
-        var session = new SshSession(options, NullLogger<SshSession>.Instance);
+        // 会话日志走面板日志器：连接失败 / 主机密钥中止等关键事件不能记进 NullLogger
+        var session = new SshSession(options, _logger);
         var tab = new TerminalTabViewModel(vmResourceId, vmName, host, session);
 
         var index = IndexOfTab(vmResourceId);
