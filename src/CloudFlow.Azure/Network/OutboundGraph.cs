@@ -188,7 +188,7 @@ public sealed record OutboundPublicIp
     public string? DnsLabel { get; init; }
 
     /// <summary>
-    /// 完整限定域名（<c>dnsSettings.fqdn</c>，如 <c>appscloud.koreacentral.cloudapp.azure.com</c>）。
+    /// 完整限定域名（<c>dnsSettings.fqdn</c>，如 <c>vm-01.koreacentral.cloudapp.azure.com</c>）。
     /// 与 <see cref="DnsLabel"/> 的区别是它带区域后缀，可直接用于连接。
     /// </summary>
     public string? Fqdn { get; init; }

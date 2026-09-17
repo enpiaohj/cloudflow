@@ -121,7 +121,7 @@ public partial class VmDetailViewModel : ObservableObject
         : $"{PublicIp} ({PublicIpName})";
 
     /// <summary>
-    /// 公网 IP 的 DNS 名称（如 <c>appscloud.koreacentral.cloudapp.azure.com</c>）。
+    /// 公网 IP 的 DNS 名称（如 <c>vm-01.koreacentral.cloudapp.azure.com</c>）。
     /// 只有配了 DNS 名称标签的公网 IP 才有值；为空时整行不显示 —— 这是常态，
     /// 不是"没读到"，所以不能渲染成 "—"。
     /// </summary>

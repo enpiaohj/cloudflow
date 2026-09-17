@@ -55,7 +55,7 @@ public sealed record VmDetailInfo
     public bool? VTpmEnabled { get; init; }
 
     /// <summary>
-    /// 完整性监视。**Compute SDK 与 ARM 当前都不返回这个字段**（实测：`appscloud` 的
+    /// 完整性监视。**Compute SDK 与 ARM 当前都不返回这个字段**（实测：`vm-01` 的
     /// uefiSettings 只有 secureBootEnabled 与 vTpmEnabled），因此这里恒为 null，
     /// 界面显示 "—"。门户把它显示成"已禁用"是把缺失当 false —— 本应用不跟着编。
     /// </summary>

@@ -22,7 +22,7 @@ public sealed record InboundPublicIp
     public string? ResourceId { get; init; }
 
     /// <summary>
-    /// 公网 IP 资源的完整限定域名（如 <c>appscloud.koreacentral.cloudapp.azure.com</c>）。
+    /// 公网 IP 资源的完整限定域名（如 <c>vm-01.koreacentral.cloudapp.azure.com</c>）。
     /// 没配 DNS 名称标签时为 null —— 这是常态，不代表读取失败。
     /// </summary>
     public string? Fqdn { get; init; }

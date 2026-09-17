@@ -93,7 +93,7 @@ public sealed class RowContextMenuAndThemeStaticTests
     {
         var xaml = File.ReadAllText(Path.Combine(AppDirectory(), "Views", "MainWindow.xaml"));
 
-        // 真实反馈：piaohongji@live.cn 能完整显示、piaohongji@outlook.com 却被截断——
+        // 真实反馈：name@live.cn 能完整显示、longer.name@outlook.com 却被截断——
         // 原来的 MaxWidth="130" 装不下常见邮箱域名，且登录名（AccountDisplayName）现在固定
         // 显示的就是邮箱地址，不能再按"展示名通常很短"的旧假设留窄。
         var start = xaml.IndexOf("Binding AccountDisplayName", StringComparison.Ordinal);

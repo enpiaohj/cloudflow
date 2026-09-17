@@ -878,7 +878,7 @@
                                 </Style>
                             </DataGrid.RowStyle>
                             <DataGrid.Columns>
-                                <!-- 真实托管磁盘名很长（appscloud_OsDisk_1_382bc441bb9b462ea05cfba6e5a40650），
+                                <!-- 真实托管磁盘名很长（vm-01_OsDisk_1_<guid>），
                                      必须给省略号 + 完整名提示，否则用户无法确认是哪块盘 -->
                                 <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="200">
                                     <DataGridTextColumn.ElementStyle>

@@ -33,7 +33,7 @@ public sealed class VmDetailInfoTests
             AutoShutdownEnabled = false
         };
 
-        // appscloud 实测：hibernationEnabled=false，门户显示「休眠 已禁用」
+        // vm-01 实测：hibernationEnabled=false，门户显示「休眠 已禁用」
         Assert.Equal("已禁用", info.HibernationText);
         Assert.Equal("已禁用", info.SecureBootText);
         Assert.Equal("已禁用", info.VTpmText);
@@ -127,7 +127,7 @@ public sealed class VmDetailInfoTests
     [Fact]
     public void 完整性监视在SDK与ARM都不返回时保持null()
     {
-        // Compute SDK 1.16.0 的 UefiSettings 只有 SecureBoot / VTpm；appscloud 实测 ARM 也不返回
+        // Compute SDK 1.16.0 的 UefiSettings 只有 SecureBoot / VTpm；vm-01 实测 ARM 也不返回
         // integrityMonitoringEnabled。所以这一项恒为 null，界面显示 "—" 并说明原因，
         // 不跟着门户把它当成"已禁用"。
         var info = new VmDetailInfo { SecurityType = "TrustedLaunch", SecureBootEnabled = true, VTpmEnabled = false };

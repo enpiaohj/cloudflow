@@ -115,7 +115,7 @@ public sealed class ArmVmDetailService(
             SecureBootEnabled = securityProfile?.UefiSettings?.IsSecureBootEnabled,
             VTpmEnabled = securityProfile?.UefiSettings?.IsVirtualTpmEnabled,
             // Compute SDK 1.16.0 的 UefiSettings 只有 SecureBoot / VTpm 两个成员，没有完整性监视。
-            // 实测 ARM 也不返回该字段（appscloud 的 uefiSettings 只有那两项），所以这里保持 null，
+            // 实测 ARM 也不返回该字段（vm-01 的 uefiSettings 只有那两项），所以这里保持 null，
             // 界面显示 "—"。门户把它显示成"已禁用"是把缺失当 false，本应用不跟着编。
             IntegrityMonitoringEnabled = null,
 

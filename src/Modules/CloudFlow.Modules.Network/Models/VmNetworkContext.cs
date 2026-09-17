@@ -34,7 +34,7 @@ public sealed record VmNetworkContext
     public string? PublicIpName { get; init; }
 
     /// <summary>
-    /// 主网卡公网 IP 的完整限定域名（如 <c>appscloud.koreacentral.cloudapp.azure.com</c>）。
+    /// 主网卡公网 IP 的完整限定域名（如 <c>vm-01.koreacentral.cloudapp.azure.com</c>）。
     /// 只有配置了 DNS 名称标签的公网 IP 才有；未配置时为 null，此为该行**不显示**的依据，
     /// 不是"没读到"。
     /// </summary>
