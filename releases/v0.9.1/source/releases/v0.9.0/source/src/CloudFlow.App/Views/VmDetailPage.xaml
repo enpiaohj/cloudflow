@@ -1,0 +1,1074 @@
+﻿<UserControl x:Class="CloudFlow.App.Views.VmDetailPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:CloudFlow.App.Controls"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
+    <UserControl.Resources>
+        <!-- 行操作菜单：⋯ 按钮（左键）与整行右键共用同一份定义。
+             x:Shared="False" 让每处引用各得一个实例 —— ContextMenu 只能有一个逻辑父级。 -->
+        <ContextMenu x:Key="Cf.RuleRowMenu" x:Shared="False">
+            <MenuItem Header="更改端口…" Click="MenuChangePort_Click" />
+            <MenuItem Header="删除规则" Click="MenuDeleteRule_Click" />
+        </ContextMenu>
+        <ContextMenu x:Key="Cf.DiskRowMenu" x:Shared="False">
+            <MenuItem Header="创建快照" Click="MenuSnapshot_Click" />
+        </ContextMenu>
+
+        <!-- 摘要 Tab 的分组卡：左右两栏各一份 ItemsControl 共用同一个模板，避免同一张卡片
+             的样式在文件里出现两份、日后各自漂移。行内不再画分隔线——短短两三行的卡片被
+             切成好几段反而更碎；卡片之间的 Margin 已经足够分组。 -->
+        <DataTemplate x:Key="Cf.OverviewSectionCard">
+            <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
+                    Padding="14" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource Cf.SectionTitle}"
+                               Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid MinHeight="30" Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                               Style="{StaticResource Cf.Muted}"
+                                               VerticalAlignment="Top" Margin="0,4,10,4" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12.5"
+                                               TextWrapping="Wrap" ToolTip="{Binding ToolTip}"
+                                               VerticalAlignment="Top" Margin="0,4"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                    <Button Grid.Column="2" Style="{StaticResource Cf.CopyButton}" FontSize="12"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            Margin="6,2,0,2" VerticalAlignment="Top"
+                                            ToolTip="{Binding Label, StringFormat=复制 {0}}"
+                                            automation:AutomationProperties.Name="{Binding Label, StringFormat=复制 {0}}"
+                                            Visibility="{Binding CanCopy, Converter={StaticResource BoolToVisibility}}"
+                                            Command="{Binding DataContext.CopyToClipboardCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding CopyValue}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- 入站 / 出站两张规则表共用这两列：Allow/Deny 与 NIC/Subnet 的徽章。
+             两份内联 DataTemplate 会让同一处配色在两个地方各自漂移。 -->
+        <DataTemplate x:Key="Cf.RuleActionCell">
+            <!-- 概念图 2：Allow 绿 / Deny 红 -->
+            <Border>
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Cf.RulePill}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Action}" Value="Deny">
+                                <Setter Property="Background" Value="{DynamicResource Cf.Status.Danger.Bg}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Action, Converter={StaticResource StatusText}}"
+                           FontSize="11.5" FontWeight="SemiBold">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource Cf.Status.Success.Fg}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Action}" Value="Deny">
+                                    <Setter Property="Foreground" Value="{DynamicResource Cf.Status.Danger.Fg}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="Cf.RuleOriginCell">
+            <!-- 概念图 2：NIC 蓝 / Subnet 紫 -->
+            <Border>
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Cf.RulePill}">
+                        <Setter Property="Background" Value="{DynamicResource Cf.Status.Info.Bg}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Origin}" Value="Subnet">
+                                <Setter Property="Background" Value="{DynamicResource Cf.Status.Subnet.Bg}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Origin, Converter={StaticResource StatusText}}"
+                           FontSize="11.5" FontWeight="SemiBold">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Origin}" Value="Subnet">
+                                    <Setter Property="Foreground" Value="{DynamicResource Cf.Status.Subnet.Fg}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+    <!--
+      面包屑、VM Header、操作反馈与标签栏保持固定；第 4 行的 Tab 内容在受限高度内自行滚动。
+      不能再让根 ScrollViewer 包整页，否则读到长网络 / 性能内容时页面上下文会一并离开视口。
+    -->
+    <Grid Margin="28,22,28,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== 面包屑 ===== -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="计算" FontSize="12.5" Foreground="{DynamicResource Cf.TextMutedBrush}" />
+            <TextBlock Text="  ›  " FontSize="12.5" Foreground="{DynamicResource Cf.TextMutedBrush}" />
+            <!-- 返回上一级必须可靠：用 Button（见 Cf.BreadcrumbLink），不要用 TextBlock + MouseBinding -->
+            <Button Content="虚拟机" Style="{StaticResource Cf.BreadcrumbLink}"
+                    Command="{Binding BackToVmsCommand}"
+                    ToolTip="返回虚拟机列表" VerticalAlignment="Center" />
+            <TextBlock Text="  ›  " FontSize="12.5" Foreground="{DynamicResource Cf.TextMutedBrush}" />
+            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cf.PrimaryBrush}" />
+        </StackPanel>
+
+        <!-- ===== VM Header（概念图 2：名称 + 状态 + IP + 操作按钮组） =====
+             概念图把 IP 与按钮放在同一行（宽屏）；初始窗口 1180px 下同排会互相挤压，
+             导致区域被截断（"kore"）、状态徽章紧贴公共 IP，故改为两行：上行标识 + IP，下行按钮右对齐。 -->
+        <Border Grid.Row="1" Style="{StaticResource Cf.Card}" Padding="18,14">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="160" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Row="0" Grid.Column="0" Width="46" Height="46" CornerRadius="10"
+                        Background="{DynamicResource Cf.Status.Info.Bg}" Margin="0,0,14,0">
+                    <ui:SymbolIcon Symbol="Desktop24" FontSize="24"
+                                   Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                </Border>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                        <Border Style="{StaticResource Cf.Badge}" Margin="12,2,0,0"
+                                DataContext="{Binding StatusText}">
+                            <TextBlock Text="{Binding Converter={StaticResource StatusText}}"
+                                       Style="{StaticResource Cf.BadgeText}" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock FontSize="12.5" Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                               Margin="0,4,0,0" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding ComputerName}">
+                        <Run Text="{Binding VmSize, Mode=OneWay}" />
+                        <Run Text="  ·  " />
+                        <Run Text="{Binding Region, Mode=OneWay, Converter={StaticResource RegionName}}" />
+                        <Run Text="  ·  " />
+                        <Run Text="{Binding ComputerName, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Public / Private IP + 复制（概念图：图标 + 标签 + 值 + 复制） -->
+                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Margin="0,0,16,0">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Globe24" FontSize="13"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="公网 IP" FontSize="11.5"
+                                       Foreground="{DynamicResource Cf.TextMutedBrush}" Margin="5,0,0,0" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <TextBlock Text="{Binding PublicIp, Converter={StaticResource NullableText}}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                            <Button Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" Margin="6,0,0,0" ToolTip="复制公网 IP"
+                                    Command="{Binding CopyToClipboardCommand}"
+                                    CommandParameter="{Binding PublicIp}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Width="1" Background="{DynamicResource Cf.BorderBrush}" Margin="0,4,16,4" />
+
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Pin24" FontSize="13"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="专用 IP" FontSize="11.5"
+                                       Foreground="{DynamicResource Cf.TextMutedBrush}" Margin="5,0,0,0" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <TextBlock Text="{Binding PrivateIp, Converter={StaticResource NullableText}}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                            <Button Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" Margin="6,0,0,0" ToolTip="复制专用 IP"
+                                    Command="{Binding CopyToClipboardCommand}"
+                                    CommandParameter="{Binding PrivateIp}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 操作按钮组（第二行右对齐） -->
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                            Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <!-- 刷新放在最左：它重读的是这一页的全部数据（概览/网络/磁盘/性能/活动），
+                         与右侧那些"对这台机器做点什么"的动作用途不同，不该混在一起。 -->
+                    <Button Style="{StaticResource Cf.IconButton}" Margin="0,0,8,0"
+                            Command="{Binding RefreshCommand}"
+                            ToolTip="重新读取这台虚拟机的概览、网络、磁盘、性能与活动">
+                        <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
+                    </Button>
+                    <Button Style="{StaticResource Cf.PrimaryButton}" Command="{Binding ConnectCommand}"
+                            Content="连接" />
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
+                            Command="{Binding StartCommand}" Content="启动"
+                           
+                            Foreground="{DynamicResource Cf.SuccessTextBrush}"
+                            Visibility="{Binding Vm.PowerState, Converter={StaticResource NotRunningToVisibility}}" />
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
+                            Command="{Binding RestartCommand}"
+                           >
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" />
+                            <TextBlock Text="重启" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <!-- 与「停止并解除分配」（折叠进下方 … 菜单）用不同动词区分，避免同一按钮组里
+                         两个相近动作只靠"并解除分配"四个字分辨。 -->
+                    <!-- 描边 + 危险色文字，而不是实心红块：实心红在工具栏里的视觉权重压过了主操作"连接"，
+                         整行像在报警。真正的"确认关机"仍在确认框里用实心危险按钮。 -->
+                    <Button Style="{StaticResource Cf.DangerSubtleButton}" Margin="8,0,0,0"
+                            Command="{Binding PowerOffCommand}" Content="关机"
+                            />
+                    <Button Style="{StaticResource Cf.SecondaryButton}" Margin="8,0,0,0"
+                            Command="{Binding OpenPortCommand}" CommandParameter="Inbound"
+                           >
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Add24" FontSize="13"
+                                           Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                            <TextBlock Text="新建规则…" Margin="6,0,0,0"
+                                       Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 解除分配等低频动作折叠进"更多"，避免按钮组过宽。原来是一个写着 "…" 的透明文字按钮，
+                         和旁边描边按钮的高度、基线都对不上；换成与左侧刷新按钮同款的方形图标按钮。 -->
+                    <Button Style="{StaticResource Cf.IconButton}" Margin="8,0,0,0"
+                            ToolTip="更多操作" automation:AutomationProperties.Name="更多操作"
+                            Click="RowMenu_Click">
+                        <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="启动虚拟机" Click="MenuStart_Click" />
+                                <MenuItem Header="更改规格…" Click="MenuResize_Click" />
+                                <MenuItem Header="停止并解除分配" Click="MenuDeallocate_Click" />
+                                <Separator />
+                                <MenuItem Header="复制资源 ID" Click="MenuCopyResourceId_Click" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ===== 操作反馈 + 审批 =====
+             必须能手动关掉——不然"更改端口"这类操作完成后的反馈会一直停在页面上，直到离开
+             再回到这个 VM 才会被清掉，跟虚拟机列表 / 所有资源 / 资源组三个页面已有的关闭按钮
+             是同一套体验，这里之前漏掉了。 -->
+        <Grid Grid.Row="2" Margin="0,12,0,0"
+              Visibility="{Binding InfoText, Converter={StaticResource NonEmptyToVisibility}}">
+            <Border Style="{StaticResource Cf.InfoBar}"
+                    Background="{Binding InfoSeverity, Converter={StaticResource StatusBg}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="{Binding InfoSeverity, Converter={StaticResource SeverityIcon}}"
+                                       FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"
+                                       Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                        <TextBlock Text="{Binding InfoText}" FontSize="12.5" VerticalAlignment="Center"
+                                   Foreground="{Binding InfoSeverity, Converter={StaticResource StatusFg}}" />
+                        <Button Content="批准执行" Style="{StaticResource Cf.PrimaryButton}" Padding="10,3"
+                                Margin="14,0,0,0" FontSize="12"
+                                Command="{Binding ApproveCommand}"
+                                Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
+                        <Button Content="作废" Style="{StaticResource Cf.DangerSubtleButton}"
+                                Padding="10,3" FontSize="12" Margin="8,0,0,0"
+                                ToolTip="作废此任务：不再执行，状态变为已取消并记入审计日志"
+                                Command="{Binding RejectCommand}"
+                                Visibility="{Binding PendingApprovalJob, Converter={StaticResource NullToVisibility}}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource Cf.IconButton}" Padding="4" Width="24" Height="24"
+                            Command="{Binding DismissInfoCommand}" ToolTip="关闭"
+                            automation:AutomationProperties.Name="关闭这条提示">
+                        <ui:SymbolIcon Symbol="Dismiss16" FontSize="12" />
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ===== 标签页（概念图 2：Overview / Network / Disks / Performance / Activity） ===== -->
+        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6" Margin="0,12,0,0">
+            <TabControl Background="Transparent" BorderThickness="0" Padding="0"
+                        VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <TabControl.ItemContainerStyle>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Padding" Value="16,9" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border x:Name="bd" Background="Transparent" BorderThickness="0,0,0,2"
+                                            BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
+                                        <!-- 文本样式必须只作用于标签头：Foreground / FontWeight 会沿视觉树继承，
+                                             设在 TabItem 上会把整个标签页内容染成主色加粗 -->
+                                        <ContentPresenter x:Name="header" ContentSource="Header" VerticalAlignment="Center"
+                                                          TextElement.Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                                                          TextElement.FontSize="13" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="bd" Property="BorderBrush"
+                                                    Value="{DynamicResource Cf.PrimaryBrush}" />
+                                            <Setter TargetName="header" Property="TextElement.Foreground"
+                                                    Value="{DynamicResource Cf.PrimaryBrush}" />
+                                            <Setter TargetName="header" Property="TextElement.FontWeight"
+                                                    Value="SemiBold" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="header" Property="TextElement.Foreground"
+                                                    Value="{DynamicResource Cf.PrimaryBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.ItemContainerStyle>
+
+                <!-- ============ 摘要 ============ -->
+                <!--
+                  分组卡按行数贪心分配到左右两栏（ViewModel 侧 OverviewSectionsLeft/Right），
+                  而不是用 UniformGrid 强制两列等宽同步换行——那样行数不同的卡片
+                  （如"大小"4 行、"操作系统"3 行）底部会留出对不齐的空白。
+                  两栏共用 Cf.OverviewSectionCard 模板；复制命令从 UserControl DataContext 取，
+                  避免嵌套 ItemsControl 把命令绑定到分组对象上。
+                -->
+                <TabItem Header="摘要" IsSelected="True">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
+                        <StackPanel>
+                            <!-- 切进 Tab 的一瞬间 ARM 详情还没读回来，没有这个提示容易被当成"卡住了"
+                                 而不是"在读"。三处（摘要/磁盘/性能）都是这个小尺寸旋转图标的样式。 -->
+                            <StackPanel Orientation="Horizontal" Margin="14,10,0,0"
+                                        Visibility="{Binding IsLoadingOverview, Converter={StaticResource BoolToVisibility}}">
+                                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                               Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                            </StackPanel>
+                            <Grid Margin="14,14,14,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ItemsControl Grid.Column="0" ItemsSource="{Binding OverviewSectionsLeft}"
+                                              ItemTemplate="{StaticResource Cf.OverviewSectionCard}" />
+                                <ItemsControl Grid.Column="2" ItemsSource="{Binding OverviewSectionsRight}"
+                                              ItemTemplate="{StaticResource Cf.OverviewSectionCard}" />
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ============ Network（P1 核心特色） ============ -->
+                <TabItem Header="网络">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="14,10,0,0"
+                                    Visibility="{Binding IsLoadingNetwork, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <Grid Margin="14,14,14,16">
+                        <Grid.ColumnDefinitions>
+                            <!-- 摘要列收窄，把宽度让给规则表（列多，窄了会挤掉「来源」列） -->
+                            <ColumnDefinition Width="240" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Network Summary（聚合 NIC/VNet/Subnet/NSG，设计文档 §20） -->
+                        <Border Grid.Column="0" Background="{DynamicResource Cf.PageBackgroundBrush}"
+                                CornerRadius="8" Padding="16" Margin="0,0,14,0"
+                                VerticalAlignment="Stretch">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:SymbolIcon Grid.Column="0" Symbol="ArrowRight24" FontSize="14"
+                                                   Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="网络摘要" Style="{StaticResource Cf.SectionTitle}"
+                                               Margin="8,0,0,0" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
+                                    <ui:SymbolIcon Symbol="Globe24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="公网 IP" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <!-- 值 + 复制按钮用 Grid，不用横向 StackPanel：横排给子元素的是无限宽度，
+                                     TextWrapping="Wrap" 于是形同虚设，长值会直接溢出被卡片裁掉。 -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding PublicIpText, Converter={StaticResource NullableText}}"
+                                               FontSize="12.5" TextWrapping="Wrap"
+                                               ToolTip="{Binding PublicIpText}"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                    <Button Grid.Column="1" Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
+                                            Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
+                                            ToolTip="复制公网 IP"
+                                            Command="{Binding CopyToClipboardCommand}"
+                                            CommandParameter="{Binding PublicIp}" />
+                                </Grid>
+
+                                <!-- 公共 IP 的 DNS 名称。只有配了 DNS 名称标签的公网 IP 才有，
+                                     没配就不显示这一行 —— 它不是"读取失败"，渲染成 "—" 会让人以为丢数据。 -->
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2"
+                                            Visibility="{Binding HasPublicIpFqdn, Converter={StaticResource BoolToVisibility}}">
+                                    <ui:SymbolIcon Symbol="GlobeSearch24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="DNS 名称" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <Grid Visibility="{Binding HasPublicIpFqdn, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding PublicIpFqdn}" FontSize="12.5"
+                                               TextWrapping="Wrap"
+                                               ToolTip="{Binding PublicIpFqdn}"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                    <Button Grid.Column="1" Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
+                                            Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
+                                            ToolTip="复制 DNS 名称"
+                                            Command="{Binding CopyToClipboardCommand}"
+                                            CommandParameter="{Binding PublicIpFqdn}" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
+                                    <ui:SymbolIcon Symbol="LockClosed24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="专用 IP" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding PrivateIp, Converter={StaticResource NullableText}}"
+                                               FontSize="12.5" TextWrapping="Wrap"
+                                               ToolTip="{Binding PrivateIp}"
+                                               Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                    <Button Grid.Column="1" Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
+                                            Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
+                                            ToolTip="复制专用 IP"
+                                            Command="{Binding CopyToClipboardCommand}"
+                                            CommandParameter="{Binding PrivateIp}" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
+                                    <ui:SymbolIcon Symbol="PlugConnected24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="网卡" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding NicName}" FontSize="12.5" TextWrapping="Wrap"
+                                           ToolTip="{Binding NicName}"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
+                                    <ui:SymbolIcon Symbol="ArrowSwap24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="虚拟网络" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding VnetName}" FontSize="12.5" TextWrapping="Wrap"
+                                           ToolTip="{Binding VnetName}"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
+                                    <ui:SymbolIcon Symbol="Grid24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="子网" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding SubnetText}" FontSize="12.5" TextWrapping="Wrap"
+                                           ToolTip="{Binding SubnetText}"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,2">
+                                    <ui:SymbolIcon Symbol="Shield24" FontSize="13"
+                                                   Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                    <TextBlock Text="网络安全组" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding NsgName}" FontSize="12.5" TextWrapping="Wrap"
+                                           ToolTip="{Binding NsgName}"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Border Style="{StaticResource Cf.Badge}" DataContext="{Binding SecurityState}">
+                                        <TextBlock Text="{Binding Converter={StaticResource StatusText}}"
+                                                   Style="{StaticResource Cf.BadgeText}" />
+                                    </Border>
+                                    <!-- 文案必须随实际状态变化：写死"NSG 规则已生效"
+                                         会在没读到 NSG 时给出虚假的安全结论。 -->
+                                    <TextBlock Text="{Binding NsgStateText}" Style="{StaticResource Cf.Muted}"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"
+                                               TextWrapping="Wrap" MaxWidth="220" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Inbound Rules -->
+                        <StackPanel Grid.Column="1">
+                            <!-- Shared NSG 警告横幅（设计文档 §25） -->
+                            <Border CornerRadius="8" Padding="14,10" Margin="0,0,0,12"
+                                    Background="{DynamicResource Cf.Surface.WarningBrush}"
+                                    Visibility="{Binding IsSharedSubnetNsg, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Warning24" FontSize="16" Foreground="{DynamicResource Cf.WarningTextBrush}" />
+                                    <StackPanel Margin="10,0,0,0">
+                                        <TextBlock Text="此虚拟机使用共享的子网级 NSG" FontSize="12.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Cf.WarningStrongTextBrush}" />
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource Cf.WarningStrongTextBrush}" Margin="0,2,0,0"
+                                                   Text="规则在子网级别生效，可能影响同子网内的多台虚拟机；变更需要审批。" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ===== 入站端口规则 =====
+                                 出入站在 NSG 里是同一种资源（只有 Direction 不同），但两侧"用户填的那个
+                                 地址"分别落在来源侧与目标侧：入站填来源、出站填目标。合成一张表意味着一半的
+                                 列对一半的行没有意义，所以拆成两张表，各自的"新建"入口带着自己的方向。 -->
+                            <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8" Padding="14">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource Cf.SectionTitle}"
+                                                   VerticalAlignment="Center">
+                                            <Run Text="入站端口规则 (" /><Run Text="{Binding InboundRules.Count, Mode=OneWay}" /><Run Text=")" />
+                                        </TextBlock>
+                                        <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Padding="10,5"
+                                                Command="{Binding OpenPortCommand}" CommandParameter="Inbound"
+                                                FontSize="12.5">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="＋" FontWeight="Bold" />
+                                                <TextBlock Text="新建入站规则…" Margin="5,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <TextBlock DockPanel.Dock="Bottom" Margin="2,10,0,0"
+                                               Style="{StaticResource Cf.Muted}" TextWrapping="Wrap"
+                                               Text="该 NSG 没有自定义入站规则。Azure 的默认规则（AllowVnetInBound 等）不在列表中，它们始终生效。"
+                                               Visibility="{Binding HasInboundRules, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                                    <DataGrid x:Name="RulesGrid" ItemsSource="{Binding InboundRules}"
+                                              Style="{StaticResource Cf.DataGrid}" RowHeight="38"
+                                              CellStyle="{StaticResource Cf.GridCellCompact}"
+                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
+                                                <Setter Property="ContextMenu" Value="{StaticResource Cf.RuleRowMenu}" />
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="名称" Binding="{Binding Name}"
+                                                                Width="1.6*" MinWidth="150">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Setter Property="ToolTip" Value="{Binding Name}" />
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="来源" Binding="{Binding Source}"
+                                                                Width="*" MinWidth="96">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontSize" Value="12.5" />
+                                                        <Setter Property="ToolTip" Value="{Binding Source}" />
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="端口" Binding="{Binding DestinationPort}" Width="62" MinWidth="62" />
+                                            <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="58" MinWidth="58" />
+                                            <DataGridTemplateColumn Header="操作" Width="64" MinWidth="64" CanUserResize="False"
+                                                                    CellTemplate="{StaticResource Cf.RuleActionCell}" />
+                                            <!-- 概念图 2 的 Origin 列：规则定义在网卡还是子网级。
+                                                 表头不能也叫「来源」，会与左侧的源地址列重名。 -->
+                                            <DataGridTemplateColumn Header="生效于" Width="72" MinWidth="72" CanUserResize="False"
+                                                                    CellTemplate="{StaticResource Cf.RuleOriginCell}" />
+                                            <DataGridTemplateColumn Width="40" MinWidth="40" CanUserResize="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource Cf.TopBarButton}"
+                                                                Width="26" Height="26" Padding="0"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                ToolTip="更多操作" automation:AutomationProperties.Name="更多操作" Tag="{Binding}"
+                                                                Click="RowMenu_Click">
+                                                            <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
+                                                            <Button.ContextMenu>
+                                                                <StaticResource ResourceKey="Cf.RuleRowMenu" />
+                                                            </Button.ContextMenu>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- ===== 出站端口规则 =====
+                                 与上面同一份数据，只是 Direction = Outbound。表头是「目标」而不是「来源」：
+                                 出站规则的来源是这台虚拟机自己，把对端写在来源列会指错方向。 -->
+                            <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8" Padding="14"
+                                    Margin="0,12,0,0">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource Cf.SectionTitle}"
+                                                   VerticalAlignment="Center">
+                                            <Run Text="出站端口规则 (" /><Run Text="{Binding OutboundRules.Count, Mode=OneWay}" /><Run Text=")" />
+                                        </TextBlock>
+                                        <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Padding="10,5"
+                                                Command="{Binding OpenPortCommand}" CommandParameter="Outbound"
+                                                FontSize="12.5">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="＋" FontWeight="Bold" />
+                                                <TextBlock Text="新建出站规则…" Margin="5,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <TextBlock DockPanel.Dock="Bottom" Margin="2,10,0,0"
+                                               Style="{StaticResource Cf.Muted}" TextWrapping="Wrap"
+                                               Text="该 NSG 没有自定义出站规则。Azure 的默认规则（AllowInternetOutBound 等）不在列表中，它们始终生效。"
+                                               Visibility="{Binding HasOutboundRules, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                                    <DataGrid ItemsSource="{Binding OutboundRules}"
+                                              Style="{StaticResource Cf.DataGrid}" RowHeight="38"
+                                              CellStyle="{StaticResource Cf.GridCellCompact}"
+                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
+                                                <Setter Property="ContextMenu" Value="{StaticResource Cf.RuleRowMenu}" />
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="名称" Binding="{Binding Name}"
+                                                                Width="1.6*" MinWidth="150">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Setter Property="ToolTip" Value="{Binding Name}" />
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="目标" Binding="{Binding Destination}"
+                                                                Width="*" MinWidth="96">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontSize" Value="12.5" />
+                                                        <Setter Property="ToolTip" Value="{Binding Destination}" />
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="端口" Binding="{Binding DestinationPort}" Width="62" MinWidth="62" />
+                                            <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="58" MinWidth="58" />
+                                            <DataGridTemplateColumn Header="操作" Width="64" MinWidth="64" CanUserResize="False"
+                                                                    CellTemplate="{StaticResource Cf.RuleActionCell}" />
+                                            <DataGridTemplateColumn Header="生效于" Width="72" MinWidth="72" CanUserResize="False"
+                                                                    CellTemplate="{StaticResource Cf.RuleOriginCell}" />
+                                            <DataGridTemplateColumn Width="40" MinWidth="40" CanUserResize="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource Cf.TopBarButton}"
+                                                                Width="26" Height="26" Padding="0"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                ToolTip="更多操作" automation:AutomationProperties.Name="更多操作" Tag="{Binding}"
+                                                                Click="RowMenu_Click">
+                                                            <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
+                                                            <Button.ContextMenu>
+                                                                <StaticResource ResourceKey="Cf.RuleRowMenu" />
+                                                            </Button.ContextMenu>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- ===== 出站连接（设计决策 §11 / §13）=====
+                                 按 VM → NIC → IP 配置 → 子网 → NAT Gateway / 路由表 / 负载均衡器 / 公网 IP
+                                 的完整资源图解析，而不是读 VM 或网卡上的 publicIPAddress。
+
+                                 出口 IP 的文案由 OutboundText.DescribeIp 统一决定：
+                                 地址不可得时必须是「未知（ARM 无法获取）」，与「无公网出口」分开表述。
+                                 两者在界面上合并成 "—" 就等于把"默认出站"误报成"端口已收紧"。 -->
+                            <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="8"
+                                    Padding="14" Margin="0,14,0,0"
+                                    Visibility="{Binding HasOutbound, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <ui:SymbolIcon Symbol="ArrowExportUp24" FontSize="14"
+                                                       Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                                        <TextBlock Text="出站连接" Style="{StaticResource Cf.SectionTitle}"
+                                                   Margin="8,0,0,0" />
+                                    </StackPanel>
+
+                                    <!-- 出站方式徽章：配色用英文状态键，显示用中文标签
+                                         （中文串不能拿去查 CfStatusBrushConverter） -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- 判定过程不进正文（卡片只留"结论 + 出口 IP"），改挂 tooltip：
+                                             读取失败的跳与原因、多方法共存时的优先级取舍、
+                                             网卡侧与子网侧默认出站标志矛盾，都在这里，
+                                             否则这些"为什么是这么判的"就彻底无处可查。 -->
+                                        <Border Style="{StaticResource Cf.Badge}"
+                                                ToolTip="{Binding OutboundExplanation}"
+                                                Background="{Binding OutboundBadge, Converter={StaticResource StatusBg}}">
+                                            <TextBlock Text="{Binding OutboundTypeText}" Style="{StaticResource Cf.BadgeText}"
+                                                       Foreground="{Binding OutboundBadge, Converter={StaticResource StatusFg}}" />
+                                        </Border>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,14,0,2">
+                                        <ui:SymbolIcon Symbol="ArrowExportUp24" FontSize="13"
+                                                       Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                                        <TextBlock Text="有效出口 IP" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding OutboundIpText}" FontSize="13" FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" MaxWidth="520"
+                                                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                        <Button Style="{StaticResource Cf.CopyButton}" FontSize="12" Background="Transparent" BorderThickness="0"
+                                                Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Top"
+                                                ToolTip="复制出口 IP"
+                                                Command="{Binding CopyToClipboardCommand}"
+                                                CommandParameter="{Binding OutboundAddress}"
+                                                Visibility="{Binding CanCopyOutboundIp, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+
+                                    <!-- 被更高优先级压制、但仍配置着的出站方式 -->
+                                    <Border CornerRadius="8" Padding="10,8" Margin="0,12,0,0"
+                                            Background="{Binding OutboundBadge, Converter={StaticResource StatusBg}}"
+                                            Visibility="{Binding HasOutboundSuppressed, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="{Binding OutboundSuppressedText}" FontSize="11.5"
+                                                   TextWrapping="Wrap" MaxWidth="560"
+                                                   Foreground="{Binding OutboundBadge, Converter={StaticResource StatusFg}}" />
+                                    </Border>
+
+                                    <!-- 多网卡逐块列出（单网卡时不显示，避免与上面的 VM 级结论重复） -->
+                                    <StackPanel Margin="0,14,0,0"
+                                                Visibility="{Binding HasMultipleOutboundNics, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="按网卡" Style="{StaticResource Cf.Muted}" Margin="0,0,0,6" />
+                                        <ItemsControl ItemsSource="{Binding OutboundNicRows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border CornerRadius="8" Padding="10,8" Margin="0,0,0,6"
+                                                            BorderThickness="1"
+                                                            BorderBrush="{DynamicResource Cf.BorderBrush}">
+                                                        <StackPanel>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
+                                                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                                                <Border Style="{StaticResource Cf.Badge}" Margin="8,0,0,0"
+                                                                        Background="{Binding Badge, Converter={StaticResource StatusBg}}">
+                                                                    <TextBlock Text="{Binding TypeLabel}" Style="{StaticResource Cf.BadgeText}"
+                                                                               Foreground="{Binding Badge, Converter={StaticResource StatusFg}}" />
+                                                                </Border>
+                                                            </StackPanel>
+                                                            <TextBlock FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+                                                                <Run Text="出口 IP：" FontSize="11.5" /><Run Text="{Binding IpText, Mode=OneWay}" />
+                                                            </TextBlock>
+                                                            <TextBlock FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                                                                       Visibility="{Binding HasSubnet, Converter={StaticResource BoolToVisibility}}">
+                                                                <Run Text="子网：" /><Run Text="{Binding SubnetText, Mode=OneWay}" />
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding Explanation}" FontSize="11.5"
+                                                                       TextWrapping="Wrap" Margin="0,4,0,0" MaxWidth="520"
+                                                                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ============ 磁盘（设计文档 §26） ============ -->
+                <TabItem Header="磁盘">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="14,14,14,16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    Visibility="{Binding IsLoadingDisks, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="磁盘" Style="{StaticResource Cf.SectionTitle}" VerticalAlignment="Center" />
+                            <!-- 快照数徽章右对齐；创建快照统一走每行「⋯」菜单（磁盘行菜单的 Cf.DiskRowMenu），
+                                 不再重复一个仅弹"尚未实现"的头部入口。 -->
+                            <Border Grid.Column="1" Style="{StaticResource Cf.Badge}">
+                                <!-- 前景必须显式：Badge 的配色绑定吃不到这里的 DataContext，
+                                     这颗 TextBlock 不套 BadgeText 时前景落到继承黑（深色下蓝底黑字） -->
+                                <TextBlock FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Cf.Status.Info.Fg}">
+                                    <Run Text="快照 " /><Run Text="{Binding SnapshotTotal, Mode=OneWay}" />
+                                </TextBlock>
+                            </Border>
+                        </Grid>
+                        <DataGrid ItemsSource="{Binding Disks}" Style="{StaticResource Cf.DataGrid}" RowHeight="42"
+                                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource Cf.GridRow}">
+                                    <Setter Property="ContextMenu" Value="{StaticResource Cf.DiskRowMenu}" />
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <!-- 真实托管磁盘名很长（appscloud_OsDisk_1_382bc441bb9b462ea05cfba6e5a40650），
+                                     必须给省略号 + 完整名提示，否则用户无法确认是哪块盘 -->
+                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="200">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                            <Setter Property="ToolTip" Value="{Binding Name}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <!-- 类型 / 状态在模型里是英文值（快照逻辑按它判断），只在显示时翻译 -->
+                                <DataGridTextColumn Header="类型" Binding="{Binding Type, Converter={StaticResource StatusText}}" Width="110" />
+                                <DataGridTextColumn Header="容量" Binding="{Binding Size}" Width="100" />
+                                <DataGridTextColumn Header="层级" Binding="{Binding Tier}" Width="180" />
+                                <DataGridTemplateColumn Header="快照数" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding SnapshotCount}" FontSize="12.5" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="状态" Binding="{Binding Status, Converter={StaticResource StatusText}}" Width="110" />
+                                <DataGridTemplateColumn Width="44" CanUserResize="False"
+                                                        CellStyle="{StaticResource Cf.GridCellCompact}">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource Cf.TopBarButton}"
+                                                    Width="26" Height="26" Padding="0"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    ToolTip="更多操作" automation:AutomationProperties.Name="更多操作" Tag="{Binding}"
+                                                    Click="RowMenu_Click">
+                                                <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="15" />
+                                                <Button.ContextMenu>
+                                                    <StaticResource ResourceKey="Cf.DiskRowMenu" />
+                                                </Button.ContextMenu>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ============ Performance（设计文档 §27） ============ -->
+                <TabItem Header="性能">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="14,14,14,16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    Visibility="{Binding IsLoadingPerformance, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="13" Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.TextMutedBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Text="使用率" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <!-- 全部为 Host 指标，无需在 VM 内启用诊断扩展 -->
+                        <!-- WrapPanel：窄窗口下指标卡自动 2 列（每卡固定 230 宽） -->
+                        <WrapPanel>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="CPU" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding CpuText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="内存" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding MemoryText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="OS 磁盘 IOPS" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding OsDiskIopsText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="OS 磁盘带宽" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding OsDiskBandwidthText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="缓存 IOPS" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding VmCachedIopsText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="缓存带宽" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding VmCachedBandwidthText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="非缓存 IOPS" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding VmUncachedIopsText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="非缓存带宽" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding VmUncachedBandwidthText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+
+                        <TextBlock Text="吞吐量" Style="{StaticResource Cf.SectionTitle}" Margin="0,18,0,10" />
+                        <!-- WrapPanel：窄窗口下指标卡自动 2 列（每卡固定 230 宽） -->
+                        <WrapPanel>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="网络流入" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding NetworkInText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="网络流出" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding NetworkOutText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="磁盘读取" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding DiskReadText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Cf.Card}" Width="230" Padding="14" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Text="磁盘写入" Style="{StaticResource Cf.Muted}" />
+                                    <TextBlock Text="{Binding DiskWriteText}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource Cf.Muted}" TextWrapping="Wrap"
+                                   Text="{Binding MetricsNote}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ============ Activity ============ -->
+                <TabItem Header="活动">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="14,14,14,16">
+                        <TextBlock Text="活动" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <!-- 真实账户下该 VM 往往还没有任何操作记录，空表格会被误读为加载失败；
+                             与任务中心、首页同一个空状态组件，语气与版式一致 -->
+                        <controls:EmptyState Margin="0,32,0,24" Symbol="History24" Title="暂无活动记录"
+                                             Description="{Binding ActivityEmptyText}"
+                                             Visibility="{Binding HasActivity, Converter={StaticResource InverseBoolToVisibility}}" />
+                        <DataGrid ItemsSource="{Binding ActivityJobs}" Style="{StaticResource Cf.DataGrid}"
+                                  RowHeight="38" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding HasActivity, Converter={StaticResource BoolToVisibility}}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt, StringFormat=MM-dd HH:mm:ss}" Width="150" />
+                                <DataGridTextColumn Header="操作" Binding="{Binding Display}" Width="*" />
+                                <DataGridTemplateColumn Header="状态" Width="120">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource Cf.Badge}" DataContext="{Binding Status}">
+                                                <TextBlock Text="{Binding Converter={StaticResource StatusText}}"
+                                                           Style="{StaticResource Cf.BadgeText}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="结果" Binding="{Binding Summary}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- 终端不再作为详情页的一个标签：SSH 会话统一由主窗口底部的终端面板承载，
+                     点「连接」直接在面板里开标签（会话因此跨页面存活，见 TerminalPanelViewModel）。 -->
+            </TabControl>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      浅色取值表。配色取自 docs/01-产品设计/UI/UI概念图*.png：浅色 Fluent、蓝色主色、白卡片、细边框。
+
+      **本文件只是取值表，不是运行时用的那批画刷实例**：资源字典里的 Freezable 会被 WPF 冻结，
+      冻结的 SolidColorBrush 赋 .Color 会抛 InvalidOperationException，而且
+      po:Freeze="False" 在本 WPF 版本上实测无效（43 个画刷照样全部 IsFrozen == true）。
+      所以 CfThemeManager.Initialize() 在启动时**照这里的颜色另造一批未冻结的实例**，
+      切主题时就地改那批实例的 Color。本文件**不被 App.xaml 合并**。
+
+      **本文件与 CfPalette.Dark.xaml 的 key 集合必须完全一致**
+      （由 CfPaletteParityTests 断言）—— 深色漏一个 key 的表现是"切到深色后某个控件还是浅色"，
+      肉眼很难在 5 个页面 5 个对话框里全部发现。
+    -->
+
+    <!-- ===== 主色与表面 ===== -->
+    <SolidColorBrush x:Key="Cf.PrimaryBrush" Color="#FF0F6CBD" />
+    <SolidColorBrush x:Key="Cf.PrimaryHoverBrush" Color="#FF115EA3" />
+    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FFF6F8FB" />
+    <SolidColorBrush x:Key="Cf.TopBarBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.CardBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FFFBFCFE" />
+    <SolidColorBrush x:Key="Cf.DialogBackgroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FFE3E8F0" />
+
+    <!-- ===== 文本 ===== -->
+    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FF1B1F2A" />
+    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FF5B6472" />
+    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF8A93A2" />
+
+    <!-- 主色实底上的文字（PrimaryButton / DangerButton 的内容） -->
+    <SolidColorBrush x:Key="Cf.OnPrimaryTextBrush" Color="#FFFFFFFF" />
+
+    <!-- 语义文本色：错误 / 成功 / 警告（普通与强调）、危险说明 -->
+    <SolidColorBrush x:Key="Cf.ErrorTextBrush" Color="#FFC5221F" />
+    <SolidColorBrush x:Key="Cf.DangerTextBrush" Color="#FF8B1A1A" />
+    <SolidColorBrush x:Key="Cf.SuccessTextBrush" Color="#FF137333" />
+    <SolidColorBrush x:Key="Cf.WarningTextBrush" Color="#FFB06000" />
+    <SolidColorBrush x:Key="Cf.WarningStrongTextBrush" Color="#FF8A4B00" />
+
+    <!-- ===== 行状态 ===== -->
+    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FFF0F2F6" />
+    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FFF3F7FC" />
+    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FFEAF2FB" />
+
+    <!-- ===== 危险动作按钮 ===== -->
+    <SolidColorBrush x:Key="Cf.DangerBrush" Color="#FFC13438" />
+    <SolidColorBrush x:Key="Cf.DangerHoverBrush" Color="#FFA52A2E" />
+
+    <!-- ===== 语义浅底（提示条 / 药丸） ===== -->
+    <SolidColorBrush x:Key="Cf.Surface.SuccessBrush" Color="#FFE6F4EA" />
+    <SolidColorBrush x:Key="Cf.Surface.WarningBrush" Color="#FFFFF4E5" />
+    <SolidColorBrush x:Key="Cf.Surface.WarningBorderBrush" Color="#FFF0C36B" />
+    <SolidColorBrush x:Key="Cf.Surface.DangerBrush" Color="#FFFDF3F3" />
+    <SolidColorBrush x:Key="Cf.Surface.DangerBorderBrush" Color="#FFF3C9C9" />
+
+    <!-- ===== 状态徽章调色板（CfStatusBrushConverter 按 key 取用） ===== -->
+    <SolidColorBrush x:Key="Cf.Status.Success.Bg" Color="#FFE6F4EA" />
+    <SolidColorBrush x:Key="Cf.Status.Success.Fg" Color="#FF137333" />
+    <SolidColorBrush x:Key="Cf.Status.Warning.Bg" Color="#FFFEF7E0" />
+    <SolidColorBrush x:Key="Cf.Status.Warning.Fg" Color="#FFB06000" />
+    <SolidColorBrush x:Key="Cf.Status.Danger.Bg" Color="#FFFCE8E6" />
+    <SolidColorBrush x:Key="Cf.Status.Danger.Fg" Color="#FFC5221F" />
+    <SolidColorBrush x:Key="Cf.Status.Neutral.Bg" Color="#FFEEF1F5" />
+    <SolidColorBrush x:Key="Cf.Status.Neutral.Fg" Color="#FF5B6472" />
+    <SolidColorBrush x:Key="Cf.Status.Info.Bg" Color="#FFE8F0FE" />
+    <SolidColorBrush x:Key="Cf.Status.Info.Fg" Color="#FF1967D2" />
+    <SolidColorBrush x:Key="Cf.Status.Subnet.Bg" Color="#FFEDE7F6" />
+    <SolidColorBrush x:Key="Cf.Status.Subnet.Fg" Color="#FF6A1B9A" />
+
+    <!-- 列表加载遮罩：浅色下压白，深色下压黑，两边都保证 Cf.Muted 文字可读 -->
+    <SolidColorBrush x:Key="Cf.LoadingScrimBrush" Color="#80FFFFFF" />
+
+    <!-- ===== 遮罩（登录流程覆盖当前页面） ===== -->
+    <SolidColorBrush x:Key="Cf.ScrimBrush" Color="#660B1220" />
+
+    <!-- 虚拟机操作系统图标（docs/01-产品设计/UI/虚拟机图标-操作系统.png：蓝色显示器 + 灰色底座） -->
+    <SolidColorBrush x:Key="Cf.OsIconScreenBrush" Color="#FF2B7CD3" />
+    <SolidColorBrush x:Key="Cf.OsIconStandBrush" Color="#FFB6BEC9" />
+    <SolidColorBrush x:Key="Cf.OsIconMarkBrush" Color="#FFCFE7FF" />
+
+</ResourceDictionary>

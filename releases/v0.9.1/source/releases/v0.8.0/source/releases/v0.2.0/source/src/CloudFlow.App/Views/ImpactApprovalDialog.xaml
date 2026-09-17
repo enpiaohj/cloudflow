@@ -1,0 +1,66 @@
+<themes:CfDialogWindow x:Class="CloudFlow.App.Views.ImpactApprovalDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+        Title="影响分析"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource Cf.DialogBackgroundBrush}"
+        TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+    <!--
+      上面这一行不是装饰：这是一个光秃秃的 Window，没有 WPF-UI 的控件主题，
+      而 TextBlock 的默认前景是**黑色**。深色主题下背景是深色的，
+      凡是没写 Foreground 的 TextBlock（本文件里的只读值框就是一例）会直接看不见。
+      TextElement.Foreground 是继承属性，在这一层设一次即可覆盖全部后代。
+    -->
+
+    <StackPanel Margin="24,20">
+
+        <TextBlock Text="影响分析" FontSize="18" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+        <TextBlock Text="该操作会影响其他资源，请确认后再继续。"
+                   Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" />
+
+        <!-- 操作 -->
+        <TextBlock Text="操作" Style="{StaticResource Cf.Muted}" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0">
+            <TextBlock Text="{Binding OperationText}" FontSize="13" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- 目标资源（Azure Resource ID 是唯一主键） -->
+        <TextBlock Text="目标资源" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
+        <Border Background="{DynamicResource Cf.PageBackgroundBrush}" CornerRadius="6"
+                Padding="10,7" Margin="0,4,0,0">
+            <TextBlock Text="{Binding ResourceId}" FontSize="11.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource Cf.TextSecondaryBrush}" />
+        </Border>
+
+        <!-- 影响面 -->
+        <TextBlock Text="影响面" Style="{StaticResource Cf.Muted}" Margin="0,12,0,0" />
+        <Border Background="{DynamicResource Cf.Surface.WarningBrush}" BorderBrush="{DynamicResource Cf.Surface.WarningBorderBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="12,9" Margin="0,4,0,0">
+            <StackPanel>
+                <TextBlock Text="{Binding ImpactText}" FontSize="12.5" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Cf.WarningStrongTextBrush}" />
+                <TextBlock Text="{Binding AffectedText}" FontSize="12" Margin="0,6,0,0"
+                           Foreground="{DynamicResource Cf.WarningStrongTextBrush}"
+                           Visibility="{Binding AffectedText, Converter={StaticResource NonEmptyToVisibility}}" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Text="选择“取消”不会执行任何变更；Job 会保留在任务中心的待审批状态。"
+                   Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,8,0,0"
+                   TextWrapping="Wrap" />
+
+        <!-- 按钮 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,4">
+            <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" IsCancel="True"
+                    Click="Cancel_Click" />
+            <Button Content="继续" Style="{StaticResource Cf.PrimaryButton}"
+                    Margin="10,0,0,0" IsDefault="True" Click="Continue_Click" />
+        </StackPanel>
+    </StackPanel>
+</themes:CfDialogWindow>

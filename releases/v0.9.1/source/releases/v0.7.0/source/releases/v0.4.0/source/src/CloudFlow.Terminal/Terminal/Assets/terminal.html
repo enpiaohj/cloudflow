@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RemoteFlow Terminal</title>
+  <link rel="stylesheet" href="xterm.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1e1e1e;
+    }
+    #terminal {
+      width: 100%;
+      height: 100%;
+      padding: 6px 8px;
+      box-sizing: border-box;
+    }
+    /* 让终端本体填满容器，避免出现双滚动条 */
+    .xterm .xterm-viewport {
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    /* 搜索浮层：自身带不透明底色，深浅终端主题下都可读 */
+    .rf-search {
+      position: fixed;
+      top: 8px;
+      right: 10px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 4px 6px;
+      background: rgba(45, 45, 45, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      color: #eee;
+      font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "微软雅黑", monospace;
+      font-size: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+    .rf-search input {
+      width: 190px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      color: #eee;
+      padding: 2px 6px;
+      outline: none;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    .rf-search button {
+      background: transparent;
+      border: none;
+      color: #cfcfcf;
+      cursor: pointer;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1.2;
+    }
+    .rf-search button:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+    }
+    .rf-search-count {
+      color: #9a9a9a;
+      font-size: 11px;
+      padding: 0 4px;
+      min-width: 40px;
+      text-align: center;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+
+  <!-- 搜索输出：悬浮在终端右上角的小浮层，由宿主工具条「搜索」按钮唤出。
+       Esc 关闭、Enter 下一个、Shift+Enter 上一个。 -->
+  <div id="searchbar" class="rf-search" style="display:none">
+    <input id="searchInput" type="text" placeholder="查找终端输出…" spellcheck="false" />
+    <span id="searchCount" class="rf-search-count"></span>
+    <button id="searchPrev" title="上一个 (Shift+Enter)" type="button">&#x25B2;</button>
+    <button id="searchNext" title="下一个 (Enter)" type="button">&#x25BC;</button>
+    <button id="searchClose" title="关闭 (Esc)" type="button">&#x2715;</button>
+  </div>
+
+  <script src="xterm.js"></script>
+  <script src="addon-fit.js"></script>
+  <script src="addon-search.js"></script>
+  <script src="addon-webgl.js"></script>
+  <script>
+    'use strict';
+
+    /**
+     * WKWebView 下宿主注册的 message handler 名称。
+     * Windows 的 WebView2 不用它（那边走 window.chrome.webview）。
+     * 宿主侧必须以同名注册，见 post() 的说明。
+     */
+    const RF_HOST_CHANNEL = 'remoteflow';
+
+    // ────────────────────────────────────────────────────────────
+    // RemoteFlow 终端前端
+    //
+    // 分层原则：本页面只做「终端渲染 + 输入采集」，不参与任何 SSH 协议逻辑。
+    // 与宿主之间始终以 Base64 编码的原始字节交换数据，这样多字节 UTF-8 字符
+    // 即使被 TCP 分包切断，也由 xterm.js 的解码器负责拼接，不会出现半个汉字乱码。
+    // ────────────────────────────────────────────────────────────
+
+    // 主题表。dark / light 同时充当「跟随应用」的落地主题（按宿主传入的 isDark 选用），
+    // 其余为设置里的显式预设。每套都提供完整 16 色 ANSI 调色板。
+    const THEMES = {
+      // 跟随应用 · 深色落地（VS Code 深色系）
+      dark: {
+        background: '#1E1E1E', foreground: '#CCCCCC', cursor: '#FFFFFF',
+        cursorAccent: '#1E1E1E', selectionBackground: '#264F78',
+        black: '#000000', red: '#CD3131', green: '#0DBC79', yellow: '#E5E510',
+        blue: '#2472C8', magenta: '#BC3FBC', cyan: '#11A8CD', white: '#E5E5E5',
+        brightBlack: '#666666', brightRed: '#F14C4C', brightGreen: '#23D18B',
+        brightYellow: '#F5F543', brightBlue: '#3B8EEA', brightMagenta: '#D670D6',
+        brightCyan: '#29B8DB', brightWhite: '#FFFFFF'
+      },
+
+      // 跟随应用 · 浅色落地（VS Code 浅色系）
+      light: {
+        background: '#FFFFFF', foreground: '#333333', cursor: '#333333',
+        cursorAccent: '#FFFFFF', selectionBackground: '#ADD6FF',
+        black: '#000000', red: '#CD3131', green: '#00BC00', yellow: '#949800',
+        blue: '#0451A5', magenta: '#BC05BC', cyan: '#0598BC', white: '#555555',
+        brightBlack: '#666666', brightRed: '#CD3131', brightGreen: '#14CE14',
+        brightYellow: '#B5BA00', brightBlue: '#0451A5', brightMagenta: '#BC05BC',
+        brightCyan: '#0598BC', brightWhite: '#A5A5A5'
+      },
+
+      // Dark Gray（默认预设，VS Code Dark+ 观感）
+      darkGray: {
+        background: '#1E1E1E', foreground: '#D4D4D4', cursor: '#FFFFFF',
+        cursorAccent: '#1E1E1E', selectionBackground: '#264F78',
+        black: '#000000', red: '#CD3131', green: '#0DBC79', yellow: '#E5E510',
+        blue: '#2472C8', magenta: '#BC3FBC', cyan: '#11A8CD', white: '#E5E5E5',
+        brightBlack: '#666666', brightRed: '#F14C4C', brightGreen: '#23D18B',
+        brightYellow: '#F5F543', brightBlue: '#3B8EEA', brightMagenta: '#D670D6',
+        brightCyan: '#29B8DB', brightWhite: '#FFFFFF'
+      },
+
+      // Black（纯黑背景，Tango 系 16 色）
+      black: {
+        background: '#000000', foreground: '#D7D7D7', cursor: '#D7D7D7',
+        cursorAccent: '#000000', selectionBackground: '#404040',
+        black: '#000000', red: '#CC0000', green: '#4E9A06', yellow: '#C4A000',
+        blue: '#3465A4', magenta: '#75507B', cyan: '#06989A', white: '#D3D7CF',
+        brightBlack: '#555753', brightRed: '#EF2929', brightGreen: '#8AE234',
+        brightYellow: '#FCE94F', brightBlue: '#729FCF', brightMagenta: '#AD7FA8',
+        brightCyan: '#34E2E2', brightWhite: '#EEEEEC'
+      },
+
+      // Navy（深蓝背景，One-Half 系配色）
+      navy: {
+        background: '#0B1B33', foreground: '#CFD8E3', cursor: '#E6EEF8',
+        cursorAccent: '#0B1B33', selectionBackground: '#23406B',
+        black: '#14283F', red: '#E06C75', green: '#98C379', yellow: '#E5C07B',
+        blue: '#61AFEF', magenta: '#C678DD', cyan: '#56B6C2', white: '#D5DAE3',
+        brightBlack: '#5C7080', brightRed: '#FF7A85', brightGreen: '#A6E3A1',
+        brightYellow: '#FFD580', brightBlue: '#79B8FF', brightMagenta: '#D79BE0',
+        brightCyan: '#6CD6DD', brightWhite: '#FFFFFF'
+      },
+
+      // Solarized Dark
+      solarizedDark: {
+        background: '#002B36', foreground: '#839496', cursor: '#839496',
+        cursorAccent: '#002B36', selectionBackground: '#073642',
+        black: '#073642', red: '#DC322F', green: '#859900', yellow: '#B58900',
+        blue: '#268BD2', magenta: '#D33682', cyan: '#2AA198', white: '#EEE8D5',
+        brightBlack: '#586E75', brightRed: '#CB4B16', brightGreen: '#859900',
+        brightYellow: '#B58900', brightBlue: '#268BD2', brightMagenta: '#D33682',
+        brightCyan: '#2AA198', brightWhite: '#FDF6E3'
+      }
+    };
+
+    const terminal = new Terminal({
+      fontFamily: 'ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "微软雅黑", monospace',
+      fontSize: 14,
+      cursorBlink: true,
+      // 终端自身保留滚动缓冲区，满足「回看历史输出」的基本运维需求
+      scrollback: 5000,
+      // 让 xterm 按东亚宽字符规则排版，保证中文对齐正确
+      allowProposedApi: true,
+      theme: THEMES.dark
+    });
+
+    const fitAddon = new FitAddon.FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.open(document.getElementById('terminal'));
+
+    // GPU 渲染（WebGL）——比默认 DOM 渲染器快得多，尤其大输出刷屏 / 彩色日志 /
+    // top、htop。渲染吃 CPU 少，也能腾出 WebContent 的 JS 线程更快处理按键事件，
+    // 顺带缓解快速输入掉字。context 丢失（OOM / 系统休眠）就 dispose，xterm 自动
+    // 回落 DOM 渲染器，不影响可用性。
+    try {
+      const webgl = new WebglAddon.WebglAddon();
+      webgl.onContextLoss(() => {
+        console.warn('[RemoteFlow] WebGL context 丢失，回落 DOM 渲染器');
+        webgl.dispose();
+      });
+      terminal.loadAddon(webgl);
+    } catch (e) {
+      console.warn('[RemoteFlow] WebGL 渲染器不可用，用 DOM 渲染器：', e);
+    }
+
+    // ── 中文输入法（keyCode=229）快速输入掉字修复 ──────────────────
+    // 拼音 / 搜狗 / 豆包等 IME 即便在英文模式也对每一次按键报 keyCode=229，
+    // 从不触发 compositionstart/end。xterm 的 _inputEvent 靠 `!_keyDownSeen` 去重，
+    // 快速连打时上一击的 _keyDownSeen 还没被 keyup 复位，这一击的 insertText 就被吞掉
+    // ——表现为「cd 只出 c」「dir 出 dr」。（xterm.js issue #5887，上游未修）
+    //
+    // 修法：keyCode=229 时 _keyDown 根本没 evaluateKeyboardEvent 发字（_keyDownHandled
+    // 保持 false），所以此路径下可以放心从 _inputEvent 补发；真·中文合成（isComposing /
+    // _isSendingComposition）与正常 ASCII（_keyDownHandled=true）都交回原实现去重。
+    try {
+      const core = terminal._core;
+      const origInputEvent = core._inputEvent.bind(core);
+      core._inputEvent = function (ev) {
+        const comp = this._compositionHelper;
+        if (ev && ev.data && ev.inputType === 'insertText'
+            && !comp.isComposing
+            && !comp._isSendingComposition
+            && ev.data !== comp._dataAlreadySent
+            && !this._keyDownHandled
+            && !this._keyPressHandled
+            && !this.optionsService.rawOptions.screenReaderMode) {
+          this._unprocessedDeadKey = false;
+          this.coreService.triggerDataEvent(ev.data, true);
+          this.cancel(ev);
+          return true;
+        }
+        return origInputEvent(ev);
+      };
+    } catch (e) {
+      console.warn('[RemoteFlow] IME 掉字补丁未生效（xterm 内部结构可能已变）：', e);
+    }
+
+    const searchAddon = new SearchAddon.SearchAddon();
+    terminal.loadAddon(searchAddon);
+
+    // ── 搜索输出（search addon）──────────────────────────────────
+    // 浮层完全跑在页面内，Esc/Enter/Shift+Enter 导航不经过宿主，减少一次往返。
+    const searchBar = document.getElementById('searchbar');
+    const searchInput = document.getElementById('searchInput');
+    const searchCount = document.getElementById('searchCount');
+    let searchDebounce = null;
+
+    // 高亮配色用半透明黄色，深浅主题下都可见。
+    function searchOptions(incremental) {
+      const opts = {
+        decorations: {
+          matchBackground: 'rgba(255, 196, 0, 0.28)',
+          matchOverviewRuler: 'rgba(255, 196, 0, 0.6)',
+          activeMatchBackground: 'rgba(255, 166, 0, 0.55)',
+          activeMatchOverviewRuler: 'rgba(255, 166, 0, 0.9)'
+        }
+      };
+      if (incremental) { opts.incremental = true; }
+      return opts;
+    }
+
+    function doSearch(direction) {
+      const term = searchInput.value;
+      if (!term) { return; }
+
+      let found = false;
+      try {
+        found = direction < 0
+          ? searchAddon.findPrevious(term, searchOptions())
+          : searchAddon.findNext(term, searchOptions());
+      } catch (err) {
+        // 部分渲染器不支持 decorations：退回只选中当前匹配，不抛错。
+        try {
+          found = direction < 0
+            ? searchAddon.findPrevious(term)
+            : searchAddon.findNext(term);
+        } catch (err2) {
+          found = false;
+        }
+      }
+
+      if (!found) {
+        searchCount.textContent = '未找到';
+      }
+    }
+
+    function openSearch() {
+      searchBar.style.display = 'flex';
+      searchInput.focus();
+      searchInput.select();
+    }
+
+    function closeSearch() {
+      searchBar.style.display = 'none';
+      searchCount.textContent = '';
+      try {
+        searchAddon.clearDecorations();
+        terminal.clearSelection();
+      } catch (e) { /* 忽略清理异常 */ }
+      terminal.focus();
+    }
+
+    searchAddon.onDidChangeResults(results => {
+      searchCount.textContent = (results && results.resultCount > 0)
+        ? `${results.resultIndex + 1}/${results.resultCount}`
+        : '';
+    });
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      if (!searchInput.value) {
+        searchCount.textContent = '';
+        try {
+          searchAddon.clearDecorations();
+          terminal.clearSelection();
+        } catch (e) { /* 忽略清理异常 */ }
+        return;
+      }
+      searchDebounce = setTimeout(() => doSearch(1), 160);
+    });
+
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        doSearch(e.shiftKey ? -1 : 1);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSearch();
+      }
+    });
+
+    document.getElementById('searchNext').addEventListener('click', () => doSearch(1));
+    document.getElementById('searchPrev').addEventListener('click', () => doSearch(-1));
+    document.getElementById('searchClose').addEventListener('click', closeSearch);
+
+    // ── 粘贴安全：拦截浏览器 paste 事件 ─────────────────────────
+    // xterm 自己会监听隐藏输入区的 paste 并把内容直接发往远端（onData），
+    // 绕过了宿主的粘贴安全确认。这里在捕获阶段拦下、阻止 xterm 收到该事件，
+    // 把文本交给宿主走「多行/大文本确认」后再 SendInput。
+    // 搜索框自身需要正常粘贴，因此目标是搜索框内的 paste 不拦截。
+    document.addEventListener('paste', e => {
+      const target = e.target;
+      if (target instanceof Element && target.closest('#searchbar')) {
+        return;
+      }
+      const text = e.clipboardData && e.clipboardData.getData('text');
+      if (!text) {
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      post({ type: 'paste-intercepted', text });
+    }, true);
+
+    const encoder = new TextEncoder();
+
+    function toBase64(bytes) {
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    }
+
+    function fromBase64(text) {
+      const binary = atob(text);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    /**
+     * 向宿主投递消息。
+     *
+     * 宿主有两种：Windows 用 WebView2，macOS 用 WKWebView，二者的 JS→宿主
+     * 通道 API 完全不同——WebView2 是 window.chrome.webview.postMessage，
+     * WKWebView 是 window.webkit.messageHandlers.<name>.postMessage。
+     * 这里按可用性依次探测，页面本身不感知宿主类型。
+     *
+     * 曾经此处只认 WebView2，且用 if 静默守卫，在 WKWebView 下会**无声丢弃**
+     * 全部用户输入（Phase 0 门禁实测发现）。因此现在探测不到通道时明确告警，
+     * 而不是假装成功。
+     */
+    function post(message) {
+      const payload = JSON.stringify(message);
+
+      // WebView2（Windows）
+      if (window.chrome && window.chrome.webview &&
+          typeof window.chrome.webview.postMessage === 'function') {
+        window.chrome.webview.postMessage(payload);
+        return;
+      }
+
+      // WKWebView（macOS）：宿主注册的 message handler 名称
+      if (window.webkit && window.webkit.messageHandlers) {
+        const handler = window.webkit.messageHandlers[RF_HOST_CHANNEL] ||
+                        window.webkit.messageHandlers[Object.keys(window.webkit.messageHandlers)[0]];
+        if (handler && typeof handler.postMessage === 'function') {
+          handler.postMessage(payload);
+          return;
+        }
+      }
+
+      // 没有可用通道：不能静默吞掉，否则表现为「终端完全没反应」且无从排查。
+      if (!post.__warned) {
+        post.__warned = true;
+        console.error('[RemoteFlow] 未找到宿主消息通道，终端输入无法送达宿主。');
+      }
+    }
+
+    // 用户键入 → 转 UTF-8 字节 → 交给宿主发往远端
+    let __inputSeq = 0;
+    terminal.onData(data => {
+      post({ type: 'input', seq: ++__inputSeq, data: toBase64(encoder.encode(data)) });
+    });
+
+    // 处理 Ctrl+C 等由 xterm 直接产生的二进制序列之外的粘贴等场景
+    terminal.onBinary(data => {
+      const bytes = new Uint8Array(data.length);
+      for (let i = 0; i < data.length; i++) {
+        bytes[i] = data.charCodeAt(i) & 0xFF;
+      }
+      post({ type: 'input', data: toBase64(bytes) });
+    });
+
+    let lastCols = 0;
+    let lastRows = 0;
+
+    function reportResize() {
+      // 仅在行列数真正变化时通知，避免像素级抖动造成频繁的窗口变更请求
+      if (terminal.cols !== lastCols || terminal.rows !== lastRows) {
+        lastCols = terminal.cols;
+        lastRows = terminal.rows;
+        post({
+          type: 'resize',
+          cols: terminal.cols,
+          rows: terminal.rows,
+          width: Math.round(window.innerWidth),
+          height: Math.round(window.innerHeight)
+        });
+      }
+    }
+
+    function fit() {
+      try {
+        fitAddon.fit();
+        reportResize();
+      } catch (e) {
+        // 容器尺寸为 0（Tab 尚未显示）时 fit 会失败，属于正常情况
+      }
+    }
+
+    // 用 ResizeObserver 跟随容器尺寸，比监听 window.resize 更贴合 Tab 切换场景
+    new ResizeObserver(() => fit()).observe(document.getElementById('terminal'));
+
+    // ── 暴露给宿主（C#）调用的 API ────────────────────────────────
+    window.rfTerminal = {
+      /** 写入来自远端的原始字节（Base64）。 */
+      write(base64) {
+        terminal.write(fromBase64(base64));
+      },
+
+      /** 直接写入一行提示文本，用于显示本地状态信息。 */
+      writeLine(text) {
+        terminal.writeln(text);
+      },
+
+      /**
+       * 套用主题。name 为 'follow' 时按宿主传入的 isDark 在 dark/light 之间落地；
+       * 直接传 'dark' / 'light' / 'darkGray' / 'black' / 'navy' /
+       * 'solarizedDark' 也能命中预设表（兼容旧调用方式）。
+       */
+      setTheme(name, isDark) {
+        let themeName = name || 'dark';
+        if (themeName === 'follow') {
+          themeName = isDark ? 'dark' : 'light';
+        }
+        const theme = THEMES[themeName] || (isDark ? THEMES.dark : THEMES.light);
+        terminal.options.theme = theme;
+        document.body.style.background = theme.background;
+        document.documentElement.style.background = theme.background;
+      },
+
+      setFont(family, size) {
+        if (family) { terminal.options.fontFamily = family; }
+        if (size) { terminal.options.fontSize = size; }
+        fit();
+      },
+
+      fit,
+
+      focus() {
+        terminal.focus();
+      },
+
+      clear() {
+        terminal.clear();
+      },
+
+      /** 返回当前选中的文本，供宿主执行复制。 */
+      getSelection() {
+        return terminal.getSelection();
+      },
+
+      /** 唤出页面内的搜索浮层并聚焦输入框。 */
+      openSearch() {
+        openSearch();
+      },
+
+      /** 把剪贴板文本作为输入送往远端。 */
+      paste(text) {
+        terminal.paste(text);
+      },
+
+      getSize() {
+        return JSON.stringify({ cols: terminal.cols, rows: terminal.rows });
+      }
+    };
+
+    fit();
+    terminal.focus();
+
+    // 通知宿主：终端已就绪，可以开始建立 SSH 连接
+    post({ type: 'ready', cols: terminal.cols, rows: terminal.rows });
+  </script>
+</body>
+</html>

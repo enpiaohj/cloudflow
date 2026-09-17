@@ -1,0 +1,109 @@
+<themes:CfDialogWindow x:Class="CloudFlow.App.Views.OpenPortDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+        Title="{Binding DialogTitle}"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource Cf.DialogBackgroundBrush}"
+        TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+    <!--
+      上面这一行不是装饰：这是一个光秃秃的 Window，没有 WPF-UI 的控件主题，
+      而 TextBlock 的默认前景是**黑色**。深色主题下背景是深色的，
+      凡是没写 Foreground 的 TextBlock（本文件里的只读值框就是一例）会直接看不见。
+      TextElement.Foreground 是继承属性，在这一层设一次即可覆盖全部后代。
+    -->
+
+    <StackPanel Margin="24,20">
+
+        <!-- 标题（概念图 2 右侧面板） -->
+        <TextBlock Text="{Binding DialogTitle}" FontSize="18" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+        <TextBlock Text="{Binding SubtitleText}"
+                   Style="{StaticResource Cf.Muted}" Margin="0,4,0,14" TextWrapping="Wrap" />
+
+        <!-- Direction：入站 / 出站。切换会重建下面的"对端"选项与标签 -->
+        <TextBlock Text="方向" Style="{StaticResource Cf.Muted}" />
+        <ComboBox FontSize="13" Margin="0,4,0,10" MinHeight="34"
+                  ItemsSource="{Binding DirectionOptions}"
+                  SelectedItem="{Binding SelectedDirection}" />
+
+        <!-- Rule Name -->
+        <TextBlock Text="规则名称" Style="{StaticResource Cf.Muted}" />
+        <TextBox FontSize="13" Padding="8,6" Margin="0,4,0,0"
+                 Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}" />
+
+        <!-- Port + Protocol -->
+        <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="端口" Style="{StaticResource Cf.Muted}" />
+                <TextBox FontSize="13" Padding="8,6" Margin="0,4,0,0"
+                         Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="{Binding PortHint}" Style="{StaticResource Cf.Muted}" FontSize="11"
+                           Margin="0,3,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="协议" Style="{StaticResource Cf.Muted}" />
+                <ComboBox FontSize="13" Margin="0,4,0,0" MinHeight="34"
+                          ItemsSource="{Binding ProtocolOptions}"
+                          SelectedItem="{Binding SelectedProtocol}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Action：允许 / 拒绝。这是跟 Azure 自己"新建规则"面板对齐的最关键一项——
+             之前这里没有，新建的规则永远是 Allow。 -->
+        <TextBlock Text="操作" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <ComboBox FontSize="13" Margin="0,4,0,0" MinHeight="34"
+                  ItemsSource="{Binding ActionOptions}"
+                  SelectedItem="{Binding SelectedAction}" />
+
+        <!-- 对端：入站填来源、出站填目标。标签随方向变，不要写死"来源" -->
+        <TextBlock Text="{Binding PeerLabel}" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <!-- 只绑 Text，不绑 SelectedItem：可编辑 ComboBox 上两者同时绑定时，
+             用户手输的文本会被"匹配不上任何项 → SelectedItem=null"回写覆盖掉，
+             而本对话框恰恰要求用户在不知道对端时手填 IP/CIDR。 -->
+        <ComboBox FontSize="13" Margin="0,4,0,0" MinHeight="34" IsEditable="True"
+                  ItemsSource="{Binding PeerOptions}"
+                  Text="{Binding SelectedPeer, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Text="{Binding PeerHint}" Style="{StaticResource Cf.Muted}" FontSize="11"
+                   Margin="0,3,0,0" TextWrapping="Wrap"
+                   Visibility="{Binding PeerHint, Converter={StaticResource NonEmptyToVisibility}}" />
+
+        <!-- Priority -->
+        <TextBlock Text="优先级" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <TextBox FontSize="13" Padding="8,6" Margin="0,4,0,0" MaxWidth="140" HorizontalAlignment="Left"
+                 Text="{Binding PriorityText, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Text="数值越小优先级越高（100–4096）。"
+                   Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,3,0,0" />
+
+        <!-- Apply to -->
+        <TextBlock Text="应用到" Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" />
+        <ComboBox FontSize="13" Margin="0,4,0,0" MinHeight="34"
+                  ItemsSource="{Binding ApplyToOptions}"
+                  SelectedItem="{Binding SelectedApplyTo}" />
+        <TextBlock Text="在虚拟机的网卡 NSG 上创建规则；子网 NSG 规则会影响子网内的所有虚拟机。"
+                   Style="{StaticResource Cf.Muted}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap" />
+
+        <!-- 校验错误 / 风险提示 -->
+        <TextBlock Text="{Binding ErrorText}" FontSize="11.5" Foreground="{DynamicResource Cf.ErrorTextBrush}" Margin="0,10,0,0"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ErrorText, Converter={StaticResource NonEmptyToVisibility}}" />
+        <TextBlock Text="{Binding WarningText}"
+                   FontSize="11.5" Foreground="{DynamicResource Cf.WarningTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+
+        <!-- 按钮 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,4">
+            <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" IsCancel="True"
+                    Click="Cancel_Click" />
+            <Button Content="创建规则" Style="{StaticResource Cf.PrimaryButton}"
+                    Margin="10,0,0,0" IsDefault="True" Click="Ok_Click" />
+        </StackPanel>
+    </StackPanel>
+</themes:CfDialogWindow>

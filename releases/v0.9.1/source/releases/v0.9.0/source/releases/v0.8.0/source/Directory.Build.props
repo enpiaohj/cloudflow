@@ -1,0 +1,13 @@
+<Project>
+  <!-- 解决方案级公共属性：所有项目继承 -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.7.0</Version>
+    <Product>CloudFlow</Product>
+    <Authors>CloudFlow</Authors>
+    <!-- 不隐藏 Warning（全局开发规范 §14/15） -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+</Project>

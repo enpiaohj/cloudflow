@@ -1,0 +1,400 @@
+<UserControl x:Class="CloudFlow.App.Views.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:CloudFlow.App.Controls">
+
+    <Grid Margin="28,22,28,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="设置" Style="{StaticResource Cf.PageTitle}" />
+            <TextBlock Text="管理账户、连接凭据与应用偏好。所有更改即时生效，并仅保存在本机。"
+                       Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- ===================== 顶部分节导航 =====================
+             ListBox 而不是自制按钮条：选中态、键盘左右选择、焦点框都由 ListBox 提供。
+             横向放在标题下、内容上：设置项本身是并列的偏好分类，不是层层深入的层级，
+             顶部条能让"总共有哪几类设置"和当前所在分类同时可见（侧栏要占掉一列宽度，
+             内容区就被压窄了，而这里的卡片本来就是宽表格式布局）。
+             分隔线压在指示条下面 1px，未选中时它就是一条普通分隔线，选中时高亮段浮在上面。 -->
+        <Grid Grid.Row="1" Margin="0,16,0,0">
+            <ListBox Background="Transparent" BorderThickness="0" Padding="0"
+                     HorizontalAlignment="Left"
+                     ItemContainerStyle="{StaticResource Cf.SectionTab}"
+                     ItemsSource="{Binding Sections}"
+                     SelectedItem="{Binding SelectedSection, Mode=TwoWay}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="15" />
+                            <TextBlock Text="{Binding Title}" FontSize="13" Margin="8,0,0,0"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <Border Height="1" VerticalAlignment="Bottom"
+                    Background="{DynamicResource Cf.BorderBrush}" />
+        </Grid>
+
+        <!-- 内容区一次只显示一个分节：所有卡片都在这里，靠 SectionVisible 收起来。
+             这样每张卡片的 XAML 保持原样、只多一个 Visibility 属性，
+             比把 7 张卡片搬进 7 个 DataTemplate 再配一个模板选择器好回退得多。
+             卡片横向拉满：分节条已经横向到边，内容若收窄到 760 会在右侧留一条空白，
+             视觉上像"没画完"；设置项本身是左对齐的表格式布局，拉满不影响可读性。 -->
+        <ScrollViewer Grid.Row="2" Margin="0,20,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- ===================== 账户 ===================== -->
+                <Border Style="{StaticResource Cf.Card}" Margin="0,0,0,0"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=account}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="账户" Style="{StaticResource Cf.SectionTitle}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Style="{StaticResource Cf.PrimaryButton}" Padding="12,6" Margin="0,0,8,0"
+                                    Command="{Binding SignInCommand}"
+                                    Content="{Binding SignInButtonText}" />
+                            <Button Grid.Column="2" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6" Margin="0,0,8,0"
+                                    Command="{Binding AddPersonalAccountCommand}"
+                                    Content="添加个人 Microsoft 账户" />
+                            <!-- 原来这个按钮没有套样式，落到 WPF-UI 默认按钮上，高度、圆角都和旁边两个不一样 -->
+                            <Button Grid.Column="3" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6"
+                                    Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibility}}"
+                                    Command="{Binding SignOutCommand}"
+                                    Content="移除当前账户" />
+                        </Grid>
+                        <TextBlock Text="{Binding SignedInAs}" Style="{StaticResource Cf.Subtitle}" Margin="0,2,0,0" />
+                        <ItemsControl ItemsSource="{Binding Accounts}" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Label}" FontSize="13" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}"
+                                                Padding="10,4" FontSize="12"
+                                                Command="{Binding DataContext.RemoveAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding Account}"
+                                                Content="移除" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <controls:InlineMessageBanner Margin="0,10,0,0"
+                                                       SeverityKey="{Binding MessageSeverity}"
+                                                       Text="{Binding MessageText}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Text="登录状态仅保存在本机的 Windows 受保护存储中。工作或学校账户通过 Microsoft 登录页登录；个人 Microsoft 账户通过设备码登录，无需额外安装组件。移除账户只会清除本机缓存，不影响 Microsoft 账户本身。" />
+
+                        <!-- 登录服务：原本是独立一张卡，但它回答的是「这个账户是怎么登进来的」，
+                             和上面是一件事。拆成两张卡时用户要在两处找「我的账户信息」。 -->
+                        <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
+
+                        <TextBlock Text="登录服务" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="32" />
+                                <RowDefinition Height="32" />
+                                <RowDefinition Height="32" />
+                            </Grid.RowDefinitions>
+                            <!-- 标签与值一律垂直居中：原来标签贴行顶、徽章居中，同一行错开了几像素 -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="状态" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <!-- 显示中文、配色用英文键：本地值覆盖 Cf.Badge / Cf.BadgeText 的默认绑定 -->
+                            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Cf.Badge}"
+                                    Background="{Binding AuthStatusKey, Converter={StaticResource StatusBg}}">
+                                <TextBlock Text="{Binding AuthStatusText}" Style="{StaticResource Cf.BadgeText}"
+                                           Foreground="{Binding AuthStatusKey, Converter={StaticResource StatusFg}}" />
+                            </Border>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="应用标识" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ClientIdDisplay}" FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="登录范围" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TenantIdDisplay}" FontSize="13"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Text="应用标识是公开的客户端 ID。CloudFlow 不会保存密码、访问令牌或客户端密钥。" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Cf.Card}" Margin="0,16,0,0"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=account}">
+                    <StackPanel>
+                        <TextBlock Text="已保存的 Scope" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding SavedScopeNames}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                        <ui:SymbolIcon Symbol="Pin24" FontSize="13"
+                                                       Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                                        <TextBlock Text="{Binding}" FontSize="13" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 凭据管理 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=credentials}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="凭据管理" Style="{StaticResource Cf.SectionTitle}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}" Padding="12,6"
+                                    Command="{Binding NewCredentialCommand}" Content="新建凭据…" />
+                        </Grid>
+
+                        <!-- 空态给的是"下一步做什么"，不是"暂无数据"。
+                             里面的「新建 / 临时输入…」必须与连接框下拉首项的文案一致（CredentialUiStaticTests 断言）。 -->
+                        <controls:EmptyState Compact="True" Margin="0,18,0,12"
+                                             Symbol="Key24" Title="尚未保存凭据"
+                                             Description="可点击右上角「新建凭据…」添加，也可以在连接虚拟机时选择「新建 / 临时输入…」并勾选「存入凭据库」。"
+                                             Visibility="{Binding HasNoCredentials, Converter={StaticResource BoolToVisibility}}" />
+
+                        <ItemsControl ItemsSource="{Binding Credentials}" Margin="0,4,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <!-- 徽章显示认证方式（分类，不是评价）；配色键走英文枚举 -->
+                                                <Border Style="{StaticResource Cf.Badge}" Margin="8,0,0,0"
+                                                        Background="{Binding AuthTypeKey, Converter={StaticResource StatusBg}}">
+                                                    <TextBlock Text="{Binding AuthTypeText}"
+                                                               Style="{StaticResource Cf.BadgeText}"
+                                                               Foreground="{Binding AuthTypeKey, Converter={StaticResource StatusFg}}" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Username}" Style="{StaticResource Cf.Muted}"
+                                                       Margin="0,3,0,0" />
+                                            <!-- 只在元数据缺秘密时出现。它只说"引用键不在"，
+                                                 不代表有引用键就一定能解开 —— 那要到连接时才知道。 -->
+                                            <TextBlock Text="{Binding MissingSecretText}" FontSize="12"
+                                                       TextWrapping="Wrap" Margin="0,3,0,0"
+                                                       Foreground="{DynamicResource Cf.WarningStrongTextBrush}"
+                                                       Visibility="{Binding MissingSecretText, Converter={StaticResource NonEmptyToVisibility}}" />
+                                            <TextBlock Text="{Binding Description}" Style="{StaticResource Cf.Muted}"
+                                                       Margin="0,3,0,0" TextWrapping="Wrap"
+                                                       Visibility="{Binding Description, Converter={StaticResource NonEmptyToVisibility}}" />
+                                        </StackPanel>
+
+                                        <Button Grid.Column="1" Style="{StaticResource Cf.SecondaryButton}"
+                                                Padding="10,4" FontSize="12" VerticalAlignment="Top" Content="编辑"
+                                                Command="{Binding DataContext.EditCredentialCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Grid.Column="2" Style="{StaticResource Cf.DangerSubtleButton}"
+                                                Padding="10,4" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Top"
+                                                Content="删除"
+                                                Command="{Binding DataContext.DeleteCredentialCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <controls:InlineMessageBanner Margin="0,10,0,0"
+                                                       SeverityKey="{Binding CredentialMessageSeverity}"
+                                                       Text="{Binding CredentialMessageText}" />
+
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Text="密码与私钥使用 Windows 当前用户身份加密（DPAPI）后保存在本机，其他 Windows 账户或其他设备均无法解密。凭据不绑定主机，可在任意虚拟机的连接窗口中选用。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 外观 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=appearance}">
+                    <StackPanel>
+                        <TextBlock Text="外观" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="主题" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <!-- 裸 ComboBox + MinHeight 34：WPF-UI 的模板会给内容区留内边距，
+                                 高度给不够时选中的文字会被裁掉下半截（VirtualMachinesPage 上踩过一次） -->
+                            <ComboBox Grid.Column="1" MinHeight="34" MaxWidth="240" FontSize="13"
+                                      HorizontalAlignment="Left" Width="240"
+                                      ItemsSource="{Binding ThemeOptions}"
+                                      SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="选择「跟随系统」时，将随 Windows 的浅色 / 深色设置自动切换。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 操作与审批 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=approval}">
+                    <StackPanel>
+                        <TextBlock Text="操作与审批" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="审批策略" Style="{StaticResource Cf.Subtitle}"
+                                       VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1" MinHeight="34" FontSize="13"
+                                      HorizontalAlignment="Left" Width="240"
+                                      ItemsSource="{Binding ApprovalPolicyOptions}"
+                                      SelectedItem="{Binding SelectedApprovalPolicy, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="关闭：操作提交后直接执行。仅高危：重启、关机等高危操作需先确认。所有写操作：任何变更执行前都需确认。" />
+                        <!-- 这一条不是注释，是产品约束：共享子网 NSG 的影响面确认（设计文档 §25）与删除类操作的
+                             CannotBypass 由引擎强制，不读这个设置。界面上只说行为，不引用设计文档编号。 -->
+                        <controls:InlineMessageBanner Margin="0,10,0,0" SeverityKey="Warning"
+                                                       Text="以下确认始终启用，不受此设置影响：删除虚拟机、资源组或单个资源；以及会影响同一子网内其他虚拟机的网络安全组变更。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 列表与刷新 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=lists}">
+                    <StackPanel>
+                        <TextBlock Text="列表与刷新" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="自动刷新间隔"
+                                       Style="{StaticResource Cf.Subtitle}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="0" Grid.Column="1" MinHeight="34" FontSize="13"
+                                      HorizontalAlignment="Left" Width="240"
+                                      ItemsSource="{Binding RefreshIntervalOptions}"
+                                      SelectedItem="{Binding SelectedRefreshInterval, Mode=TwoWay}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="默认每页条数" Margin="0,10,0,0"
+                                       Style="{StaticResource Cf.Subtitle}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="1" Grid.Column="1" MinHeight="34" FontSize="13" Margin="0,10,0,0"
+                                      HorizontalAlignment="Left" Width="240"
+                                      ItemsSource="{Binding PageSizeOptions}"
+                                      SelectedItem="{Binding SelectedPageSize, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="自动刷新仅在虚拟机列表页可见时进行，切换到其他页面即暂停，以节省 Azure API 调用配额。列表页内也可临时调整每页条数。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 网络 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=network}">
+                    <StackPanel>
+                        <TextBlock Text="网络" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <ui:ToggleSwitch Content="自动查询我的公网 IP"
+                                         IsChecked="{Binding AutoDetectPublicIp, Mode=TwoWay}" />
+                        <!-- 这是应用唯一的对外请求，必须写在开关旁边而不是藏在「关于」里 -->
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="开启后，新建入站规则时 CloudFlow 会向 https://api.ipify.org 发起一次 HTTPS 请求（失败时改用 https://icanhazip.com），获取本机当前的公网出口 IP，用于一键填入「我的当前 IP」。这是本应用唯一的对外网络请求；关闭后需手动填写来源地址。" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="该地址取决于当前的网络出口（如代理或网关），网络环境变化后可能不同，并非本机的固定地址。" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 本地数据与危险区 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=local}">
+                    <StackPanel>
+                        <TextBlock Text="本地数据" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+
+                        <TextBlock Text="数据目录" Style="{StaticResource Cf.Subtitle}" />
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" CornerRadius="8" Padding="10,7"
+                                    Background="{DynamicResource Cf.PageBackgroundBrush}"
+                                    BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="1">
+                                <TextBlock Text="{Binding DataDirectory}" FontSize="12.5"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding DataDirectory}" />
+                            </Border>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Style="{StaticResource Cf.SecondaryButton}"
+                                    Padding="12,7" Content="打开目录" Command="{Binding OpenDataFolderCommand}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="此目录保存账户登录缓存、已保存的 Scope、任务历史、审计日志与设置文件（settings.json）。删除 settings.json 即可恢复默认设置。" />
+
+                        <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
+
+                        <TextBlock Text="危险区" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Cf.ErrorTextBrush}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Text="仅清除本机保存的任务历史，不影响账户登录状态、已保存的 Scope 与审计日志（audit.jsonl）。" />
+                        <Button Style="{StaticResource Cf.DangerButton}" Padding="12,7" Margin="0,10,0,0"
+                                HorizontalAlignment="Left" Content="清除本地任务历史"
+                                Command="{Binding ClearJobHistoryCommand}" />
+
+                        <controls:InlineMessageBanner Margin="0,10,0,0"
+                                                       SeverityKey="{Binding DataMessageSeverity}"
+                                                       Text="{Binding DataMessageText}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===================== 关于 ===================== -->
+                <Border Style="{StaticResource Cf.Card}"
+                        Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=about}">
+                    <StackPanel>
+                        <TextBlock Text="关于" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding AppVersion}" FontSize="13" />
+                        <!-- 披露按开关实际状态生成，不写死"不上报任何遥测"就完事 -->
+                        <TextBlock Text="{Binding NetworkDisclosure}" Style="{StaticResource Cf.Muted}"
+                                   Margin="0,8,0,0" TextWrapping="Wrap" />
+                        <!-- 原来这里还有一行"产品设计基准：docs/01-产品设计/…"，那是给开发者看的仓库路径，
+                             不该出现在用户界面上，已移除。 -->
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

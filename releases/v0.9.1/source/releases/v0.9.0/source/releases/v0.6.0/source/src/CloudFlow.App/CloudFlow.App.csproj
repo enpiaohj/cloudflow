@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>CloudFlow.App</RootNamespace>
+    <AssemblyName>CloudFlow.App</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Description>CloudFlow 桌面应用（WPF + Fluent）</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\app-icon-preview.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CloudFlow.Core\CloudFlow.Core.csproj" />
+    <ProjectReference Include="..\CloudFlow.Data\CloudFlow.Data.csproj" />
+    <ProjectReference Include="..\CloudFlow.Operations\CloudFlow.Operations.csproj" />
+    <ProjectReference Include="..\CloudFlow.Azure\CloudFlow.Azure.csproj" />
+    <ProjectReference Include="..\Modules\CloudFlow.Modules.Compute\CloudFlow.Modules.Compute.csproj" />
+    <ProjectReference Include="..\Modules\CloudFlow.Modules.Network\CloudFlow.Modules.Network.csproj" />
+    <ProjectReference Include="..\CloudFlow.Terminal\CloudFlow.Terminal.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <!-- 本机 Azure ClientId / TenantId 只能供开发调试读取；正式发布包绝不携带。 -->
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+    <None Update="appsettings.example.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

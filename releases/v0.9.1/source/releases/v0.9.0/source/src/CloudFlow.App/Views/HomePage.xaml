@@ -1,0 +1,423 @@
+<UserControl x:Class="CloudFlow.App.Views.HomePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:CloudFlow.App.Controls"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
+
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" Padding="0">
+        <!-- 宽度：不设 MaxWidth——原先限宽 1200 并居中，窗口拉宽 / 最大化时两侧留出大片空白、
+             卡片不随窗口变宽，与其它页面（列表随窗口铺满）不一致。
+             高度：外框高度跟随可视区（Height 绑 ViewportHeight），中间"最近操作 / 注意项"一行取 *：
+             窗口变高时由这两块内容区吃掉多出来的高度、显示更多条目，而不是把卡片和字号放大，
+             也不在底部留一大片空白；窗口矮于 MinHeight 时整页照常滚动。
+             边距用 Border 的 Padding 而不是 Margin：Height 不含 Margin，用 Margin 的话
+             总高 = 可视区 + 上下边距，页面会永远多出一截可滚动的空白。 -->
+        <Border Padding="28,22,28,24" MinHeight="640"
+                Height="{Binding ViewportHeight, ElementName=PageScroll}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" MinHeight="210" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- ===== 页头 ===== -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="首页" Style="{StaticResource Cf.PageTitle}" />
+                    <TextBlock Text="欢迎回来，以下是你的 Azure 环境概况。"
+                               Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
+                            HorizontalAlignment="Right">
+                    <!-- 首页整页的统计都来自 Azure，读完之后没有任何自动回读的入口，
+                         用户想再看一眼就只能切走再切回来。只放图标：这个动作不需要标签，
+                         标签只会把它和右边的日期挤在一起。 -->
+                    <Button Style="{StaticResource Cf.IconButton}" Margin="0,0,14,0"
+                            Command="{Binding RefreshCommand}"
+                            ToolTip="重新读取 Azure 环境概况"
+                            automation:AutomationProperties.Name="刷新">
+                        <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
+                    </Button>
+                    <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding TodayText}" Style="{StaticResource Cf.Subtitle}"
+                                   HorizontalAlignment="Right" />
+                        <!-- 读取中配一个持续旋转的小图标：静态的"正在读取…"看不出是在读还是卡住了，
+                             与详情页各 Tab 的加载提示同一个 Cf.SpinningIcon。 -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,3,0,0"
+                                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                            <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="12" VerticalAlignment="Center"
+                                           Style="{StaticResource Cf.SpinningIcon}"
+                                           Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                            <TextBlock Text="正在读取…" Style="{StaticResource Cf.Muted}"
+                                       VerticalAlignment="Center" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ScopeSubtitle}" Style="{StaticResource Cf.Muted}"
+                                   HorizontalAlignment="Right" Margin="0,3,0,0"
+                                   Visibility="{Binding IsLoading, Converter={StaticResource InverseBoolToVisibility}}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- ===== 指标卡 =====
+                 横向版式：标签在上、数字居中、说明在下，图标收成右上角一个小色块。
+                 原来是"大圆图标 + 数字 + 标签"竖排，一张卡 170px 高而信息只有两行，
+                 大面积留白让首屏显得空。UniformGrid 让四张卡始终等宽铺满（原 WrapPanel +
+                 固定 250 宽在宽窗口下右侧参差不齐）；外层 -6 与每张卡 6 的边距抵消，左右与下方卡片对齐。 -->
+            <UniformGrid Grid.Row="1" Columns="4" Margin="-6,20,-6,0">
+
+                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="虚拟机" Style="{StaticResource Cf.KpiLabel}" />
+                            <TextBlock Text="{Binding TotalVms}" Style="{StaticResource Cf.StatNumber}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding TotalVmsDeltaText}" Style="{StaticResource Cf.Muted}"
+                                       Foreground="{DynamicResource Cf.SuccessTextBrush}" Margin="0,2,0,0"
+                                       Visibility="{Binding TotalVmsDeltaText, Converter={StaticResource NonEmptyToVisibility}}" />
+                        </StackPanel>
+                        <!-- 概念图 1：虚拟机指标卡用主机图标（原先误用了云图标，与「计算」导航重复） -->
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                                Background="{DynamicResource Cf.Status.Info.Bg}">
+                            <ui:SymbolIcon Symbol="Desktop24" FontSize="17" Foreground="{DynamicResource Cf.PrimaryBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="运行中" Style="{StaticResource Cf.KpiLabel}" />
+                            <TextBlock Text="{Binding RunningVms}" Style="{StaticResource Cf.StatNumber}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding RunningPercent}" Style="{StaticResource Cf.Muted}" Margin="0,2,0,0"
+                                       Visibility="{Binding RunningPercent, Converter={StaticResource NonEmptyToVisibility}}" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                                Background="{DynamicResource Cf.Status.Success.Bg}">
+                            <ui:SymbolIcon Symbol="Play24" FontSize="17" Foreground="{DynamicResource Cf.SuccessTextBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="已解除分配" Style="{StaticResource Cf.KpiLabel}" />
+                            <TextBlock Text="{Binding DeallocatedVms}" Style="{StaticResource Cf.StatNumber}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding DeallocatedPercent}" Style="{StaticResource Cf.Muted}" Margin="0,2,0,0"
+                                       Visibility="{Binding DeallocatedPercent, Converter={StaticResource NonEmptyToVisibility}}" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                                Background="{DynamicResource Cf.Status.Neutral.Bg}">
+                            <ui:SymbolIcon Symbol="Power24" FontSize="17" Foreground="{DynamicResource Cf.TextSecondaryBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="需要关注" Style="{StaticResource Cf.KpiLabel}" />
+                            <TextBlock Text="{Binding NeedAttention}" Style="{StaticResource Cf.StatNumber}" Margin="0,6,0,0" />
+                            <!-- 副标题按真实注意项数量显示，无异常时用弱化色 -->
+                            <TextBlock Text="{Binding AttentionSummary}" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Cf.Muted}">
+                                        <Setter Property="Foreground" Value="{DynamicResource Cf.TextMutedBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasAttentionItems}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Cf.ErrorTextBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                                Background="{DynamicResource Cf.Status.Warning.Bg}">
+                            <ui:SymbolIcon Symbol="Warning24" FontSize="17" Foreground="{DynamicResource Cf.WarningTextBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+            </UniformGrid>
+
+            <!-- ===== 最近操作 + 注意项 =====
+                 取 * 行：窗口变高时这两块内容区跟着变高，放不下的条目在卡片内部滚动。 -->
+            <Grid Grid.Row="2" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="11*" />
+                    <ColumnDefinition Width="9*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 最近操作 -->
+                <Border Grid.Column="0" Style="{StaticResource Cf.Card}" Margin="0,0,14,0">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="最近操作" Style="{StaticResource Cf.SectionTitle}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="查看全部" Command="{Binding ViewAllJobsCommand}"
+                                    Style="{StaticResource Cf.LinkButton}" />
+                        </Grid>
+                        <Grid>
+                            <!-- 没有写操作记录时给出说明，否则空表会被误读为加载失败 -->
+                            <controls:EmptyState Compact="True" Margin="0,14,0,10" VerticalAlignment="Center"
+                                                 Symbol="History24" Title="暂无操作记录"
+                                                 Description="{Binding RecentOperationsEmptyText}"
+                                                 Visibility="{Binding HasRecentOperations, Converter={StaticResource InverseBoolToVisibility}}" />
+                            <DataGrid ItemsSource="{Binding RecentOperations}" Style="{StaticResource Cf.DataGrid}"
+                                      RowHeight="38"
+                                      Visibility="{Binding HasRecentOperations, Converter={StaticResource BoolToVisibility}}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt, StringFormat=HH:mm}"
+                                                        CanUserResize="False" />
+                                    <DataGridTextColumn Header="操作" Binding="{Binding Display}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                                <Setter Property="ToolTip" Value="{Binding Display}" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <!-- 概念图 1：显示资源名（WEB01），完整 Resource ID 会被截断且不可读 -->
+                                    <DataGridTextColumn Header="资源"
+                                                        Binding="{Binding ResourceId, Converter={StaticResource ResourceName}}"
+                                                        Width="120">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="12.5" />
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                                <Setter Property="ToolTip" Value="{Binding ResourceId}" />
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTemplateColumn Header="状态" Width="100" CanUserResize="False">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource Cf.Badge}" DataContext="{Binding Status}">
+                                                    <TextBlock Text="{Binding Converter={StaticResource StatusText}}"
+                                                               Style="{StaticResource Cf.BadgeText}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- 注意项 -->
+                <Border Grid.Column="1" Style="{StaticResource Cf.Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="注意项" Style="{StaticResource Cf.SectionTitle}"
+                                   Margin="0,4,0,10" />
+                        <Grid>
+                            <controls:EmptyState Compact="True" Margin="0,14,0,10" VerticalAlignment="Center"
+                                                 Symbol="ShieldCheckmark24" Title="暂无注意项"
+                                                 Description="{Binding AttentionEmptyText}"
+                                                 Visibility="{Binding HasAttentionItems, Converter={StaticResource InverseBoolToVisibility}}" />
+                            <!-- Auto 而不是 Disabled：卡片高度随窗口伸缩后，注意项多于放得下的条数时在卡片内滚动 -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding HasAttentionItems, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl ItemsSource="{Binding AttentionItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- 无关联 VM 的条目（如汇总类）不可点击：手型光标 + 主色标题
+                                                 会让用户以为能点进去，点了却没有反应 -->
+                                            <Grid Margin="0,7" MouseLeftButtonDown="AttentionItem_Click">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Cursor" Value="Hand" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding VmName}" Value="{x:Null}">
+                                                                <Setter Property="Cursor" Value="Arrow" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid Grid.Column="0" VerticalAlignment="Top">
+                                                    <ui:SymbolIcon FontSize="17">
+                                                        <ui:SymbolIcon.Style>
+                                                            <Style TargetType="ui:SymbolIcon">
+                                                                <Setter Property="Symbol" Value="Info24" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Error">
+                                                                        <Setter Property="Symbol" Value="ErrorCircle24" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Cf.ErrorTextBrush}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Warning">
+                                                                        <Setter Property="Symbol" Value="Warning24" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Cf.WarningTextBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ui:SymbolIcon.Style>
+                                                    </ui:SymbolIcon>
+                                                </Grid>
+                                                <StackPanel Grid.Column="1" Margin="10,0,8,0">
+                                                    <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding VmName}" Value="{x:Null}">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Cf.TextPrimaryBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Description}" FontSize="12"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Cf.TextSecondaryBrush}" Margin="0,1,0,0" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding Age}" Style="{StaticResource Cf.Muted}"
+                                                           VerticalAlignment="Top" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- ===== 成本洞察 + 快捷操作 ===== -->
+            <Grid Grid.Row="3" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1.6*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 成本洞察（设计文档 §40；正式 Cost 模块在 P3） -->
+                <Border Grid.Column="0" Style="{StaticResource Cf.Card}" Margin="0,0,14,0">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="DataUsage24" FontSize="16"
+                                           Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="成本洞察" Style="{StaticResource Cf.SectionTitle}"
+                                       Margin="8,0,0,0" />
+                        </Grid>
+                        <TextBlock Text="{Binding CostAmount}" Style="{StaticResource Cf.StatNumber}" />
+                        <TextBlock Text="{Binding CostSubtitle}" Style="{StaticResource Cf.Muted}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0" />
+                        <!-- 绿色徽章只在确有成本数据时出现；"尚未接入"这类说明用中性色，绿色会被读成正面结论 -->
+                        <Border CornerRadius="999" Padding="10,3"
+                                HorizontalAlignment="Left" Margin="0,10,0,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{DynamicResource Cf.Status.Neutral.Bg}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasCostData}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource Cf.Status.Success.Bg}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding CostDelta}" FontSize="11.5" FontWeight="SemiBold" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource Cf.TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasCostData}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Cf.SuccessTextBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- 快捷操作 -->
+                <Border Grid.Column="1" Style="{StaticResource Cf.Card}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Flash24" FontSize="16"
+                                           Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="快捷操作" Style="{StaticResource Cf.SectionTitle}"
+                                       Margin="8,0,0,0" />
+                        </Grid>
+                        <!-- 三个入口等宽铺满整张卡片（原来是三个固定 110 宽的小方块挤在左侧，
+                             右边留一大块空白，看起来像没排完）。 -->
+                        <UniformGrid Columns="3" Margin="-5,0">
+                            <Button Style="{StaticResource Cf.SecondaryButton}" Margin="5,0" Height="78" Padding="8"
+                                    Command="{Binding QuickCreateVmCommand}">
+                                <StackPanel>
+                                    <ui:SymbolIcon Symbol="Add24" FontSize="20" HorizontalAlignment="Center"
+                                                   Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                                    <TextBlock Text="创建虚拟机" FontSize="12.5" Margin="0,8,0,0"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource Cf.SecondaryButton}" Margin="5,0" Height="78" Padding="8"
+                                    Command="{Binding QuickViewAllVmsCommand}">
+                                <StackPanel>
+                                    <ui:SymbolIcon Symbol="Desktop24" FontSize="20" HorizontalAlignment="Center"
+                                                   Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                                    <TextBlock Text="查看全部虚拟机" FontSize="12.5" Margin="0,8,0,0"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource Cf.SecondaryButton}" Margin="5,0" Height="78" Padding="8"
+                                    Command="{Binding QuickOpenPortCommand}">
+                                <StackPanel>
+                                    <ui:SymbolIcon Symbol="Shield24" FontSize="20" HorizontalAlignment="Center"
+                                                   Foreground="{DynamicResource Cf.PrimaryBrush}" />
+                                    <TextBlock Text="新建入站规则…" FontSize="12.5" Margin="0,8,0,0"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+        </Border>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Description>CloudFlow 本地持久化：Saved Scopes、Audit Log、本地缓存</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CloudFlow.Core\CloudFlow.Core.csproj" />
+  </ItemGroup>
+
+</Project>
