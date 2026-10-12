@@ -2,7 +2,9 @@
 
 > CloudFlow for Microsoft Azure — 面向 Microsoft Azure 的多账号、多租户、多订阅、模块化云资源智能运维平台。
 
-![CloudFlow 首页](docs/screenshots/home.png)
+![CloudFlow v0.10.0 首页](docs/screenshots/home-v0.10.0.png)
+
+*截图为 v0.10.0 当前 WPF 界面，使用演示资源、任务和示例费用，不含真实账户或账单数据。*
 
 ## 当前状态
 
@@ -37,6 +39,16 @@
 - **统一交互与设置**：虚拟机单击选中、双击或 Enter 进入详情、右键操作当前行；浅色 / 深色与紧凑表格统一。Azure 请求超时默认 300 秒，可在设置中调整；风险类审批默认关闭，删除与共享子网影响确认始终保留。
 
 功能详细用法见 [`docs/user-guide.md`](docs/user-guide.md)。
+
+## 界面预览
+
+虚拟机列表：单击选中，双击或 Enter 打开详情；右键操作当前行，名称、状态、资源组和区域筛选集中展示。
+
+![CloudFlow v0.10.0 虚拟机列表](docs/screenshots/virtual-machines-v0.10.0.png)
+
+成本分析：独立页面提供日期范围、资源 / 资源组汇总和多条件筛选，完整查询日志可展开查看。图中金额为示例费用。
+
+![CloudFlow v0.10.0 成本分析](docs/screenshots/cost-analysis-v0.10.0.png)
 
 ## 文档
 

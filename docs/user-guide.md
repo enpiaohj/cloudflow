@@ -4,7 +4,9 @@ CloudFlow 是一个面向 Microsoft Azure 的桌面运维工具，用于管理�
 本篇介绍界面各部分的用法。安装与账户配置见 [`authentication.md`](authentication.md)；
 架构原理见 [`architecture.md`](architecture.md)。
 
-![CloudFlow 首页](screenshots/home.png)
+![CloudFlow v0.10.0 首页](screenshots/home-v0.10.0.png)
+
+本文截图使用 v0.10.0 当前界面的演示数据；资源、任务和费用均为示例，不代表真实 Azure 环境。
 
 ## 首次启动
 
@@ -52,6 +54,8 @@ CloudFlow 启动后常驻系统托盘（通知区域）：
 ### 查看与筛选
 
 列表支持按名称搜索、按状态 / 资源组 / 区域筛选。单击选中行，双击数据行或选中后按 Enter 进入详情，查看摘要、网络、磁盘、性能、活动记录。右键先选中被点击的行，再显示该行操作；复选框用于批量操作。筛选器有固定字段标签，组合条件同时生效，清除筛选可恢复全部结果。
+
+![CloudFlow v0.10.0 虚拟机列表](screenshots/virtual-machines-v0.10.0.png)
 
 ### 创建虚拟机
 
@@ -187,6 +191,8 @@ NSG 的规则变更会影响同一子网内的所有虚拟机，此类确认不�
 
 
 ## 成本分析
+
+![CloudFlow v0.10.0 成本分析（示例费用）](screenshots/cost-analysis-v0.10.0.png)
 
 左侧导航“成本分析”与首页成本卡片的“查看成本分析”均进入独立页面，沿用顶栏当前 Scope。支持本月、上月、近 7 天、近 30 天和自定义日期；日期按 UTC 日历日计算，选择后单击“查询”。首页本月合计覆盖当前 Scope 中的订阅，不同币种分别显示。
 
