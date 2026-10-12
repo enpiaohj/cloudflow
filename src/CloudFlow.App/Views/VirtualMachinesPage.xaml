@@ -1,5 +1,6 @@
 <UserControl x:Class="CloudFlow.App.Views.VirtualMachinesPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:behaviors="clr-namespace:CloudFlow.App.Behaviors"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
@@ -49,6 +50,10 @@
                     <TextBlock Text="虚拟机" Style="{StaticResource Cf.PageTitle}" />
                     <TextBlock Text="管理并监控你的 Azure 虚拟机。"
                                Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
+                    <DockPanel Margin="0,10,0,0">
+                        <Button DockPanel.Dock="Right" Content="取消读取" Command="{Binding CancelReadCommand}" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" Style="{StaticResource Cf.SecondaryButton}" Margin="10,0,0,0"/>
+                        <TextBlock Text="{Binding ReadStatus}" Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </DockPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                     <!-- 批量连接入口。放标题行是因为筛选行已经排满（766/768px），
@@ -115,37 +120,25 @@
         </Border>
 
         <!-- ===== 筛选行 ===== -->
-        <Grid Grid.Row="2" x:Name="FilterRow" Margin="0,16,0,0">
-            <Grid.ColumnDefinitions>
-                <!-- 搜索框 220：固定列宽合计（220+160+190+160+36=766）必须落在最小窗口的内容宽度
-                     （1040 - 216 侧栏 - 56 页边距 = 768）之内，否则右侧刷新按钮会被挤出可视区。
-                     VmListLayoutTests.最小窗口内筛选行必须保留刷新入口 把这条约束锁住了。 -->
-                <ColumnDefinition Width="220" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" Height="34"
-                    Background="{DynamicResource Cf.CardBrush}"
-                    BorderBrush="{DynamicResource Cf.BorderBrush}"
-                    BorderThickness="1" CornerRadius="8">
-                <ui:TextBox PlaceholderText="搜索虚拟机…"
-                            Icon="{ui:SymbolIcon Search24}"
-                            Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                            BorderThickness="0" Background="Transparent"
-                            VerticalContentAlignment="Center" FontSize="13" />
-            </Border>
-
-            <ComboBox Grid.Column="1" Width="150" Height="34" Margin="10,0,0,0"
-                      ItemsSource="{Binding StatusOptions}"
-                      SelectedItem="{Binding StatusFilter}" />
-            <ComboBox Grid.Column="2" Width="180" Height="34" Margin="10,0,0,0"
-                      ItemsSource="{Binding ResourceGroupOptions}"
-                      SelectedItem="{Binding ResourceGroupFilter}" />
-            <ComboBox Grid.Column="3" Width="150" Height="34" Margin="10,0,0,0"
+        <Border Grid.Row="2" Style="{StaticResource Cf.FilterBar}" Margin="0,16,0,0">
+<WrapPanel x:Name="FilterRow">
+<StackPanel Style="{StaticResource Cf.FilterField}">
+                <TextBlock Text="名称" Style="{StaticResource Cf.FilterLabel}"/>
+                <Border Width="220" Style="{StaticResource Cf.SearchField}">
+                <ui:TextBox PlaceholderText="搜索虚拟机…" Icon="{ui:SymbolIcon Search24}" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" Background="Transparent" FontSize="13"/>
+                </Border>
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}">
+                <TextBlock Text="状态" Style="{StaticResource Cf.FilterLabel}"/>
+                <ComboBox Width="150" Height="34" Margin="0" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" ToolTip="按状态筛选" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}">
+                <TextBlock Text="资源组" Style="{StaticResource Cf.FilterLabel}"/>
+                <ComboBox Width="160" Height="34" Margin="0" ItemsSource="{Binding ResourceGroupOptions}" SelectedItem="{Binding ResourceGroupFilter}" ToolTip="按资源组筛选" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}">
+                <TextBlock Text="区域" Style="{StaticResource Cf.FilterLabel}"/>
+                <ComboBox Width="140" Height="34" Margin="0"
                       ItemsSource="{Binding RegionOptions}"
                       SelectedItem="{Binding RegionFilter}">
                 <!-- 只换显示：选中项仍是区域代码，筛选逻辑不变；"全部区域"原样通过转换器 -->
@@ -155,16 +148,19 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-
-            <Button Grid.Column="5" Style="{StaticResource Cf.IconButton}"
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterActions}">
+                <Button Style="{StaticResource Cf.IconButton}"
                     Command="{Binding RefreshCommand}"
                     ToolTip="重新查询虚拟机列表">
                 <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
             </Button>
-        </Grid>
+                </StackPanel>
+                </WrapPanel>
+        </Border>
 
         <!-- ===== VM 列表 ===== -->
-        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,14,0,0">
+        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="0" Margin="0,14,0,0">
             <Grid>
                 <!-- 整行右键同样打开行操作菜单（桌面表格的常规操作方式）。ContextMenu 通过
                      LoadingRow 在代码里逐行赋值，不用 DataGrid.RowStyle 的 Setter——真实踩过的
@@ -172,13 +168,13 @@
                      StaticResource 只在 Style 生成时解析一次，所有行会拿到同一个 ContextMenu
                      实例；这个应用默认开着行虚拟化，问题出现得没那么频繁/明显，但同一份代码
                      模式必然有同样的坑，一并改成 LoadingRow。 -->
-                <DataGrid x:Name="VmsGrid"
+                <DataGrid x:Name="VmsGrid" behaviors:RowSelectionBehavior.SelectOnRightClick="True"
                           ItemsSource="{Binding PageItems}"
                           Style="{StaticResource Cf.DataGrid}"
-                          RowHeight="48"
+                          RowHeight="{DynamicResource Cf.TableRowHeight}"
                           SelectionMode="Single"
                           HorizontalScrollBarVisibility="Auto"
-                          PreviewMouseLeftButtonUp="VmsGrid_PreviewMouseLeftButtonUp"
+                          PreviewKeyDown="VmsGrid_PreviewKeyDown"
                           MouseDoubleClick="VmsGrid_MouseDoubleClick"
                           LoadingRow="VmsGrid_LoadingRow">
                     <DataGrid.Columns>
@@ -249,7 +245,7 @@
                         <!-- 概念图 1：名称单元格为两行（资源名 + 计算机名），比单行加宽列更省横向空间。
                              可伸缩的列一律用星号宽度：窗口宽度变化时由 WPF 分配，避免定宽相加超出视口
                              把最右侧的操作列挤出可视区（原先就是这样被裁掉的）。 -->
-                        <DataGridTemplateColumn Header="名称" Width="1.2*" MinWidth="124">
+                        <DataGridTemplateColumn Header="名称" Width="1.6*" MinWidth="180">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
@@ -259,7 +255,7 @@
                                                         Focusable="False" VerticalAlignment="Center"
                                                         Margin="0,0,8,0" />
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding Name}"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Name}"
                                                        Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
@@ -331,7 +327,7 @@
                         </DataGridTemplateColumn>
                         <!-- 第二行是内存总量。列宽在 1180 初始窗口下不足以再开一列而不截断
                              现有各列，故并入本单元格（与「资源组 / 订阅」同样的两行处理）。 -->
-                        <DataGridTemplateColumn Header="大小 / 内存" Width="1.4*" MinWidth="128">
+                        <DataGridTemplateColumn Header="规格 / 内存" Width="1.3*" MinWidth="128">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,6,0">
@@ -347,7 +343,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- 多订阅场景下订阅必须可见，但独立成列会挤掉操作列 —— 并入资源组单元格第二行 -->
-                        <DataGridTemplateColumn Header="资源组" Width="0.85*" MinWidth="88">
+                        <DataGridTemplateColumn Header="资源组" Width="1.1*" MinWidth="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,6,0">
@@ -363,7 +359,7 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="区域" Width="1.0*" MinWidth="96">
+                        <DataGridTemplateColumn Header="区域" Width="0.7*" MinWidth="96">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Region, Converter={StaticResource RegionName}}" FontSize="12.5"
@@ -397,17 +393,9 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- Loading 骨架：三行占位条 + 呼吸动画，比"加载中…"文字更有位置感。
-                     骨架色取 Cf.BorderBrush，深浅主题自适应；纯 XAML 动画（Style.EventTrigger）。 -->
-                <Border Background="{DynamicResource Cf.LoadingScrimBrush}"
-                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
-                    <!-- 占位条样式与资源页共用（Cf.SkeletonBar），三个列表页的加载态长得一样 -->
-                    <StackPanel Margin="24,18" VerticalAlignment="Center">
-                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="420" />
-                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="360" Margin="0,10,0,0" />
-                        <Rectangle Style="{StaticResource Cf.SkeletonBar}" Width="300" Margin="0,10,0,0" />
-                    </StackPanel>
-                </Border>
+                <ProgressBar Height="3" IsIndeterminate="True" VerticalAlignment="Top" IsHitTestVisible="False"
+                             Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}"/>
+
             </Grid>
         </Border>
 

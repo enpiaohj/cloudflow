@@ -35,7 +35,7 @@ public sealed class ArmVmDetailService(
     private const string ArgEndpoint =
         "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01";
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     /// <summary>
     /// 按目标 VM 反查自动关闭计划。别名不能用 <c>time</c>（KQL 保留字，实测报

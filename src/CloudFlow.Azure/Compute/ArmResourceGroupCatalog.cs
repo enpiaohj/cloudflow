@@ -19,7 +19,7 @@ public sealed class ArmResourceGroupCatalog : IResourceGroupCatalog
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(10);
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private readonly ArmAccessTokenProvider _tokenProvider;
     private readonly ILogger<ArmResourceGroupCatalog> _logger;

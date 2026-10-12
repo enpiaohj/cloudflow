@@ -18,17 +18,17 @@
     <!-- ===== 主色与表面 ===== -->
     <SolidColorBrush x:Key="Cf.PrimaryBrush" Color="#FF0F6CBD" />
     <SolidColorBrush x:Key="Cf.PrimaryHoverBrush" Color="#FF115EA3" />
-    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FFF6F8FB" />
+    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FFF3F5F8" />
     <SolidColorBrush x:Key="Cf.TopBarBrush" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="Cf.CardBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FFFBFCFE" />
+    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FFF9FAFC" />
     <SolidColorBrush x:Key="Cf.DialogBackgroundBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FFE3E8F0" />
+    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FFDEE4EC" />
 
     <!-- ===== 文本 ===== -->
-    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FF1B1F2A" />
-    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FF5B6472" />
-    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF8A93A2" />
+    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FF1D2939" />
+    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FF475569" />
+    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF59697D" />
 
     <!-- 主色实底上的文字（PrimaryButton / DangerButton 的内容） -->
     <SolidColorBrush x:Key="Cf.OnPrimaryTextBrush" Color="#FFFFFFFF" />
@@ -41,9 +41,9 @@
     <SolidColorBrush x:Key="Cf.WarningStrongTextBrush" Color="#FF8A4B00" />
 
     <!-- ===== 行状态 ===== -->
-    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FFF0F2F6" />
-    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FFF3F7FC" />
-    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FFEAF2FB" />
+    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FFEDF0F5" />
+    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FFF1F5FA" />
+    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FFE5EFFB" />
 
     <!-- ===== 危险动作按钮 ===== -->
     <SolidColorBrush x:Key="Cf.DangerBrush" Color="#FFC13438" />
@@ -81,4 +81,10 @@
     <SolidColorBrush x:Key="Cf.OsIconStandBrush" Color="#FFB6BEC9" />
     <SolidColorBrush x:Key="Cf.OsIconMarkBrush" Color="#FFCFE7FF" />
 
+
+    <!-- 输入、表头与遮罩表面 -->
+    <SolidColorBrush x:Key="Cf.InputBackgroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Cf.InputBorderBrush" Color="#FFC7D0DD" />
+    <SolidColorBrush x:Key="Cf.TableHeaderBrush" Color="#FFF7F9FC" />
+    <SolidColorBrush x:Key="Cf.OverlayBrush" Color="#66101B2B" />
 </ResourceDictionary>

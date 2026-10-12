@@ -21,7 +21,7 @@ public sealed class AzureRetailVmPriceCatalog : IVmPriceCatalog
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private readonly ILogger<AzureRetailVmPriceCatalog> _logger;
     private readonly ConcurrentDictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);

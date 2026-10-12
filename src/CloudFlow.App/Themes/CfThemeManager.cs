@@ -34,6 +34,11 @@ namespace CloudFlow.App.Themes;
 /// </summary>
 public static class CfThemeManager
 {
+    public static void ApplyTableDensity(bool compact)
+    {
+        if (Application.Current is { } app)
+            app.Resources["Cf.TableRowHeight"] = compact ? 36d : 44d;
+    }
     private static readonly Uri LightPaletteUri =
         new("pack://application:,,,/CloudFlow.App;component/Themes/CfPalette.Light.xaml", UriKind.Absolute);
 

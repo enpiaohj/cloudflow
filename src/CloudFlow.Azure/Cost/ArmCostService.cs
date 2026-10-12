@@ -18,7 +18,7 @@ namespace CloudFlow.Azure.Cost;
 /// 退避后仍拿不到就返回失败原因，由 UI 显示 "—" 与原因 —— 成本卡片显示 0 或旧数字
 /// 都会被当成当前账单。
 /// </summary>
-public sealed class ArmCostService(
+public sealed partial class ArmCostService(
     ArmAccessTokenProvider tokenProvider,
     ScopeContext scopeContext,
     ILogger<ArmCostService> logger) : ICostService
@@ -28,7 +28,7 @@ public sealed class ArmCostService(
     /// <summary>429 的退避节奏（秒）。Cost Management 的限流窗口以分钟计，退避需要够长才有意义。</summary>
     private static readonly int[] RetryDelaysSeconds = [5, 20, 45];
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     public async Task<(CostSummary? Summary, string? FailureReason)> GetMonthToDateAsync(
         string subscriptionId, CancellationToken ct = default)
@@ -58,7 +58,7 @@ public sealed class ArmCostService(
 
             for (var attempt = 0; ; attempt++)
             {
-                var response = await SendAsync(url, token, body, ct).ConfigureAwait(false);
+                using var response = await SendAsync(url, token, body, ct).ConfigureAwait(false);
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -153,15 +153,14 @@ public sealed class ArmCostService(
         }
 
         var costElement = cells[costIndex];
-        var amount = costElement.ValueKind == JsonValueKind.Number
-            ? costElement.GetDecimal()
-            : decimal.TryParse(costElement.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
-                ? parsed
-                : 0m;
-
-        var currency = currencyIndex >= 0 && currencyIndex < cells.Count
-            ? cells[currencyIndex].GetString() ?? "USD"
-            : "USD";
+        decimal amount;
+        if (costElement.ValueKind == JsonValueKind.Number)
+        { if (!costElement.TryGetDecimal(out amount)) return null; }
+        else if (costElement.ValueKind != JsonValueKind.String ||
+            !decimal.TryParse(costElement.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out amount)) return null;
+        var currency = currencyIndex >= 0 && currencyIndex < cells.Count && cells[currencyIndex].ValueKind == JsonValueKind.String
+            ? cells[currencyIndex].GetString() : null;
+        if (string.IsNullOrWhiteSpace(currency)) return null;
 
         return new CostSummary
         {

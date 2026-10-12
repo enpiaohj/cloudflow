@@ -11,7 +11,11 @@ public interface IShellNavigation
 
     void NavigateVirtualMachines(string? filter = null);
 
+    void NavigateVmSummary(string status);
+
     void NavigateToVmDetail(VmSummary vm);
 
     void NavigateJobs();
+
+    void NavigateCostAnalysis();
 }

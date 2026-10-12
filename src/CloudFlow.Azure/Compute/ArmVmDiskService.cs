@@ -36,7 +36,7 @@ public sealed class ArmVmDiskService : IVmDiskService
                   sourceDiskId = tostring(properties.creationData.sourceResourceId)
         """;
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private readonly IAzureClientFactory _clientFactory;
     private readonly ArmAccessTokenProvider _tokenProvider;

@@ -20,6 +20,10 @@ public interface IVmNetworkRuleExecutor
     Task<string?> ChangePortAsync(
         OperationRequest request, string nsgId, string ruleName, int newPort, CancellationToken ct = default);
 
+    /// <summary>只修改优先级，其他规则字段沿用当前值。</summary>
+    Task<string?> ChangePriorityAsync(
+        OperationRequest request, string nsgId, string ruleName, int newPriority, CancellationToken ct = default);
+
     /// <summary>删除规则。</summary>
     Task<string?> DeleteRuleAsync(
         OperationRequest request, string nsgId, string ruleName, CancellationToken ct = default);

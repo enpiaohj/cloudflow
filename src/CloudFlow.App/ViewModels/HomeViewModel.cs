@@ -130,6 +130,7 @@ public partial class HomeViewModel : ObservableObject
     /// 而不是并发跑两次互相覆盖对方还没写完的统计数字。
     /// </summary>
     private Task? _refreshInFlight;
+    private bool _refreshPending;
 
     public HomeViewModel(
         IVmInventoryService inventory,
@@ -166,7 +167,11 @@ public partial class HomeViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            await RefreshDataAsync();
+            do
+            {
+                _refreshPending = false;
+                await RefreshDataAsync();
+            } while (_refreshPending);
         }
         finally
         {
@@ -177,7 +182,9 @@ public partial class HomeViewModel : ObservableObject
     private async Task RefreshDataAsync()
     {
         var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
         var vms = await _inventory.QueryAsync(scope);
+        if (!ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
 
         TotalVms = vms.Count;
         RunningVms = vms.Count(vm => vm.PowerState == VmPowerState.Running);
@@ -220,34 +227,19 @@ public partial class HomeViewModel : ObservableObject
             HasCostData = false;
         }
 
-        var subscriptionId = _scopeContext.CurrentScope.SubscriptionIds.FirstOrDefault()
-            ?? _scopeContext.AvailableSubscriptions.FirstOrDefault()?.SubscriptionId
-            ?? "";
-
-        var (summary, failureReason) = await _costService.GetMonthToDateAsync(subscriptionId);
-
-        if (summary is null)
-        {
-            CostAmount = "—";
-            CostSubtitle = "本月成本";
-            CostDelta = failureReason ?? "成本数据不可用。";
-            HasCostData = false;
-            return;
-        }
-
-        CostAmount = FormatAmount(summary);
-        CostSubtitle = $"本月成本（{summary.PeriodText}）";
-        CostDelta = $"数据时间 {summary.RetrievedAt:HH:mm}";
-        HasCostData = true;
+        var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var report = await _costService.GetCostsAsync(scope.Clone(), new(today.Year, today.Month, 1), today, false);
+        if (!ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+        CostAmount = report.Rows.Count == 0 && report.Failures.Count > 0 ? "—" : report.TotalText;
+        CostSubtitle = report.Failures.Count > 0 && report.Rows.Count > 0 ? "本月至今 · 部分订阅合计" : "本月至今（UTC）";
+        CostDelta = report.Failures.Count > 0 ? string.Join("\n", report.Failures) : $"数据时间 {report.RetrievedAt:HH:mm} · 实际成本";
+        HasCostData = report.Rows.Count > 0 && report.Failures.Count == 0;
     }
 
-    /// <summary>按币种格式化：金额与币种分开保存，显示时才拼，避免各处硬编码 "$"。</summary>
-    private static string FormatAmount(CostSummary summary) => summary.Currency switch
-    {
-        "USD" => $"${summary.Amount:N2}",
-        "CNY" => $"¥{summary.Amount:N2}",
-        _ => $"{summary.Amount:N2} {summary.Currency}"
-    };
+    [RelayCommand]
+    private void ViewCostInsights() => _navigation.NavigateCostAnalysis();
 
     /// <summary>
     /// 注意项。
@@ -393,7 +385,11 @@ public partial class HomeViewModel : ObservableObject
 
     private void OnScopeChanged(object? sender, EventArgs e)
     {
-        Application.Current?.Dispatcher.BeginInvoke(async () => await RefreshAsync());
+        Application.Current?.Dispatcher.BeginInvoke(async () =>
+        {
+            _refreshPending = true;
+            await RefreshAsync();
+        });
     }
 
     [RelayCommand]
@@ -405,6 +401,9 @@ public partial class HomeViewModel : ObservableObject
         }
         _navigation.NavigateVirtualMachines(item.VmName);
     }
+
+    [RelayCommand]
+    private void ViewVmSummary(string status) => _navigation.NavigateVmSummary(status);
 
     [RelayCommand]
     private void ViewAllJobs() => _navigation.NavigateJobs();

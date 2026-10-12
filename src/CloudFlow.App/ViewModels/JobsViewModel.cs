@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
@@ -42,7 +42,8 @@ public partial class JobsViewModel : ObservableObject
         ["等待审批"] = "WaitingApproval",
         ["执行中"] = "Running",
         ["成功"] = "Succeeded",
-        ["失败"] = "Failed"
+        ["失败"] = "Failed",
+        ["已取消"] = "Canceled"
     };
 
     private readonly IJobStore _jobStore;
@@ -96,7 +97,14 @@ public partial class JobsViewModel : ObservableObject
         }
 
         // §25：先把影响面摆给用户，由用户决定继续还是取消 —— 与详情页的内联审批同一套对话框
-        var dialog = new Views.ImpactApprovalDialog(row.Job)
+        var dialog = new Views.ImpactApprovalDialog(row.Job, async (progress, ct) =>
+        {
+            var completed = await ApprovalJobRunner.RunAsync(_engine, row.Job.JobId, progress, ct);
+            ApplyFilter();
+            return completed.Status == JobStatus.Succeeded
+                ? Views.ApprovalSubmitOutcome.Ok()
+                : Views.ApprovalSubmitOutcome.Failed(JobPresentation.Feedback(completed), _engine.CanApprove(completed.JobId));
+        })
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };
@@ -105,7 +113,6 @@ public partial class JobsViewModel : ObservableObject
             return;
         }
 
-        await _engine.ApproveAsync(row.Job.JobId);
         ApplyFilter();
     }
 
@@ -144,7 +151,9 @@ public partial class JobsViewModel : ObservableObject
 
         if (StatusFilter != "全部" && StatusFilterMap.TryGetValue(StatusFilter, out var key))
         {
-            query = query.Where(j => j.Status.ToString() == key);
+            query = key == "Running"
+                ? query.Where(j => j.Status is JobStatus.Pending or JobStatus.Validating or JobStatus.AnalyzingImpact or JobStatus.Running or JobStatus.WaitingAzure or JobStatus.Verifying)
+                : query.Where(j => j.Status.ToString() == key);
         }
 
         Jobs = [.. query.Select(job => new JobRow(job, _engine.CanApprove(job.JobId)))];

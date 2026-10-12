@@ -6,14 +6,14 @@
 
 ## 当前状态
 
-当前版本：**v0.9.1**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口、系统托盘图标（开机启动 / 关闭到通知区域）、NSG 规则 Allow/Deny 创建。
+当前版本：**v0.10.0**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口、系统托盘图标（开机启动 / 关闭到通知区域）、NSG 规则 Allow/Deny 创建与优先级编辑、独立成本分析。
 
 - 变更记录：根目录 `CHANGELOG.md`；每个版本的完整记录见 `releases/vX.Y.Z/CHANGELOG.md`
 - 许可证：[GPL-3.0](LICENSE)；随源码分发的第三方组件见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
 ## 功能
 
-- **多账号 / 多租户 / 多订阅**：工作或学校账户（MSAL 设备码流程）与个人 Microsoft 账户
+- **多账号 / 多租户 / 多订阅**：工作或学校账户（MSAL 系统浏览器登录）与个人 Microsoft 账户
   （嵌入式 Azure CLI 设备码流程，首次使用自动下载 Runtime）可同时登录多个，顶栏随时切换；
   顶栏 **Scope 选择器**可以圈定单个订阅，也可以是"所有订阅"的汇总视图。
 - **虚拟机全生命周期运维**：两步向导创建（镜像 / 规格自动按 vCPU、内存、Hyper-V 世代匹配
@@ -32,7 +32,9 @@
   顶栏"任务进行中"徽标随时显示后台任务进度。
 - **应用内 SSH 终端**：虚拟机详情页/列表页直接发起连接，底部面板支持多标签会话；连接凭据
   用本机 DPAPI 加密保存；主机指纹两段式校验（首次记录需确认、变化时强提示，不静默接受）。
-- **成本洞察**：已登录真实账户时，首页展示当前 Scope 的实际 Azure 账单数据。
+- **成本分析**：首页展示当前 Scope 本月实际费用；独立页面支持日期范围、资源 / 资源组 / 订阅筛选和按资源或资源组汇总。不同币种分别统计，部分订阅失败如实提示，不用零值冒充查询成功。
+- **性能与操作详情**：性能页读取 Azure Monitor 平台指标并区分零值与缺失数据；首页最近操作、任务中心和进行中任务可查看完整结果及审计记录。
+- **统一交互与设置**：虚拟机单击选中、双击或 Enter 进入详情、右键操作当前行；浅色 / 深色与紧凑表格统一。Azure 请求超时默认 300 秒，可在设置中调整；风险类审批默认关闭，删除与共享子网影响确认始终保留。
 
 功能详细用法见 [`docs/user-guide.md`](docs/user-guide.md)。
 
@@ -59,6 +61,12 @@
 | 写操作 | 统一 Operation Engine（Validate → Impact → Permission → Execute → Verify → Audit） |
 
 详见 [`docs/architecture.md`](docs/architecture.md)。
+
+## 下载与升级
+
+正式 Windows x64 产物见 [CloudFlow v0.10.0](https://github.com/enpiaohj/cloudflow/releases/tag/v0.10.0)：
+`CloudFlow-v0.10.0-win-x64.exe` 或同名 ZIP。应用自包含 .NET 运行时，支持 Windows 10 19041 或更新版本；SSH 终端需要 WebView2 Runtime。
+退出旧版后运行新版，原有本地账户、任务、SSH 凭据与设置保留；已设置的审批策略不会被覆盖。初次使用沿用未登录 Demo 模式。完整安装和验证限制见 [本版变更记录](releases/v0.10.0/CHANGELOG.md)。
 
 ## 快速开始
 

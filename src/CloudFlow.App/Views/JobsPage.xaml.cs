@@ -8,4 +8,6 @@ public partial class JobsPage : UserControl
     {
         InitializeComponent();
     }
+    private void JobDetails_Click(object sender, System.Windows.RoutedEventArgs e) =>
+        Behaviors.JobDetailsBehavior.DetailsClick(sender, e);
 }

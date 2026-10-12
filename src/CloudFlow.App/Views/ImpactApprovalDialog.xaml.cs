@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using CloudFlow.App.Themes;
 using CloudFlow.Core.Operations;
 
@@ -13,6 +13,8 @@ namespace CloudFlow.App.Views;
 /// </summary>
 public partial class ImpactApprovalDialog : CfDialogWindow
 {
+    private bool _isSubmitting;
+    private bool _canRetry = true;
     private readonly Func<Action<string>, CancellationToken, Task<ApprovalSubmitOutcome>>? _submitAsync;
 
     /// <summary>非空时要求的确认文本（删除资源组 / 单个资源要求输入名称本身，批量删除要求输入
@@ -67,6 +69,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
         CancelHint = "选择「取消」不会执行任何变更，该任务会保留在任务中心的待审批状态。";
 
         InitializeComponent();
+        Closing += (_, e) => { if (_isSubmitting) e.Cancel = true; };
         DataContext = this;
         ContinueButton.IsEnabled = !RequiresConfirmText;
     }
@@ -114,6 +117,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
         CancelHint = $"选择「取消」不会执行任何变更，本次提交的 {jobs.Count} 个待审批任务会一并作废。";
 
         InitializeComponent();
+        Closing += (_, e) => { if (_isSubmitting) e.Cancel = true; };
         DataContext = this;
         ContinueButton.IsEnabled = !RequiresConfirmText;
     }
@@ -125,7 +129,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
 
     private void ConfirmTextBox_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
-        ContinueButton.IsEnabled = string.Equals(ConfirmTextBox.Text, _confirmText, StringComparison.Ordinal);
+        ContinueButton.IsEnabled = !_isSubmitting && _canRetry && string.Equals(ConfirmTextBox.Text, _confirmText, StringComparison.Ordinal);
     }
 
     /// <summary>只复制到剪贴板，不直接填框——粘贴仍是用户的主动动作，不是"一键绕过确认"。</summary>
@@ -139,6 +143,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
 
     private async void Continue_Click(object sender, RoutedEventArgs e)
     {
+        if (_isSubmitting || !_canRetry) return;
         if (RequiresConfirmText &&
             !string.Equals(ConfirmTextBox.Text, _confirmText, StringComparison.Ordinal))
         {
@@ -157,11 +162,21 @@ public partial class ImpactApprovalDialog : CfDialogWindow
             var outcome = await _submitAsync(note => SubmittingText.Text = note, CancellationToken.None);
             if (outcome.Success)
             {
+                SetSubmitting(false, "");
                 DialogResult = true;
                 return;
             }
 
+            _canRetry = outcome.CanRetry;
+            if (!_canRetry) { CancelButton.Content = "关闭"; ContinueButton.Content = "执行已结束"; }
             ShowError(outcome.ErrorMessage ?? "执行失败，原因未知。");
+        }
+        catch (Exception ex)
+        {
+            _canRetry = false;
+            CancelButton.Content = "关闭";
+            ContinueButton.Content = "请核对任务结果";
+            ShowError($"{ex.Message}\n请关闭窗口，在任务中心核对执行结果后再操作。");
         }
         finally
         {
@@ -173,6 +188,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
 
     private void SetSubmitting(bool submitting, string text)
     {
+        _isSubmitting = submitting;
         SubmittingBar.Visibility = submitting ? Visibility.Visible : Visibility.Collapsed;
         SubmittingPanel.Visibility = submitting ? Visibility.Visible : Visibility.Collapsed;
         SubmittingText.Text = text;
@@ -182,7 +198,7 @@ public partial class ImpactApprovalDialog : CfDialogWindow
         }
 
         CancelButton.IsEnabled = !submitting;
-        ContinueButton.IsEnabled = !submitting;
+        ContinueButton.IsEnabled = !submitting && _canRetry && (!RequiresConfirmText || string.Equals(ConfirmTextBox.Text, _confirmText, StringComparison.Ordinal));
     }
 
     private void ShowError(string message)
@@ -193,8 +209,8 @@ public partial class ImpactApprovalDialog : CfDialogWindow
 }
 
 /// <summary>见 <see cref="ImpactApprovalDialog"/> 的 <c>submitAsync</c> 回调返回类型。</summary>
-public sealed record ApprovalSubmitOutcome(bool Success, string? ErrorMessage)
+public sealed record ApprovalSubmitOutcome(bool Success, string? ErrorMessage, bool CanRetry = true)
 {
     public static ApprovalSubmitOutcome Ok() => new(true, null);
-    public static ApprovalSubmitOutcome Failed(string message) => new(false, message);
+    public static ApprovalSubmitOutcome Failed(string message, bool canRetry = true) => new(false, message, canRetry);
 }

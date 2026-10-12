@@ -25,13 +25,17 @@ public sealed record AppSettings
 
     /// <summary>每页条数。</summary>
     public static readonly IReadOnlyList<int> SupportedPageSizes = [10, 25, 50, 100];
+    public static readonly IReadOnlyList<int> SupportedAzureRequestTimeoutSeconds = [60, 120, 180, 300, 600, 900];
+
+    public int AzureRequestTimeoutSeconds { get; init; } = 300;
 
     public static readonly AppSettings Default = new();
 
     public AppThemeKind Theme { get; init; } = AppThemeKind.System;
+    public bool CompactTables { get; init; }
 
-    /// <summary>审批策略。默认「仅高危」，即本设置存在之前的行为。</summary>
-    public ApprovalPolicy ApprovalPolicy { get; init; } = ApprovalPolicy.HighRiskOnly;
+    /// <summary>审批策略。默认关闭风险类审批；强制影响确认由引擎保留。</summary>
+    public ApprovalPolicy ApprovalPolicy { get; init; } = ApprovalPolicy.Off;
 
     public int AutoRefreshSeconds { get; init; }
 
@@ -56,7 +60,8 @@ public sealed record AppSettings
     public AppSettings Normalize() => new()
     {
         Theme = Enum.IsDefined(Theme) ? Theme : AppThemeKind.System,
-        ApprovalPolicy = Enum.IsDefined(ApprovalPolicy) ? ApprovalPolicy : ApprovalPolicy.HighRiskOnly,
+        CompactTables = CompactTables,
+        ApprovalPolicy = Enum.IsDefined(ApprovalPolicy) ? ApprovalPolicy : ApprovalPolicy.Off,
 
         // 刷新间隔回退到 0（关闭）而不是某个正值：一个无法在下拉框里表示的间隔，
         // 下次保存时必然被改写，与其让用户看着一个"设了但没生效"的数，
@@ -67,6 +72,8 @@ public sealed record AppSettings
 
         DefaultPageSize = SupportedPageSizes.Contains(DefaultPageSize) ? DefaultPageSize : 10,
         AutoDetectPublicIp = AutoDetectPublicIp,
+        AzureRequestTimeoutSeconds = SupportedAzureRequestTimeoutSeconds.Contains(AzureRequestTimeoutSeconds)
+            ? AzureRequestTimeoutSeconds : 300,
         MinimizeToTrayOnClose = MinimizeToTrayOnClose
     };
 }

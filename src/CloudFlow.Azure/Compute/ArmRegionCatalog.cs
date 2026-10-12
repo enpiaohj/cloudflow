@@ -21,7 +21,7 @@ public sealed class ArmRegionCatalog : IRegionCatalog
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(6);
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private readonly ArmAccessTokenProvider _tokenProvider;
     private readonly ILogger<ArmRegionCatalog> _logger;

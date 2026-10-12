@@ -110,6 +110,17 @@ tools/CloudFlow.Spike      # 独立于主应用的技术验证控制台（不随
 | 终端 | WebView2 + xterm.js（应用级底部面板，多标签 SSH 会话） |
 | 本地存储 | 纯文件（JSON），无数据库依赖 |
 
+## v0.10.0 查询、审批与页面生命周期
+
+- `AzureHttpClients` 统一管理 Azure HTTP 超时，`AzureClientFactory` 为 ARM SDK 配置 HTTP transport。应用设置保存后作用于后续客户端 / 请求；每个请求固定原超时，避免运行中修改共享 HttpClient 属性。
+- `LatestRead` 通过取消与请求代次保护读操作。虚拟机详情按摘要、网络、磁盘、性能报告结果；取消读取不等于取消写操作。页面退出、Scope / 账户改变时取消旧读取，迟到响应不得覆盖新上下文。
+- `ApprovalPolicy` 默认 `Off`，既有配置保留。`CannotBypass` 影响确认独立于风险审批档位；`ApprovalJobRunner` 承接编辑面板提交与审批生命周期，关闭待审批面板取消本次 Job，执行中防止关闭和重复提交。
+- NSG 新建与优先级编辑均经 Handler → Executor → Verify。建议优先级按 10 递增并检查同方向占用，ARM 执行前重新校验；并发竞争仍由 Azure 最终拒绝。优先级编辑保留规则其余字段。
+- Job 详情通过 `JobDetailsBehavior` 共用只读入口，`AuditRecord` 关联 Job；详情只读取对应任务审计，运行中更新采用短暂合并，离开后释放订阅。旧审计记录缺少 Job 关联时不冒充当前任务记录。
+- `IShellNavigation.NavigateCostAnalysis` 进入 Shell 中的 `CostAnalysisViewModel` / `CostAnalysisPage`。ViewModel 保存本次应用运行期间的日期与汇总方式，页面 Loaded / Unloaded 负责订阅和取消，不持久化费用缓存。
+- `ArmCostService` 使用 Cost Management ActualCost 自定义日期查询，固定订阅认证上下文，校验分页地址，限流时有界重试。订阅完整查询成功才合并，分页失败不计入部分结果；费用用 `decimal`，按币种隔离，保留负数、零值与未关联资源费用。资源组汇总在本地执行，按订阅 / 资源组 / 币种分组，不新增请求。
+- 性能通过 `ArmVmMetricsService` 读取 Azure Monitor；面板区分数据缺失与真实零值，展示采样范围。磁盘百分比衡量规格限额消耗，不能用作空间占用。
+
 ## 延伸阅读
 
 - [`user-guide.md`](user-guide.md) —— 面向使用者的操作手册

@@ -7,7 +7,7 @@
 - **默认分支**：`main`
 - **可见性**：Public（2026-09-17 经 Secret/License/第三方授权/客户数据/Git 历史完整审计后由用户决定转 Public；转 Public 前置条件检查清单见全局规则 github-repository.md）
 - **License**：GPL-3.0（根目录 `LICENSE`）；随源码分发的第三方组件（xterm.js 等）见 `THIRD-PARTY-NOTICES.md`
-- **版本**：Semantic Versioning，当前 `0.9.1`（Tag `v0.9.1`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`、`v0.5.0`、`v0.5.1`、`v0.6.0`、`v0.6.1`、`v0.6.2`、`v0.7.0`、`v0.8.0`、`v0.9.0`、`v0.9.1`——`v0.5.2`~`v0.5.9` 是同一次测试迭代过程中的本地未推送版本，合并进 `v0.6.0` 后未发布，不再单独存在）
+- **版本**：Semantic Versioning，当前 `0.10.0`（Tag `v0.10.0`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`、`v0.5.0`、`v0.5.1`、`v0.6.0`、`v0.6.1`、`v0.6.2`、`v0.7.0`、`v0.8.0`、`v0.9.0`、`v0.9.1`、`v0.10.0`——`v0.5.2`~`v0.5.9` 是同一次测试迭代过程中的本地未推送版本，合并进 `v0.6.0` 后未发布，不再单独存在）
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `build:` / `ci:` / `chore:` / `release:`）
 - **Artifact 策略**：`releases/vX.Y.Z/` 快照中 `source/` 与 `CHANGELOG.md` 入库，二进制产物不入库（交付走 GitHub Releases）
 
@@ -31,7 +31,7 @@
 ```bash
 dotnet build CloudFlow.sln          # 构建
 dotnet test CloudFlow.sln           # 全部测试
-dotnet run --project src/CloudFlow.App            # 运行桌面应用（当前 Demo/Mock 模式）
+dotnet run --project src/CloudFlow.App            # 运行桌面应用（未登录时 Demo 模式）
 dotnet run --project tools/CloudFlow.Spike        # P0 技术验证（需先配置 appsettings.json）
 ```
 
@@ -45,5 +45,5 @@ dotnet run --project tools/CloudFlow.Spike        # P0 技术验证（需先配�
 
 ## 当前开发阶段约定
 
-- **Demo 模式**：真实 Azure 接入前，UI 数据来自 `Mock*Service`（Modules.Compute / Modules.Network），注册在 `App.xaml.cs`。接入真实 Azure 时替换对应 DI 注册，Mock 服务保留用于 UI 开发与测试
+- **Demo / 真实模式**：未登录时由 `Mock*Service`（Modules.Compute / Modules.Network）提供演示数据；登录后由 Hybrid 服务路由到真实 Azure 实现，注册在 `App.xaml.cs`。真实查询失败如实提示，不回退 Mock；Mock 保留用于 UI 开发与测试
 - 详细阶段路线与 Exit Gate 清单见维护者私有工作区的设计文档，不在本仓库内追踪

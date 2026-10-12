@@ -27,6 +27,10 @@ public sealed class VmNetworkRuleExecutorRouter(
         OperationRequest request, string nsgId, string ruleName, CancellationToken ct = default) =>
         For(request).DeleteRuleAsync(request, nsgId, ruleName, ct);
 
+    public Task<string?> ChangePriorityAsync(
+        OperationRequest request, string nsgId, string ruleName, int newPriority, CancellationToken ct = default) =>
+        For(request).ChangePriorityAsync(request, nsgId, ruleName, newPriority, ct);
+
     public Task<int?> CountVmsInSubnetAsync(
         OperationRequest request, string subnetId, CancellationToken ct = default) =>
         For(request).CountVmsInSubnetAsync(request, subnetId, ct);

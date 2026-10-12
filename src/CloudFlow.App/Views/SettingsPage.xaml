@@ -83,6 +83,13 @@
 
                         <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
 
+                        <ui:ToggleSwitch Content="紧凑表格" IsChecked="{Binding CompactTables, Mode=TwoWay}" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,16" TextWrapping="Wrap"
+                                   Text="缩小列表行高，显示更多资源。关闭时使用舒适间距；切换即时生效。" />
+                        <TextBlock Text="{Binding AppearanceMessage}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource Cf.ErrorTextBrush}"
+                                   Visibility="{Binding AppearanceMessage, Converter={StaticResource NonEmptyToVisibility}}" />
+
                         <ui:ToggleSwitch Content="开机时启动 CloudFlow"
                                          IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" />
                         <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
@@ -411,6 +418,24 @@
                         Visibility="{Binding SelectedSectionKey, Converter={StaticResource SectionVisible}, ConverterParameter=network}">
                     <StackPanel>
                         <TextBlock Text="网络" Style="{StaticResource Cf.SectionTitle}" Margin="0,0,0,10" />
+                        <TextBlock Text="{Binding NetworkMessage}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource Cf.ErrorTextBrush}"
+                                   Visibility="{Binding NetworkMessage, Converter={StaticResource NonEmptyToVisibility}}" />
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Azure 请求超时" Style="{StaticResource Cf.Subtitle}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1" MinHeight="34" Width="240" HorizontalAlignment="Left"
+                                      ItemsSource="{Binding RequestTimeoutOptions}"
+                                      SelectedItem="{Binding SelectedRequestTimeout, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Cf.Muted}" TextWrapping="Wrap"
+                                   Text="默认 300 秒（5 分钟），限制单次网络请求的等待时间。修改后对新请求生效，正在进行的请求不受影响；SDK 重试及长时间操作的总等待可能更久。" />
+                        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="此设置适用于 Azure API 请求，不改变 SSH、交互登录、Runtime 下载和公网 IP 查询的超时。" />
+                        <Border Height="1" Margin="0,16" Background="{DynamicResource Cf.BorderBrush}" />
                         <ui:ToggleSwitch Content="自动查询我的公网 IP"
                                          IsChecked="{Binding AutoDetectPublicIp, Mode=TwoWay}" />
                         <!-- 这是应用唯一的对外请求，必须写在开关旁边而不是藏在「关于」里 -->

@@ -67,6 +67,8 @@ public partial class App : Application
         // 在 Initialize() 之前 Application.Resources 里根本没有 Cf.* 这些 key，
         // Apply() 会以"画刷不在 Application.Resources 中"直接抛。
         CloudFlow.App.Themes.CfThemeManager.Initialize();
+        CloudFlow.App.Themes.CfThemeManager.ApplyTableDensity(
+            Services.GetRequiredService<AppSettingsStore>().Current.CompactTables);
 
         // 主题必须在窗口出现之前落地，否则用户会先看到一帧浅色再跳成深色。
         // 这也是「设置读写不能挂在设置页上」的原因：SettingsViewModel 是首次导航到设置页才构造的。
@@ -151,6 +153,8 @@ public partial class App : Application
         // 应用设置：构造时即读盘，所以必须在 window.Show() 之前被解析到 ——
         // 主题要在窗口出现前应用，否则会先闪一下浅色再切深色。
         var settingsStore = new AppSettingsStore();
+        AzureHttpClients.TimeoutSeconds = settingsStore.Current.AzureRequestTimeoutSeconds;
+        settingsStore.Changed += (_, settings) => AzureHttpClients.TimeoutSeconds = settings.AzureRequestTimeoutSeconds;
         services.AddSingleton(settingsStore);
 
         // "开机时启动"读写 HKCU\...\Run 注册表项，设置页与主窗口都要用
@@ -220,6 +224,7 @@ public partial class App : Application
         services.AddTransient<IOperationHandler, ResizeVmHandler>();
         services.AddTransient<IOperationHandler, SnapshotVmHandler>();
         services.AddTransient<IOperationHandler, ChangePortHandler>();
+        services.AddTransient<IOperationHandler, ChangePriorityHandler>();
         services.AddTransient<IOperationHandler, OpenPortHandler>();
         services.AddTransient<IOperationHandler, DeleteRuleHandler>();
         services.AddTransient<IOperationHandler, DeleteVmHandler>();
@@ -312,6 +317,7 @@ public partial class App : Application
         // 个人账户设备码登录：由 Shell 持有，供顶栏账户菜单与设置页共用
         services.AddSingleton<PersonalSignInViewModel>();
         services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<CostAnalysisViewModel>();
         services.AddSingleton<VirtualMachinesViewModel>();
         services.AddSingleton<JobsViewModel>();
         services.AddSingleton<ResourceGroupsViewModel>();

@@ -35,7 +35,7 @@ public sealed class ArmResourceGroupDeleteExecutor(
     private const string ArgEndpoint =
         "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01";
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     public async Task<IReadOnlyList<ResourceSummary>> GetContainedResourcesAsync(
         OperationRequest request, CancellationToken ct = default)

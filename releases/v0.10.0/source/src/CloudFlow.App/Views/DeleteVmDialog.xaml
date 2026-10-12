@@ -1,0 +1,76 @@
+<themes:CfDialogWindow x:Class="CloudFlow.App.Views.DeleteVmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+        Title="删除虚拟机"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource Cf.DialogBackgroundBrush}"
+        TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+
+    <StackPanel Margin="28,24">
+
+        <TextBlock Text="删除虚拟机" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                   FontSize="18" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+
+        <Border CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
+                Background="{DynamicResource Cf.PageBackgroundBrush}">
+            <StackPanel>
+                <TextBlock x:Name="VmNameText" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                <TextBlock x:Name="VmTargetText" Style="{StaticResource Cf.Muted}"
+                           FontFamily="Consolas" FontSize="12" Margin="0,3,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border CornerRadius="8" Padding="12,8" Margin="0,12,0,0"
+                Background="{DynamicResource Cf.Surface.DangerBrush}">
+            <TextBlock FontSize="12.5" TextWrapping="Wrap" FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cf.Status.Danger.Fg}"
+                       Text="删除虚拟机后不可恢复，虚拟机上的所有数据、配置与已建立的终端会话都将失效。" />
+        </Border>
+
+        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,14,0,0" TextWrapping="Wrap"
+                   Text="Azure 默认不会连带删除虚拟机的关联资源，这些资源会成为孤儿并继续产生费用。请选择需要一并清理的资源：" />
+
+        <!-- 网卡 + 系统盘默认勾选（对齐 Azure Portal 现在的删除向导默认行为，减少"删完VM网卡/系统盘
+             还在计费"这种最容易被忽略的残留）；数据盘、公网 IP 更可能是用户特意要保留的东西，
+             继续要求手动确认。 -->
+        <CheckBox x:Name="NicBox" Content="网卡（NIC）" FontSize="12.5" Margin="0,10,0,0"
+                  IsChecked="True" />
+        <CheckBox x:Name="OsDiskBox" Content="系统盘" FontSize="12.5" Margin="0,8,0,0"
+                  IsChecked="True" />
+        <CheckBox x:Name="DataDiskBox" Content="数据盘" FontSize="12.5" Margin="0,8,0,0"
+                  IsChecked="False" />
+        <CheckBox x:Name="PublicIpBox" Content="公网 IP" FontSize="12.5" Margin="0,8,0,0"
+                  IsChecked="False" />
+
+        <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,10,0,0" TextWrapping="Wrap" FontSize="11"
+                   Text="不勾选的资源会保留在资源组里并继续计费。提交后还会显示一次影响确认（其中列出具体资源名），确认后才真正执行。" />
+
+        <ProgressBar x:Name="SubmittingBar" Height="2" Margin="0,14,0,0"
+                     IsIndeterminate="True" Visibility="Collapsed" />
+        <Border x:Name="SubmittingPanel" CornerRadius="8" Padding="10,6" Margin="0,10,0,0"
+                Background="{DynamicResource Cf.PageBackgroundBrush}" Visibility="Collapsed">
+            <TextBlock Text="正在分析影响面，请稍候…" Style="{StaticResource Cf.Muted}"
+                       FontSize="11.5" TextWrapping="Wrap" />
+        </Border>
+        <Border x:Name="ErrorPanel" CornerRadius="8" Padding="10,6" Margin="0,10,0,0"
+                Background="{DynamicResource Cf.Status.Danger.Bg}" Visibility="Collapsed">
+            <TextBlock x:Name="ErrorText" Foreground="{DynamicResource Cf.Status.Danger.Fg}"
+                       FontSize="11.5" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- 取消既是 IsCancel 也是 IsDefault：**危险按钮刻意不给 IsDefault** ——
+             误碰回车就删掉一台虚拟机是不可接受的默认行为，要删必须是一次有意的点击。 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="CancelButton" Content="取消" Style="{StaticResource Cf.SecondaryButton}"
+                    Padding="14,6" Margin="0,0,10,0" IsCancel="True" IsDefault="True" />
+            <Button x:Name="DeleteButton" Content="删除" Style="{StaticResource Cf.DangerButton}" Padding="14,6"
+                    Click="Delete_Click" />
+        </StackPanel>
+    </StackPanel>
+</themes:CfDialogWindow>

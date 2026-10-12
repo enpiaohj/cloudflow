@@ -13,6 +13,20 @@ public partial class VmDetailPage : UserControl
         InitializeComponent();
     }
 
+    private void MenuChangePriority_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetRule(sender) is { } rule) Vm.ChangePriorityCommand.Execute(rule);
+    }
+
+    private void RuleGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+    {
+        e.Row.Header = (e.Row.GetIndex() + 1).ToString();
+        e.Row.ContextMenu = (ContextMenu)FindResource("Cf.RuleRowMenu");
+    }
+
+    private void DiskGrid_LoadingRow(object sender, DataGridRowEventArgs e) =>
+        e.Row.ContextMenu = (ContextMenu)FindResource("Cf.DiskRowMenu");
+
     private VmDetailViewModel Vm => (VmDetailViewModel)DataContext;
 
     /// <summary>左键点击「⋯」→ 打开所在菜单（WPF 默认只响应右键，见 <see cref="RowMenu"/>）。</summary>
@@ -48,8 +62,7 @@ public partial class VmDetailPage : UserControl
 
     private async void MenuSnapshot_Click(object sender, RoutedEventArgs e)
     {
-        var menu = (sender as FrameworkElement)?.Parent as ContextMenu;
-        if ((menu?.PlacementTarget as FrameworkElement)?.Tag is VmDiskInfo disk)
+        if (RowMenu.RowDataOf<VmDiskInfo>(sender) is { } disk)
         {
             await Vm.CreateSnapshotCommand.ExecuteAsync(disk);
         }

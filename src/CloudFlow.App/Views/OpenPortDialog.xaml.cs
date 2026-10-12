@@ -1,3 +1,4 @@
+using CloudFlow.Core.Operations;
 using System.ComponentModel;
 using System.Windows;
 using CloudFlow.App.Themes;
@@ -28,8 +29,15 @@ public sealed record OpenPortResult(
 /// NSG 里两侧是同一种资源，只有方向与"用户填的那个地址放在哪一侧"不同，
 /// 拆成两个窗体只会让两边的校验逻辑各自漂移。
 /// </summary>
-public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
+public partial class OpenPortDialog : CfSidePanelWindow, INotifyPropertyChanged
 {
+    public Func<OpenPortResult, Task<OperationJob>>? SubmitAsync { get; set; }
+    public Func<Guid, Task<OperationJob>>? ApproveAsync { get; set; }
+    public Func<Guid, Task<OperationJob>>? RejectAsync { get; set; }
+    public OperationJob? ResultJob { get; private set; }
+    private OperationJob? _pendingJob;
+    private bool _submitting;
+
     private const string AnyInboundOption = "任意 (Any)";
     private const string AnyOutboundOption = "任意目标 (Any)";
     private const string InternetOption = "Internet";
@@ -42,6 +50,8 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
     private string _selectedProtocol = "TCP";
     private string? _selectedPeer;
     private string _priorityText = "400";
+    private readonly IReadOnlyList<NsgSecurityRule> _existingRules;
+    private bool _priorityIsAuto = true;
     private string _selectedApplyTo = "网卡 NSG（仅本虚拟机）";
     private string _selectedDirection = DirectionOption(NsgRuleDirection.Inbound);
     private string _selectedAction = AllowOption;
@@ -100,8 +110,10 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         string? currentIpCidr,
         bool isDemoValue,
         string? subnetCidr,
-        NsgRuleDirection direction = NsgRuleDirection.Inbound)
+        NsgRuleDirection direction = NsgRuleDirection.Inbound,
+        IReadOnlyList<NsgSecurityRule>? existingRules = null)
     {
+        _existingRules = existingRules ?? [];
         if (!string.IsNullOrWhiteSpace(currentIp) && !string.IsNullOrWhiteSpace(currentIpCidr))
         {
             _myIpDisplay = isDemoValue ? $"演示 IP ({currentIp})" : $"我的当前 IP ({currentIp})";
@@ -117,6 +129,15 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
 
         InitializeComponent();
         DataContext = this;
+        Closing += (_, e) =>
+        {
+            if (_submitting) e.Cancel = true;
+            else if (_pendingJob is not null)
+            {
+                e.Cancel = true;
+                Dispatcher.BeginInvoke(new Action(() => Cancel_Click(this, new RoutedEventArgs())));
+            }
+        };
 
         RebuildPeers();
 
@@ -127,6 +148,7 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         OnPropertyChanged(nameof(PeerHint));
 
         SetAutoRuleName(SuggestedRuleName());
+        RefreshSuggestedPriority();
     }
 
     private static string DirectionOption(NsgRuleDirection direction) =>
@@ -284,6 +306,7 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         set
         {
             _priorityText = value;
+            _priorityIsAuto = false;
             ErrorText = "";
             OnPropertyChanged(nameof(PriorityText));
         }
@@ -296,6 +319,7 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         {
             _selectedApplyTo = value;
             OnPropertyChanged(nameof(SelectedApplyTo));
+            RefreshSuggestedPriority();
         }
     }
 
@@ -328,7 +352,21 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedPeer));
             ErrorText = "";
             RefreshAutoRuleName();
+            RefreshSuggestedPriority();
         }
+    }
+
+    private IEnumerable<NsgSecurityRule> TargetRules() => _existingRules.Where(r =>
+        r.Direction == Direction && r.Origin ==
+            (SelectedApplyTo.StartsWith("子网", StringComparison.Ordinal) ? NsgRuleOrigin.Subnet : NsgRuleOrigin.Nic));
+
+    private void RefreshSuggestedPriority()
+    {
+        if (!_priorityIsAuto) return;
+        var priority = NsgRulePriorities.Suggest(TargetRules().Select(r => r.Priority));
+        _priorityText = priority?.ToString() ?? "";
+        OnPropertyChanged(nameof(PriorityText));
+        ErrorText = priority is null ? "该网络安全组的此方向没有可用优先级，请先整理已有规则。" : "";
     }
 
     /// <summary>
@@ -381,8 +419,7 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
     /// <summary>
     /// 默认对端。改成"任意"之前默认给的是"仅自己 / 仅本虚拟网络"，理由是不让新规则默认就
     /// 放最大范围——但实测下来这不是用户真实的用法：大多数场景就是要对公网开放，默认收紧
-    /// 反而变成每次都要手改一遍。真正的安全阀不在这个默认值上，而在于"对端为任意"始终会
-    /// 触发审批（见 AssessImpactAsync），不会因为默认值改了就绕开确认。
+    /// 反而变成每次都要手改一遍。对端为任意时由影响分析标记风险，按用户选择的审批策略决定是否暂停确认。
     /// </summary>
     private string? DefaultPeer() => Direction == NsgRuleDirection.Outbound
         ? AnyOutboundOption
@@ -435,8 +472,14 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         PeerOptions = [.. options];
     }
 
-    private void Ok_Click(object sender, RoutedEventArgs e)
+    private async void Ok_Click(object sender, RoutedEventArgs e)
     {
+        if (_submitting) return;
+        if (_pendingJob is not null)
+        {
+            await ExecuteInPlaceAsync(() => ApproveAsync!(_pendingJob.JobId));
+            return;
+        }
         var name = RuleName.Trim();
         if (name.Length == 0)
         {
@@ -457,6 +500,12 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
         }
 
         var peer = (SelectedPeer ?? "").Trim();
+        var conflict = TargetRules().FirstOrDefault(r => r.Priority == priority);
+        if (conflict is not null)
+        {
+            ErrorText = $"优先级 {priority} 已被规则「{conflict.Name}」使用，请选择其他优先级。";
+            return;
+        }
         if (peer.Length == 0)
         {
             ErrorText = Direction == NsgRuleDirection.Outbound ? "请选择或输入目标。" : "请选择或输入来源。";
@@ -500,11 +549,73 @@ public partial class OpenPortDialog : CfDialogWindow, INotifyPropertyChanged
 
         Result = new OpenPortResult(
             name, port, SelectedProtocol, prefix, display, origin, Direction.ToString(), priority, Action);
-        DialogResult = true;
+        if (SubmitAsync is null) { CompletePanel(true); return; }
+        await ExecuteInPlaceAsync(() => SubmitAsync(Result));
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
+    private async Task ExecuteInPlaceAsync(Func<Task<OperationJob>> action)
     {
-        DialogResult = false;
+        _submitting = true;
+        FormPanel.IsEnabled = false;
+        SubmitButton.IsEnabled = CancelButton.IsEnabled = BackButton.IsEnabled = false;
+        ExecutionText.Text = "正在检查或执行，请稍候…";
+        try
+        {
+            var job = await action();
+            ResultJob = job;
+            _pendingJob = job.Status == JobStatus.WaitingApproval ? job : null;
+            if (_pendingJob is not null)
+            {
+                ExecutionText.Text = $"{job.Display}\n{job.Summary}\n预计影响资源数：{job.ImpactAffectedResources?.ToString() ?? "未知"}";
+                SubmitButton.Content = "确认并创建";
+                BackButton.Visibility = Visibility.Visible;
+            }
+            else if (job.Status == JobStatus.Succeeded) { _submitting = false; CompletePanel(true); }
+            else
+            {
+                ErrorText = job.Error ?? job.Summary ?? "执行未成功，请检查后重试。";
+                ExecutionText.Text = "";
+                SubmitButton.Content = "重新检查";
+                BackButton.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch (Exception ex) { ErrorText = ex.Message; ExecutionText.Text = ""; }
+        finally
+        {
+            _submitting = false;
+            FormPanel.IsEnabled = _pendingJob is null;
+            SubmitButton.IsEnabled = CancelButton.IsEnabled = BackButton.IsEnabled = true;
+        }
+    }
+
+    private async Task<bool> DiscardAsync()
+    {
+        if (_pendingJob is null) return true;
+        _submitting = true;
+        SubmitButton.IsEnabled = CancelButton.IsEnabled = BackButton.IsEnabled = false;
+        try
+        {
+            var job = await RejectAsync!(_pendingJob.JobId);
+            if (job.Status != JobStatus.Canceled) { ErrorText = job.Error ?? "无法取消待审批任务。"; return false; }
+            ResultJob = job;
+            _pendingJob = null;
+            return true;
+        }
+        catch (Exception ex) { ErrorText = ex.Message; return false; }
+        finally { _submitting = false; SubmitButton.IsEnabled = CancelButton.IsEnabled = BackButton.IsEnabled = true; }
+    }
+
+    private async void Back_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await DiscardAsync()) return;
+        FormPanel.IsEnabled = true;
+        BackButton.Visibility = Visibility.Collapsed;
+        SubmitButton.Content = "提交变更";
+        ExecutionText.Text = "已取消待审批变更，可以继续修改。";
+    }
+
+    private async void Cancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_submitting && await DiscardAsync()) CompletePanel(false);
     }
 }

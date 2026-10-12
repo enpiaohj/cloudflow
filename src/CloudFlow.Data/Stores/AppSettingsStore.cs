@@ -107,12 +107,14 @@ public sealed class AppSettingsStore
     private sealed class SettingsDto
     {
         public string? Theme { get; set; }
+        public bool? CompactTables { get; set; }
 
         public string? ApprovalPolicy { get; set; }
 
         public int? AutoRefreshSeconds { get; set; }
 
         public int? DefaultPageSize { get; set; }
+        public int? AzureRequestTimeoutSeconds { get; set; }
 
         public bool? AutoDetectPublicIp { get; set; }
 
@@ -121,9 +123,11 @@ public sealed class AppSettingsStore
         public static SettingsDto From(AppSettings settings) => new()
         {
             Theme = settings.Theme.ToString(),
+            CompactTables = settings.CompactTables,
             ApprovalPolicy = settings.ApprovalPolicy.ToString(),
             AutoRefreshSeconds = settings.AutoRefreshSeconds,
             DefaultPageSize = settings.DefaultPageSize,
+            AzureRequestTimeoutSeconds = settings.AzureRequestTimeoutSeconds,
             AutoDetectPublicIp = settings.AutoDetectPublicIp,
             MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose
         };
@@ -134,11 +138,13 @@ public sealed class AppSettingsStore
             // default(ApprovalPolicy) 是 Off，那是个**合法**档位，
             // 混进来之后 Normalize 就再也分不出"用户选了 Off"和"文件里是乱码"。
             Theme = ParseEnum(Theme, AppThemeKind.System),
-            // 全限定：这里的 ApprovalPolicy 是上面的 string 属性，直接写 ApprovalPolicy.HighRiskOnly
+            CompactTables = CompactTables ?? false,
+            // 全限定：这里的 ApprovalPolicy 是上面的 string 属性，直接写 ApprovalPolicy.Off
             // 会被解析成"在 string 上找 HighRiskOnly"
-            ApprovalPolicy = ParseEnum(ApprovalPolicy, Core.Operations.ApprovalPolicy.HighRiskOnly),
+            ApprovalPolicy = ParseEnum(ApprovalPolicy, Core.Operations.ApprovalPolicy.Off),
             AutoRefreshSeconds = AutoRefreshSeconds ?? 0,
             DefaultPageSize = DefaultPageSize ?? 10,
+            AzureRequestTimeoutSeconds = AzureRequestTimeoutSeconds ?? 300,
             AutoDetectPublicIp = AutoDetectPublicIp ?? true,
             MinimizeToTrayOnClose = MinimizeToTrayOnClose ?? false
         };

@@ -33,6 +33,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     private HomeViewModel Home => _services.GetRequiredService<HomeViewModel>();
     private VirtualMachinesViewModel Vms => _services.GetRequiredService<VirtualMachinesViewModel>();
+    private CostAnalysisViewModel CostAnalysis => _services.GetRequiredService<CostAnalysisViewModel>();
     private JobsViewModel Jobs => _services.GetRequiredService<JobsViewModel>();
     private ResourceGroupsViewModel ResourceGroups => _services.GetRequiredService<ResourceGroupsViewModel>();
     private AllResourcesViewModel AllResources => _services.GetRequiredService<AllResourcesViewModel>();
@@ -85,6 +86,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             resourcesGroup,
             new() { PageKey = "allresources", Label = "所有资源", Symbol = SymbolRegular.List24, IsChild = true, Parent = resourcesGroup },
             new() { PageKey = "resourcegroups", Label = "资源组", Symbol = SymbolRegular.Folder24, IsChild = true, Parent = resourcesGroup },
+            new() { PageKey = "cost", Label = "成本分析", Symbol = SymbolRegular.Money24 },
             new() { PageKey = "jobs", Label = "任务", Symbol = SymbolRegular.Clock24 },
             new() { PageKey = "sep1", IsSeparator = true, IsEnabled = false },
             new() { PageKey = "settings", Label = "设置", Symbol = SymbolRegular.Settings24 }
@@ -106,6 +108,11 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     [ObservableProperty]
     private object? _current;
+    partial void OnCurrentChanging(object? oldValue, object? newValue)
+    {
+        if (oldValue is VmDetailViewModel detail && !ReferenceEquals(oldValue, newValue)) detail.StopReading();
+    }
+
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotVmDetailPage))]
@@ -235,6 +242,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
 
     private void ApplyDemoScope()
     {
+        if (Current is VmDetailViewModel) NavigateVirtualMachines();
         _scopeContext.SetActiveAccount(null);
         _scopeContext.SetAvailableSubscriptions([]);
         BuildScopeOptions();
@@ -305,6 +313,9 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             case "vms":
                 Current = Vms;
                 _ = Vms.RefreshAsync();
+                break;
+            case "cost":
+                Current = CostAnalysis;
                 break;
             case "jobs":
                 Current = Jobs;
@@ -383,6 +394,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
             };
         }
 
+        if (Current is VmDetailViewModel) NavigateVirtualMachines();
         _scopeContext.SetScope(scope);
         OnPropertyChanged(nameof(ScopeSubtitle));
     }
@@ -472,6 +484,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         var switchId = ++_accountSwitchId;
         IsSwitchingAccount = true;
         _scopeContext.SetAvailableSubscriptions([]);
+        if (Current is VmDetailViewModel) NavigateVirtualMachines();
         _scopeContext.SetActiveAccount(account);
         await RefreshAccountOptionsAsync(account.AccountId).ConfigureAwait(true);
         BuildScopeOptions();
@@ -525,6 +538,7 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
         }
 
         _activeAccountStore.Clear();
+        if (Current is VmDetailViewModel) NavigateVirtualMachines();
         _scopeContext.SetActiveAccount(null);
         _scopeContext.SetAvailableSubscriptions([]);
 
@@ -613,6 +627,12 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     /// Current 切到 Settings 并刷新，不需要在这里重复一遍。</summary>
     public void NavigateSettings() => SelectedNav = NavItems.First(n => n.PageKey == "settings");
 
+    public void NavigateVmSummary(string status)
+    {
+        NavigateVirtualMachines();
+        Vms.SetOverviewFilter(status);
+    }
+
     public void NavigateVirtualMachines(string? filter = null)
     {
         NavItems.First(n => n.PageKey == "compute").IsExpanded = true;
@@ -665,6 +685,8 @@ public partial class ShellViewModel : ObservableObject, IShellNavigation
     /// <summary>顶栏"任务进行中"徽标弹层里的"查看全部"——就是导航到任务中心。</summary>
     [RelayCommand]
     private void ViewRunningJobs() => NavigateJobs();
+
+    public void NavigateCostAnalysis() => SelectedNav = NavItems.First(n => n.PageKey == "cost");
 
     public void NavigateJobs()
     {

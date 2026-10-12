@@ -34,6 +34,27 @@ public partial class MainWindow : FluentWindow
         _shell = shell;
         _settings = settings;
         InitializeComponent();
+        // 屏幕可用区域使用 DIP，与 WPF 窗口尺寸一致；保留任务栏和边缘空间。
+        var workArea = SystemParameters.WorkArea;
+        MinWidth = Math.Min(MinWidth, Math.Max(320, workArea.Width - 32));
+        MinHeight = Math.Min(MinHeight, Math.Max(240, workArea.Height - 32));
+        Width = Math.Min(Width, workArea.Width - 32);
+        Height = Math.Min(Height, workArea.Height - 32);
+        if (Width < 1040 && Content is System.Windows.Controls.Grid workspace)
+        {
+            // 高缩放的小屏保持表格与工具栏可操作，超出的内容允许横向滚动。
+            Content = null;
+            workspace.MinWidth = 1040;
+            var scroll = new System.Windows.Controls.ScrollViewer
+            {
+                Content = workspace,
+                HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Disabled
+            };
+            var host = new System.Windows.Controls.Grid();
+            host.Children.Add(scroll);
+            Content = host;
+        }
         DataContext = shell;
         AccountMenuPopup.CustomPopupPlacementCallback = PlaceAccountMenu;
         Loaded += OnLoaded;
@@ -125,6 +146,7 @@ public partial class MainWindow : FluentWindow
     protected override void OnClosing(CancelEventArgs e)
     {
         base.OnClosing(e);
+        if (e.Cancel) return;
 
         // 最小化到托盘：取消这次关闭，只是把窗口藏起来，不走下面的终端会话收尾——那一套
         // 只在真正退出时才需要。_isExiting 是唯一的口子：托盘"退出"菜单会先置位它再关，
@@ -172,7 +194,10 @@ public partial class MainWindow : FluentWindow
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"初始化失败：{ex.Message}", "CloudFlow",
+            var detail = ex is OperationCanceledException { InnerException: TimeoutException }
+                ? "Azure 请求等待超时。请检查网络或代理后刷新重试，也可在「设置 → 网络」增加请求超时。"
+                : ex.Message;
+            System.Windows.MessageBox.Show($"初始化失败：{detail}", "CloudFlow",
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
         }
     }
@@ -254,5 +279,12 @@ public partial class MainWindow : FluentWindow
             }
         }
         return false;
+    }
+    private async void RunningJobDetails_Click(object sender, RoutedEventArgs e)
+    {
+        RunningJobsPopup.IsOpen = false;
+        e.Handled = true;
+        if(sender is FrameworkElement element)
+            await Behaviors.JobDetailsBehavior.OpenAsync(element.DataContext, this);
     }
 }

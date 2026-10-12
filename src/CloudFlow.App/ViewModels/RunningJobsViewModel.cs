@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CloudFlow.App.Infrastructure;
 using CloudFlow.Core.Operations;
 using CloudFlow.Core.Scopes;
@@ -13,7 +13,7 @@ public sealed record RunningJobRow(OperationJob Job)
 
     /// <summary>没有 Handler 上报子步骤时退回粗粒度状态文案，不留空白。</summary>
     public string StatusText => string.IsNullOrWhiteSpace(Job.ProgressNote)
-        ? Job.Status.ToString()
+        ? Converters.CfStatusTextConverter.Map(Job.Status.ToString())
         : Job.ProgressNote;
 }
 
@@ -45,12 +45,8 @@ public sealed partial class RunningJobsViewModel : ObservableObject
 
     public bool HasRunning => Rows.Count > 0;
 
-    public string Tip => Rows.Count switch
-    {
-        0 => "没有正在进行的任务",
-        1 => $"1 个任务进行中：{Rows[0].Display}",
-        _ => $"{Rows.Count} 个任务进行中"
-    };
+    public string Tip => Rows.Count == 0 ? "没有正在进行的任务"
+        : $"{Rows.Count(r => r.Job.Status != JobStatus.WaitingApproval)} 个任务执行中 · {Rows.Count(r => r.Job.Status == JobStatus.WaitingApproval)} 个等待审批";
 
     public RunningJobsViewModel(IJobStore jobStore, ScopeContext scopeContext)
     {

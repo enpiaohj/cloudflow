@@ -27,6 +27,11 @@ public sealed record CostSummary
 /// </summary>
 public interface ICostService
 {
+    /// <summary>按当前 Scope 查询 UTC 日期区间的实际费用，可按资源分组。</summary>
+    Task<CostReport> GetCostsAsync(CloudFlow.Core.Scopes.ResourceScope scope, DateOnly from, DateOnly to,
+        bool byResource = true, CancellationToken ct = default) =>
+        Task.FromResult(new CostReport([], ["该成本服务尚未支持日期与明细查询。"], DateTimeOffset.UtcNow));
+
     /// <summary>读取本月至今成本；无法取得时返回 null 并给出原因，绝不返回 0 冒充"没有花费"。</summary>
     Task<(CostSummary? Summary, string? FailureReason)> GetMonthToDateAsync(
         string subscriptionId, CancellationToken ct = default);

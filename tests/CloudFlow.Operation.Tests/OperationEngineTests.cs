@@ -35,6 +35,26 @@ public class OperationEngineTests
         return (engine, store, audit);
     }
 
+    [Theory]
+    [InlineData(ApprovalPolicy.Off, RiskLevel.High, false)]
+    [InlineData(ApprovalPolicy.HighRiskOnly, RiskLevel.High, true)]
+    [InlineData(ApprovalPolicy.HighRiskOnly, RiskLevel.Medium, false)]
+    [InlineData(ApprovalPolicy.AllWrites, RiskLevel.Low, true)]
+    public async Task 审批策略决定执行还是等待且批准后才写入(ApprovalPolicy policy, RiskLevel risk, bool waiting)
+    {
+        var handler = new RecordingHandler { RequireApproval = true };
+        var (engine, _, _) = Build(handler);
+        var job = await engine.SubmitAsync(Request(preApproved: policy.ShouldAutoApprove(risk)));
+        Assert.Equal(waiting ? JobStatus.WaitingApproval : JobStatus.Succeeded, job.Status);
+        if (waiting)
+        {
+            Assert.DoesNotContain("execute", handler.Steps);
+            job = await engine.ApproveAsync(job.JobId);
+            Assert.Equal(JobStatus.Succeeded, job.Status);
+        }
+        Assert.Contains("execute", handler.Steps);
+    }
+
     // ==== 测试用记录型 Handler ====
 
     private sealed class RecordingHandler : IOperationHandler

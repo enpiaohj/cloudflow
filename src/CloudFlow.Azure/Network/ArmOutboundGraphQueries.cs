@@ -21,7 +21,7 @@ public sealed class ArmOutboundGraphQueries(ArmAccessTokenProvider tokenProvider
     private const string ArgEndpoint =
         "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01";
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private const string FirewallByPrivateIpQuery = """
         Resources

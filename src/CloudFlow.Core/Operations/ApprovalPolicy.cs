@@ -10,12 +10,11 @@ namespace CloudFlow.Core.Operations;
 /// </summary>
 public enum ApprovalPolicy
 {
-    /// <summary>关闭：风险类操作直接执行，不停。</summary>
+    /// <summary>关闭（默认）：风险类操作直接执行，不停。</summary>
     Off,
 
     /// <summary>
-    /// 仅高危（默认）：只有 <see cref="RiskLevel.High"/> 的操作停下来审批。
-    /// 这是本设置存在之前的行为，所以新装 / 设置文件损坏时都回退到它。
+    /// 仅高危：只有 <see cref="RiskLevel.High"/> 的操作停下来审批。
     /// </summary>
     HighRiskOnly,
 

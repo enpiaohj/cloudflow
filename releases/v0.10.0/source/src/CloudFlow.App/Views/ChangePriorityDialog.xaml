@@ -1,0 +1,23 @@
+<themes:CfDialogWindow x:Class="CloudFlow.App.Views.ChangePriorityDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+    Title="更改优先级" Width="440" SizeToContent="Height" ResizeMode="NoResize"
+    WindowStartupLocation="CenterOwner" WindowStyle="ToolWindow"
+    Background="{DynamicResource Cf.DialogBackgroundBrush}" TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+    <StackPanel Margin="28,24">
+        <TextBlock Text="更改优先级" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding RuleName}" Margin="0,8,0,16" TextWrapping="Wrap" Style="{StaticResource Cf.Subtitle}" />
+        <TextBlock Text="{Binding CurrentPriority, StringFormat=当前优先级：{0}}" Style="{StaticResource Cf.Muted}" />
+        <TextBlock Text="新优先级" Style="{StaticResource Cf.Muted}" Margin="0,16,0,4" />
+        <TextBox x:Name="PriorityBox" Text="{Binding PriorityText, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" />
+        <TextBlock Text="100–4096。数值越小越先匹配；更改可能影响允许/拒绝顺序，其他字段保持不变。"
+                   Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource Cf.ErrorTextBrush}"
+                   Margin="0,10,0,0" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,4">
+            <Button Content="取消" IsCancel="True" Style="{StaticResource Cf.SecondaryButton}" />
+            <Button Content="继续" IsDefault="True" Click="Ok_Click" Margin="10,0,0,0" Style="{StaticResource Cf.PrimaryButton}" />
+        </StackPanel>
+    </StackPanel>
+</themes:CfDialogWindow>

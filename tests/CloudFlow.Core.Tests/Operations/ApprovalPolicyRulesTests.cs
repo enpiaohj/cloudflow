@@ -44,16 +44,12 @@ public sealed class ApprovalPolicyRulesTests
     }
 
     [Fact]
-    public void 默认设置下_重启与关机停下而其余不停()
+    public void 默认设置关闭风险审批()
     {
-        // 这条把"默认档位"和"实际操作的风险等级"钉在一起：
-        // 默认档是仅高危，而重启 / 关机是仅有的两个 High，
-        // 于是默认行为恰好等于本设置存在之前的样子 —— 升级一次不会改变任何人的审批体验。
-        // 谁哪天把某个操作的风险等级调了，这条会先响。
         var policy = CloudFlow.Data.Stores.AppSettings.Default.ApprovalPolicy;
 
         Assert.True(policy.ShouldAutoApprove(RiskLevel.Low));      // 启动 / 创建快照
         Assert.True(policy.ShouldAutoApprove(RiskLevel.Medium));   // 解除分配 / 改规格 / 改端口
-        Assert.False(policy.ShouldAutoApprove(RiskLevel.High));    // 重启 / 关机
+        Assert.True(policy.ShouldAutoApprove(RiskLevel.High));    // 重启 / 关机
     }
 }

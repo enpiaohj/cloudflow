@@ -154,6 +154,16 @@ public partial class VirtualMachinesViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isLoading;
+    private readonly LatestRead _inventoryRead = new();
+    [ObservableProperty] private string _readStatus = "";
+    [RelayCommand]
+    private void CancelRead()
+    {
+        _inventoryRead.Cancel();
+        IsLoading = false;
+        ReadStatus = "读取已取消，保留已有列表。可点击刷新重试。";
+    }
+
 
     public VirtualMachinesViewModel(
         IVmInventoryService inventory,
@@ -190,6 +200,13 @@ public partial class VirtualMachinesViewModel : ObservableObject
         _logger = (ILogger?)logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
         _scopeContext.ScopeChanged += OnScopeChanged;
+        _scopeContext.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(ScopeContext.ActiveAccount)) return;
+            _inventoryRead.Cancel(); IsLoading = false;
+            _allVms = []; TrackCheckedState(_allVms); ApplyFilters();
+            ReadStatus = "账户已切换，等待读取新账户的列表…";
+        };
         _jobStore = jobStore;
         _jobStore.JobChanged += OnJobChanged;
         _settings.Changed += OnSettingsChanged;
@@ -273,6 +290,17 @@ public partial class VirtualMachinesViewModel : ObservableObject
     }
 
     /// <summary>Shell 全局搜索跳转入口。</summary>
+    /// <summary>统计卡跳转按整个当前 Scope 筛选，避免遗留搜索条件改变统计口径。</summary>
+    public void SetOverviewFilter(string status)
+    {
+        FilterText = "";
+        ResourceGroupFilter = "全部资源组";
+        RegionFilter = "全部区域";
+        StatusFilter = StatusOptions.Contains(status) ? status : "全部状态";
+        CurrentPage = 1;
+        ApplyFilters();
+    }
+
     public void SetExternalFilter(string filter)
     {
         FilterText = filter;
@@ -280,9 +308,13 @@ public partial class VirtualMachinesViewModel : ObservableObject
         ApplyFilters();
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     public async Task RefreshAsync()
     {
+        using var read = _inventoryRead.Begin();
+        var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
+        ReadStatus = "正在读取虚拟机列表…";
         IsLoading = true;
         try
         {
@@ -293,7 +325,9 @@ public partial class VirtualMachinesViewModel : ObservableObject
                 .Select(vm => vm.ResourceId)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            _allVms = [.. await _inventory.QueryAsync(_scopeContext.CurrentScope)];
+            var vms = await _inventory.QueryAsync(scope.Clone(), read.Token);
+            if (!read.IsCurrent || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+            _allVms = [.. vms];
 
             foreach (var vm in _allVms.Where(vm => previouslyChecked.Contains(vm.ResourceId)))
             {
@@ -307,10 +341,17 @@ public partial class VirtualMachinesViewModel : ObservableObject
             OnPropertyChanged(nameof(RegionOptions));
             TrackCheckedState(_allVms);
             ApplyFilters();
+            ReadStatus = $"列表已更新 · {DateTime.Now:HH:mm:ss}";
+        }
+        catch (OperationCanceledException) when (read.Token.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (!read.IsCurrent || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+            ReadStatus = $"读取失败，保留已有列表：{ex.Message}";
         }
         finally
         {
-            IsLoading = false;
+            if (read.IsCurrent) IsLoading = false;
         }
     }
 
@@ -1249,7 +1290,12 @@ public partial class VirtualMachinesViewModel : ObservableObject
 
     private void OnScopeChanged(object? sender, EventArgs e)
     {
-        Application.Current?.Dispatcher.BeginInvoke(async () => await RefreshAsync());
+        Application.Current?.Dispatcher.BeginInvoke(async () =>
+        {
+            _inventoryRead.Cancel();
+            _allVms = []; TrackCheckedState(_allVms); ApplyFilters();
+            await RefreshAsync();
+        });
     }
 
     private void OnJobChanged(object? sender, OperationJob job)

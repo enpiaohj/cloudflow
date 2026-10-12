@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Collections.ObjectModel;
 using CloudFlow.App.Converters;
 using CloudFlow.App.Infrastructure;
@@ -20,6 +20,30 @@ namespace CloudFlow.App.ViewModels;
 /// </summary>
 public partial class VmDetailViewModel : ObservableObject
 {
+    private readonly LatestRead _overviewRead = new();
+    private readonly LatestRead _networkRead = new();
+    private readonly LatestRead _disksRead = new();
+    private readonly LatestRead _metricsRead = new();
+    [ObservableProperty] private string _overviewReadStatus = "";
+    [ObservableProperty] private string _networkReadStatus = "";
+    [ObservableProperty] private string _disksReadStatus = "";
+    [ObservableProperty] private string _metricsReadStatus = "";
+    public bool IsReading => IsLoadingOverview || IsLoadingNetwork || IsLoadingDisks || IsLoadingPerformance;
+    [RelayCommand]
+    private void CancelReads()
+    {
+        _overviewRead.Cancel(); _networkRead.Cancel(); _disksRead.Cancel(); _metricsRead.Cancel();
+        if (IsLoadingOverview) OverviewReadStatus = "读取已取消，可点击重试。";
+        if (IsLoadingNetwork) NetworkReadStatus = "读取已取消，保留已读取的规则。";
+        if (IsLoadingDisks) DisksReadStatus = "读取已取消，保留已读取的磁盘。";
+        if (IsLoadingPerformance) MetricsReadStatus = "读取已取消，保留已读取的指标。";
+        IsLoadingOverview = IsLoadingNetwork = IsLoadingDisks = IsLoadingPerformance = false;
+    }
+    public void StopReading() => CancelReads();
+    [RelayCommand(AllowConcurrentExecutions = true)] private Task RetryOverviewAsync() => LoadOverviewAsync();
+    [RelayCommand(AllowConcurrentExecutions = true)] private Task RetryDisksAsync() => LoadDisksAsync();
+    [RelayCommand(AllowConcurrentExecutions = true)] private Task RetryMetricsAsync() => LoadMetricsAsync();
+
     private readonly IVmPowerService _power;
     private readonly IVmNetworkService _network;
     private readonly IVmDetailService _detailService;
@@ -67,6 +91,7 @@ public partial class VmDetailViewModel : ObservableObject
 
     /// <summary>摘要 Tab 是否正在读取 ARM 详情（切进 Tab 的一瞬间没有这个会被误读成"卡住了"）。</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReading))]
     private bool _isLoadingOverview;
 
     /// <summary>摘要 Tab 左栏（见 <see cref="OnOverviewSectionsChanged"/> 的按行数贪心分配）。</summary>
@@ -145,6 +170,7 @@ public partial class VmDetailViewModel : ObservableObject
 
     // ---- Network ----
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReading))]
     private bool _isLoadingNetwork;
 
     [ObservableProperty]
@@ -175,6 +201,11 @@ public partial class VmDetailViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasInboundRules))]
+    [NotifyPropertyChangedFor(nameof(HasNoInboundRules))]
+    [NotifyPropertyChangedFor(nameof(FilteredInboundRules))]
+    [NotifyPropertyChangedFor(nameof(ActiveRules))]
+    [NotifyPropertyChangedFor(nameof(RuleCountText))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
     private ObservableCollection<NsgSecurityRule> _inboundRules = [];
 
     /// <summary>
@@ -183,6 +214,11 @@ public partial class VmDetailViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasOutboundRules))]
+    [NotifyPropertyChangedFor(nameof(HasNoOutboundRules))]
+    [NotifyPropertyChangedFor(nameof(FilteredOutboundRules))]
+    [NotifyPropertyChangedFor(nameof(ActiveRules))]
+    [NotifyPropertyChangedFor(nameof(RuleCountText))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
     private ObservableCollection<NsgSecurityRule> _outboundRules = [];
 
     /// <summary>
@@ -190,6 +226,79 @@ public partial class VmDetailViewModel : ObservableObject
     /// 而 Azure 的 <c>securityRules</c> 只含自定义规则，默认规则（AllowInternetOutBound 等）
     /// 不在其中，所以"出站规则为空"是常态，不是异常。
     /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredInboundRules))]
+    [NotifyPropertyChangedFor(nameof(ActiveRules))]
+    [NotifyPropertyChangedFor(nameof(RuleCountText))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
+    [NotifyPropertyChangedFor(nameof(FilteredOutboundRules))]
+    private string _ruleSearch = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredInboundRules))]
+    [NotifyPropertyChangedFor(nameof(ActiveRules))]
+    [NotifyPropertyChangedFor(nameof(RuleCountText))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
+    [NotifyPropertyChangedFor(nameof(FilteredOutboundRules))]
+    private int _ruleActionFilter;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredInboundRules))]
+    [NotifyPropertyChangedFor(nameof(ActiveRules))]
+    [NotifyPropertyChangedFor(nameof(RuleCountText))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
+    [NotifyPropertyChangedFor(nameof(FilteredOutboundRules))]
+    private int _ruleOriginFilter;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedNetworkRule))]
+    private NsgSecurityRule? _selectedInboundRule;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedNetworkRule))]
+    private NsgSecurityRule? _selectedOutboundRule;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInboundRuleView))]
+    [NotifyPropertyChangedFor(nameof(IsOutboundRuleView))]
+    [NotifyPropertyChangedFor(nameof(ActiveRules))]
+    [NotifyPropertyChangedFor(nameof(ActiveRuleDirection))]
+    [NotifyPropertyChangedFor(nameof(SelectedNetworkRule))]
+    [NotifyPropertyChangedFor(nameof(RuleCountText))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
+    private int _ruleDirectionIndex;
+    public bool IsInboundRuleView { get => RuleDirectionIndex == 0; set { if (value) RuleDirectionIndex = 0; } }
+    public bool IsOutboundRuleView { get => RuleDirectionIndex == 1; set { if (value) RuleDirectionIndex = 1; } }
+    public string ActiveRuleDirection => IsInboundRuleView ? "Inbound" : "Outbound";
+    public IReadOnlyList<NsgSecurityRule> ActiveRules => IsInboundRuleView ? FilteredInboundRules : FilteredOutboundRules;
+    public NsgSecurityRule? SelectedNetworkRule
+    {
+        get => IsInboundRuleView ? SelectedInboundRule : SelectedOutboundRule;
+        set { if (IsInboundRuleView) SelectedInboundRule = value; else SelectedOutboundRule = value; }
+    }
+    public string RuleCountText => $"显示 {ActiveRules.Count} / {(IsInboundRuleView ? InboundRules.Count : OutboundRules.Count)} 条规则";
+    public string RuleEmptyText => !HasReadNetwork ? "尚未获得网络规则，请查看读取状态或点击刷新。"
+        : ActiveRules.Count != 0 ? "" : (IsInboundRuleView ? InboundRules.Count : OutboundRules.Count) == 0
+            ? "暂无自定义规则。Azure 默认规则不在此列表中。"
+            : "没有匹配的规则，请调整搜索或筛选条件。";
+
+    public IReadOnlyList<NsgSecurityRule> FilteredInboundRules => FilterRules(InboundRules);
+    public IReadOnlyList<NsgSecurityRule> FilteredOutboundRules => FilterRules(OutboundRules);
+    private IReadOnlyList<NsgSecurityRule> FilterRules(IEnumerable<NsgSecurityRule> rules) =>
+        rules.Where(r => (string.IsNullOrWhiteSpace(RuleSearch) || r.Name.Contains(RuleSearch.Trim(), StringComparison.OrdinalIgnoreCase)) &&
+            (RuleActionFilter == 0 || r.Action == (RuleActionFilter == 1 ? NsgRuleAction.Allow : NsgRuleAction.Deny)) &&
+            (RuleOriginFilter == 0 || r.Origin == (RuleOriginFilter == 1 ? NsgRuleOrigin.Nic : NsgRuleOrigin.Subnet))).ToArray();
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task RefreshNetworkAsync() => LoadNetworkAsync();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNoInboundRules))]
+    [NotifyPropertyChangedFor(nameof(HasNoOutboundRules))]
+    [NotifyPropertyChangedFor(nameof(RuleEmptyText))]
+    private bool _hasReadNetwork;
+    public bool HasNoInboundRules => HasReadNetwork && _networkContext is not null && InboundRules.Count == 0;
+    public bool HasNoOutboundRules => HasReadNetwork && _networkContext is not null && OutboundRules.Count == 0;
+
     public bool HasInboundRules => InboundRules.Count > 0;
 
     public bool HasOutboundRules => OutboundRules.Count > 0;
@@ -260,12 +369,14 @@ public partial class VmDetailViewModel : ObservableObject
     private int _snapshotTotal;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReading))]
     private bool _isLoadingDisks;
 
     // ---- Performance（设计文档 §27：Azure Monitor 主机指标，实时读取，无数据时显示 "—"）----
     // 默认 "—" 而不是演示数字：性能页展示的是"这台机器现在多忙"，
     // 用 Mock 数值冒充会被当成真实读数。
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReading))]
     private bool _isLoadingPerformance;
 
     [ObservableProperty]
@@ -366,6 +477,11 @@ public partial class VmDetailViewModel : ObservableObject
         _ssh = ssh;
         _connectFlow = connectFlow;
         _engine.JobUpdated += OnEngineJobUpdated;
+        _scopeContext.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(ScopeContext.ActiveAccount) or nameof(ScopeContext.CurrentScope))
+                CancelReads();
+        };
     }
 
     /// <summary>当前 VM（Header 按钮的可见性随 PowerState 联动）。</summary>
@@ -376,6 +492,20 @@ public partial class VmDetailViewModel : ObservableObject
         // 这里刻意不碰任何终端会话：会话归 TerminalPanelViewModel（应用级单例）所有，
         // 换一台 VM 或离开详情页都只是换个页面，已建立的连接继续活在底部面板里。
 
+        if (ResourceId != vm.ResourceId)
+        {
+            CancelReads();
+            OverviewSections = []; Disks = []; SnapshotTotal = 0;
+            CpuText = MemoryText = OsDiskIopsText = OsDiskBandwidthText = "—";
+            VmCachedIopsText = VmCachedBandwidthText = VmUncachedIopsText = VmUncachedBandwidthText = "—";
+            NetworkInText = NetworkOutText = DiskReadText = DiskWriteText = "—";
+            OverviewReadStatus = NetworkReadStatus = DisksReadStatus = MetricsReadStatus = "";
+            ApplyOutbound(null); PublicIpFqdn = null;
+            InboundRules = []; OutboundRules = [];
+            SelectedInboundRule = SelectedOutboundRule = null;
+            _networkContext = null; HasReadNetwork = false;
+            RuleSearch = ""; RuleActionFilter = RuleOriginFilter = RuleDirectionIndex = 0;
+        }
         _vm = vm;
         ResourceId = vm.ResourceId;
         Name = vm.Name;
@@ -403,7 +533,7 @@ public partial class VmDetailViewModel : ObservableObject
 
     /// <summary>
     /// 四个读取各自独立、各自容错，故意不 await：一个失败不该拖住另外三个，
-    /// 每个 Load 内部已经各自把失败写进提示条。
+    /// 每个 Load 独立更新分区状态，并只应用当前读取的结果。
     /// </summary>
     private void LoadAll()
     {
@@ -417,34 +547,40 @@ public partial class VmDetailViewModel : ObservableObject
     /// <summary>
     /// 概览页：先用手上就有清单数据渲染一版（切页立刻有内容），再读 ARM 详情补齐规格能力 /
     /// 安全性 / 休眠 / 创建时间等清单里没有的字段。详情读失败**不**清空已有内容，
-    /// 只把失败写进提示条 —— 概览的空缺不等于"这台机器什么都没有"。
+    /// 失败显示在摘要分区 —— 概览的空缺不等于"这台机器什么都没有"。
     /// </summary>
     private async Task LoadOverviewAsync()
     {
-        OverviewSections = BuildOverviewSections(null);
-
+        using var read = _overviewRead.Begin();
+        var resourceId = _vm.ResourceId;
+        var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
+        if (OverviewSections.Count == 0) OverviewSections = BuildOverviewSections(null);
+        OverviewReadStatus = "正在读取摘要…";
         IsLoadingOverview = true;
         try
         {
-            var detail = await _detailService.GetAsync(_vm.ResourceId);
+            var detail = await _detailService.GetAsync(resourceId, read.Token);
+            if (!read.IsCurrent || resourceId != _vm.ResourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
             if (detail is null)
             {
                 // ARM 里已经没有这台 VM（详情页还开着是因为列表是上一次查询的结果）
-                InfoSeverity = "Warning";
-                InfoText = "该虚拟机在 Azure 中已不存在，详情信息无法读取。";
+                OverviewReadStatus = "该虚拟机在 Azure 中已不存在，详情信息无法读取。";
                 return;
             }
 
             OverviewSections = BuildOverviewSections(detail);
+            OverviewReadStatus = $"摘要已更新 · {DateTime.Now:HH:mm:ss}";
         }
+        catch (OperationCanceledException) when (read.Token.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            InfoSeverity = "Failed";
-            InfoText = $"虚拟机详情读取失败：{ex.Message}";
+            if (!read.IsCurrent || resourceId != _vm.ResourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+            OverviewReadStatus = $"读取失败，保留已有数据：{ex.Message}";
         }
         finally
         {
-            IsLoadingOverview = false;
+            if (read.IsCurrent) IsLoadingOverview = false;
         }
     }
 
@@ -520,11 +656,20 @@ public partial class VmDetailViewModel : ObservableObject
 
     private async Task LoadNetworkAsync()
     {
+        using var read = _networkRead.Begin();
+        var resourceId = _vm.ResourceId;
+        var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
+        NetworkReadStatus = "正在读取网络规则…";
         IsLoadingNetwork = true;
+        var selectedInboundId = SelectedInboundRule?.RuleId;
+        var selectedOutboundId = SelectedOutboundRule?.RuleId;
         try
         {
-            var ctx = await _network.GetForVmAsync(_vm.ResourceId);
-            _networkContext = ctx;
+            var ctx = await _network.GetForVmAsync(resourceId, read.Token);
+            if (!read.IsCurrent || _vm.ResourceId != resourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+            _networkContext = ctx; HasReadNetwork = true;
+            NetworkReadStatus = $"网络已更新 · {DateTime.Now:HH:mm:ss}";
             if (ctx is not null)
             {
                 NicName = ctx.NicName;
@@ -536,6 +681,8 @@ public partial class VmDetailViewModel : ObservableObject
                 IsSharedSubnetNsg = ctx.IsSharedSubnetNsg;
                 InboundRules = [.. ctx.InboundRules.OrderBy(r => r.Priority)];
                 OutboundRules = [.. ctx.OutboundRules.OrderBy(r => r.Priority)];
+                SelectedInboundRule = InboundRules.FirstOrDefault(r => r.RuleId == selectedInboundId);
+                SelectedOutboundRule = OutboundRules.FirstOrDefault(r => r.RuleId == selectedOutboundId);
 
                 // 状态与文案都必须来自读到的数据：网卡与子网都没有 NSG 是一个真实的安全发现，
                 // 不能笼统地写"NSG 规则已生效"。
@@ -572,22 +719,19 @@ public partial class VmDetailViewModel : ObservableObject
                 NsgStateText = "未读到网络配置（该虚拟机可能未关联网卡）";
             }
         }
+        catch (OperationCanceledException) when (read.Token.IsCancellationRequested) { }
         catch (Exception ex)
         {
+            if (!read.IsCurrent || _vm.ResourceId != resourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
             // 读取失败必须可见：空白的网络页会被误读为“这台 VM 没有网络配置”
-            InboundRules = [];
-            OutboundRules = [];
-            ApplyOutbound(null);
-            // 读失败时不能留着上一次的 DNS 名称：那会把上一台 VM 的域名安到这一台上
-            PublicIpFqdn = null;
+            // 保留当前 VM 已读取的快照，明确标为未刷新；不把失败误报为没有规则。
             SecurityState = "Unknown";
-            NsgStateText = "网络信息读取失败";
-            InfoSeverity = "Failed";
-            InfoText = $"网络信息读取失败：{ex.Message}";
+            NsgStateText = "网络信息刷新失败，当前显示上次读取的数据";
+            NetworkReadStatus = HasReadNetwork ? $"读取失败，保留已有规则：{ex.Message}" : $"读取失败，尚未获得网络规则：{ex.Message}";
         }
         finally
         {
-            IsLoadingNetwork = false;
+            if (read.IsCurrent) IsLoadingNetwork = false;
         }
     }
 
@@ -646,24 +790,29 @@ public partial class VmDetailViewModel : ObservableObject
 
     private async Task LoadDisksAsync()
     {
+        using var read = _disksRead.Begin();
+        var resourceId = _vm.ResourceId;
+        var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
+        DisksReadStatus = "正在读取…";
         IsLoadingDisks = true;
         try
         {
-            var disks = await _diskService.GetDisksAsync(_vm.ResourceId);
+            var disks = await _diskService.GetDisksAsync(resourceId, read.Token);
+            if (!read.IsCurrent || resourceId != _vm.ResourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
             Disks = [.. disks];
             SnapshotTotal = disks.Sum(d => d.SnapshotCount);
+            DisksReadStatus = $"已更新 · {DateTime.Now:HH:mm:ss}";
         }
+        catch (OperationCanceledException) when (read.Token.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            // 读取失败必须可见：空白的磁盘页会被误读为"这台 VM 没有磁盘"
-            Disks = [];
-            SnapshotTotal = 0;
-            InfoSeverity = "Failed";
-            InfoText = $"磁盘信息读取失败：{ex.Message}";
+            if (!read.IsCurrent || resourceId != _vm.ResourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+            DisksReadStatus = $"读取失败，保留已有数据：{ex.Message}";
         }
         finally
         {
-            IsLoadingDisks = false;
+            if (read.IsCurrent) IsLoadingDisks = false;
         }
     }
 
@@ -673,10 +822,16 @@ public partial class VmDetailViewModel : ObservableObject
     /// </summary>
     private async Task LoadMetricsAsync()
     {
+        using var read = _metricsRead.Begin();
+        var resourceId = _vm.ResourceId;
+        var scope = _scopeContext.CurrentScope;
+        var account = _scopeContext.ActiveAccount;
+        MetricsReadStatus = "正在读取…";
         IsLoadingPerformance = true;
         try
         {
-            var metrics = await _metrics.GetForVmAsync(_vm.ResourceId);
+            var metrics = await _metrics.GetForVmAsync(resourceId, read.Token);
+            if (!read.IsCurrent || resourceId != _vm.ResourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
 
             CpuText = FormatPercent(metrics.CpuPercent);
             MemoryText = FormatPercent(metrics.MemoryPercent);
@@ -690,35 +845,36 @@ public partial class VmDetailViewModel : ObservableObject
             NetworkOutText = FormatRate(metrics.NetworkOutBytesPerSecond);
             DiskReadText = FormatRate(metrics.DiskReadBytesPerSecond);
             DiskWriteText = FormatRate(metrics.DiskWriteBytesPerSecond);
+            MetricsReadStatus = metrics.HasAnyValue ? $"已读取 · {DateTime.Now:HH:mm:ss}" : "查询成功，暂无有效指标。";
 
             MetricsNote = _scopeContext.ActiveAccount is null
                 ? "演示数据（未登录 Azure）。登录后将显示 Azure Monitor 主机指标。"
                 : metrics.HasAnyValue
-                    ? $"Azure Monitor 主机指标，聚合窗口 {(int)metrics.Interval.TotalMinutes} 分钟；最后一个数据点 " +
-                      $"{metrics.SampledAt?.ToLocalTime():HH:mm:ss}（指标有分钟级延迟）。"
-                    : "Azure Monitor 未返回数据点 —— 虚拟机可能已解除分配或平台尚未产出指标。";
+                    ? $"Azure Monitor 平台指标，显示最近有效聚合点（查询最近 30 分钟，请求粒度 5 分钟）；数据时间 " +
+                      $"{(metrics.OldestSampledAt ?? metrics.SampledAt)?.ToLocalTime():yyyy-MM-dd HH:mm:ss} 至 {metrics.SampledAt?.ToLocalTime():yyyy-MM-dd HH:mm:ss}。各指标可能不同步，存在分钟级延迟。— 表示未返回数据；0 表示平台返回零值。"
+                    : "Azure Monitor 未返回有效数据点：虚拟机可能已解除分配、规格不支持该指标，或平台尚未产出数据。";
         }
+        catch (OperationCanceledException) when (read.Token.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            CpuText = MemoryText = OsDiskIopsText = OsDiskBandwidthText = "—";
-            VmCachedIopsText = VmCachedBandwidthText = VmUncachedIopsText = VmUncachedBandwidthText = "—";
-            NetworkInText = NetworkOutText = DiskReadText = DiskWriteText = "—";
-            MetricsNote = $"性能指标读取失败：{ex.Message}";
+            if (!read.IsCurrent || resourceId != _vm.ResourceId || !ReferenceEquals(scope, _scopeContext.CurrentScope) || !ReferenceEquals(account, _scopeContext.ActiveAccount)) return;
+            MetricsReadStatus = $"读取失败，保留已有数据：{ex.Message}";
         }
         finally
         {
-            IsLoadingPerformance = false;
+            if (read.IsCurrent) IsLoadingPerformance = false;
         }
     }
 
     private static string FormatPercent(double? value) =>
-        value is null ? "—" : $"{value:0.#}%";
+        value is null ? "—" : value is > 0 and < 0.01 ? "<0.01%" : $"{value:0.##}%";
 
     /// <summary>字节/秒 → 便于阅读的速率单位。</summary>
     private static string FormatRate(double? bytesPerSecond) => bytesPerSecond switch
     {
         null => "—",
-        < 1024 => $"{bytesPerSecond:0} B/s",
+        > 0 and < 0.01 => "<0.01 B/s",
+        < 1024 => $"{bytesPerSecond:0.##} B/s",
         < 1024 * 1024 => $"{bytesPerSecond / 1024:0.#} KB/s",
         _ => $"{bytesPerSecond / (1024 * 1024):0.##} MB/s"
     };
@@ -784,17 +940,26 @@ public partial class VmDetailViewModel : ObservableObject
         // 两次独立查询可能拿到不同地址，且失败时会连着打两轮第三方端点。
         var cidr = Modules.Network.Services.PublicIpText.ToCidr(ip);
         var isDemoValue = _scopeContext.ActiveAccount is null;
-        var dialog = new Views.OpenPortDialog(ip, cidr, isDemoValue, _networkContext?.SubnetCidr, direction)
+        var dialog = new Views.OpenPortDialog(ip, cidr, isDemoValue, _networkContext?.SubnetCidr, direction,
+            [.. InboundRules, .. OutboundRules])
         {
             Owner = System.Windows.Application.Current.MainWindow
         };
-        if (dialog.ShowDialog() is not true || dialog.Result is null)
+        dialog.SubmitAsync = SubmitNewRuleAsync;
+        dialog.ApproveAsync = id => _engine.ApproveAsync(id);
+        dialog.RejectAsync = id => _engine.RejectAsync(id, "新建规则窗口取消");
+        await dialog.ShowPanelAsync();
+        if (dialog.ResultJob is { } completed)
         {
-            return;
+            if (PendingApprovalJob?.JobId == completed.JobId) PendingApprovalJob = null;
+            await AfterRuleJobAsync(completed);
         }
+    }
 
-        var result = dialog.Result;
-        var isOutbound = direction == Modules.Network.Models.NsgRuleDirection.Outbound;
+    private async Task<OperationJob> SubmitNewRuleAsync(Views.OpenPortResult result)
+    {
+        var isOutbound = string.Equals(result.Direction,
+            nameof(Modules.Network.Models.NsgRuleDirection.Outbound), StringComparison.OrdinalIgnoreCase);
 
         // 目标 NSG 必须由这里指名：读路径聚合了 NIC / Subnet 两个 NSG，
         // 只有网络上下文知道往哪一个里加规则（过去没有这一步，实现只好编造规则 ID）。
@@ -804,11 +969,9 @@ public partial class VmDetailViewModel : ObservableObject
         if (string.IsNullOrEmpty(nsgId))
         {
             // 该作用域下没有对应 NSG：如实告知，而不是让操作走到 Azure 再失败
-            InfoSeverity = "Warning";
-            InfoText = isSubnet
+            throw new InvalidOperationException(isSubnet
                 ? "该虚拟机所在子网没有关联网络安全组，无法在其中新增子网级规则。"
-                : "该虚拟机的网卡没有关联网络安全组，无法在其中新增网卡级规则。";
-            return;
+                : "该虚拟机的网卡没有关联网络安全组，无法在其中新增网卡级规则。");
         }
 
         // 对端为"任意"时交给 Operation Engine 审批流（§25 原则）。
@@ -816,9 +979,8 @@ public partial class VmDetailViewModel : ObservableObject
         // 但它会压过后加的拒绝规则，值得让用户看一眼。
         var isBroadPeer = result.PeerPrefix is "*" or "0.0.0.0/0" or "Internet";
         var risk = isBroadPeer ? RiskLevel.High : RiskLevel.Medium;
-        // 广对端一律不预先批准（这跟策略档位无关，是这条规则本身的性质）；
-        // 其余按策略档位决定。子网级 NSG 另有引擎级的 §25 兜底，见 ImpactAssessment.CannotBypass。
-        var preApproved = !isBroadPeer && _approvalPolicy.ShouldAutoApprove(risk);
+        // 交互创建在原窗口确认后执行，子网/广对端影响结论由引擎提供。
+        var preApproved = _approvalPolicy.ShouldAutoApprove(risk);
 
         // 用户填的对端按方向落到对应的 payload 键：入站是来源，出站是目标。
         // 两个键都写全，Handler 按 direction 取用 —— 不靠它去猜哪一侧是用户填的。
@@ -833,6 +995,7 @@ public partial class VmDetailViewModel : ObservableObject
             preApproved: preApproved,
             payload: new Dictionary<string, string>
             {
+                ["interactiveConfirmation"] = "true",
                 ["nsgId"] = nsgId,
                 ["ruleName"] = result.RuleName,
                 ["port"] = result.Port.ToString(),
@@ -847,7 +1010,7 @@ public partial class VmDetailViewModel : ObservableObject
                 ["destinationDisplay"] = isOutbound ? result.PeerDisplay : "Any"
             }));
 
-        await AfterRuleJobAsync(job);
+        return job;
     }
 
     [RelayCommand]
@@ -858,35 +1021,37 @@ public partial class VmDetailViewModel : ObservableObject
             return;
         }
 
-        var dialog = new Views.ChangePortDialog(rule)
+        await EditRuleAsync(rule, false);
+    }
+
+    [RelayCommand]
+    private Task EditNetworkRuleAsync(NsgSecurityRule? rule) => rule is null ? Task.CompletedTask : EditRuleAsync(rule, false);
+
+    private async Task EditRuleAsync(NsgSecurityRule rule, bool priority)
+    {
+        if (rule.Direction == NsgRuleDirection.Inbound) SelectedInboundRule = rule;
+        else SelectedOutboundRule = rule;
+        var dialog = new Views.RuleEditorDialog(rule, [.. InboundRules, .. OutboundRules], priority,
+            (isPriority, value) => _engine.SubmitAsync(_requests.Create(
+                isPriority ? "network.change_priority" : "network.change_port",
+                _vm.SubscriptionId, _vm.ResourceId,
+                isPriority ? $"更改优先级 {rule.Name}：{rule.Priority} → {value}" : $"更改端口 {rule.Name}：{rule.DestinationPort} → {value}",
+                risk: isPriority ? RiskLevel.High : RiskLevel.Medium,
+                preApproved: _approvalPolicy.ShouldAutoApprove(isPriority ? RiskLevel.High : RiskLevel.Medium),
+                payload: new Dictionary<string, string>
+                {
+                    ["interactiveConfirmation"] = "true",
+                    ["ruleId"] = rule.RuleId, ["ruleName"] = rule.Name,
+                    [isPriority ? "priority" : "port"] = value.ToString()
+                })),
+            id => _engine.ApproveAsync(id), id => _engine.RejectAsync(id, "规则编辑窗口取消"))
+        { Owner = Application.Current.MainWindow };
+        await dialog.ShowPanelAsync();
+        if (dialog.ResultJob is { } job)
         {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        if (dialog.ShowDialog() is not true)
-        {
-            return;
+            if (PendingApprovalJob?.JobId == job.JobId) PendingApprovalJob = null;
+            await AfterRuleJobAsync(job);
         }
-
-        var newPort = dialog.NewPort;
-
-        // 这里的 preApproved 只代表"风险类审批"这一层：对话框已经让用户确认过端口。
-        // 子网级 NSG 的 §25 影响面确认不归它管 —— 引擎按 CannotBypass 强制弹出，
-        // 无论这里传什么、也无论设置里选了哪一档。
-        var job = await _engine.SubmitAsync(_requests.Create(
-            "network.change_port",
-            _vm.SubscriptionId,
-            _vm.ResourceId,
-            $"更改端口 {rule.Name}：{rule.DestinationPort} → {newPort}",
-            risk: RiskLevel.Medium,
-            preApproved: _approvalPolicy.ShouldAutoApprove(RiskLevel.Medium),
-            payload: new Dictionary<string, string>
-            {
-                ["ruleId"] = rule.RuleId,
-                ["ruleName"] = rule.Name,
-                ["port"] = newPort.ToString()
-            }));
-
-        await AfterRuleJobAsync(job);
     }
 
     [RelayCommand]
@@ -923,6 +1088,14 @@ public partial class VmDetailViewModel : ObservableObject
         await AfterRuleJobAsync(job);
     }
 
+    /// <summary>修改规则优先级，经 Operation Engine 确认匹配顺序影响。</summary>
+    [RelayCommand]
+    private async Task ChangePriorityAsync(NsgSecurityRule? rule)
+    {
+        if (rule is null) return;
+        await EditRuleAsync(rule, true);
+    }
+
     /// <summary>WaitingApproval Job 的内联审批（§25 Continue）。</summary>
     [RelayCommand]
     private async Task ApproveAsync()
@@ -932,18 +1105,22 @@ public partial class VmDetailViewModel : ObservableObject
             return;
         }
         // §25：先把影响面摆给用户，由用户决定继续还是取消 —— 不能只给一个"批准"按钮。
-        var dialog = new Views.ImpactApprovalDialog(PendingApprovalJob)
+        var pending = PendingApprovalJob;
+        OperationJob? completed = null;
+        var dialog = new Views.ImpactApprovalDialog(pending, async (progress, ct) =>
         {
-            Owner = System.Windows.Application.Current?.MainWindow
-        };
-        if (dialog.ShowDialog() is not true)
+            completed = await ApprovalJobRunner.RunAsync(_engine, pending.JobId, progress, ct);
+            return completed.Status == JobStatus.Succeeded
+                ? Views.ApprovalSubmitOutcome.Ok()
+                : Views.ApprovalSubmitOutcome.Failed(JobPresentation.Feedback(completed), _engine.CanApprove(completed.JobId));
+        }) { Owner = Application.Current?.MainWindow };
+        dialog.ShowDialog();
+        if (completed is not null)
         {
-            return;
+            if (completed.Status != JobStatus.WaitingApproval && PendingApprovalJob?.JobId == pending.JobId)
+                PendingApprovalJob = null;
+            await AfterRuleJobAsync(completed);
         }
-
-        var job = await _engine.ApproveAsync(PendingApprovalJob.JobId);
-        PendingApprovalJob = null;
-        await AfterRuleJobAsync(job);
     }
 
     /// <summary>

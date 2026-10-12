@@ -22,7 +22,7 @@ public sealed class ArmVmImageCatalog : IVmImageCatalog
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private readonly ArmAccessTokenProvider _tokenProvider;
     private readonly ILogger<ArmVmImageCatalog> _logger;

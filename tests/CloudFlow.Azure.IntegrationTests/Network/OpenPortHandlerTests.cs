@@ -13,6 +13,50 @@ namespace CloudFlow.Azure.IntegrationTests.Network;
 /// </summary>
 public class OpenPortHandlerTests
 {
+    [Fact]
+    public async Task 交互提交普通网卡规则_必须先确认影响()
+    {
+        var (handler, network) = Build();
+        var nsgId = await NicNsgIdAsync(network);
+        var impact = await handler.AnalyzeImpactAsync(Request(nsgId, ("interactiveConfirmation", "true")), CancellationToken.None);
+        Assert.True(impact.RequiresApproval);
+        Assert.False(impact.CannotBypass);
+        Assert.Equal(1, impact.AffectedResources);
+    }
+
+    [Fact]
+    public async Task 同一NSG同方向优先级冲突_提交前拒绝()
+    {
+        var (handler, network) = Build();
+        var nsgId = await NicNsgIdAsync(network);
+        await handler.ExecuteAsync(Request(nsgId), CancellationToken.None);
+
+        var error = await Assert.ThrowsAsync<CloudFlow.Core.Errors.OperationValidationException>(
+            () => handler.ValidateAsync(Request(nsgId, ("ruleName", "Allow1001InBound")), CancellationToken.None));
+
+        Assert.Contains("400", error.Message);
+        Assert.Contains("CloudFlow-8443", error.Message);
+    }
+
+    [Fact]
+    public async Task 不同方向可以复用优先级()
+    {
+        var (handler, network) = Build();
+        var nsgId = await NicNsgIdAsync(network);
+        await handler.ExecuteAsync(Request(nsgId), CancellationToken.None);
+        await handler.ValidateAsync(Request(nsgId, ("direction", "Outbound")), CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task 不同NSG可以复用优先级()
+    {
+        var (handler, network) = Build();
+        var nsgId = await NicNsgIdAsync(network);
+        await handler.ExecuteAsync(Request(nsgId), CancellationToken.None);
+        var context = await network.GetForVmAsync(VmResourceId);
+        await handler.ValidateAsync(Request(context!.SubnetNsgId!, ("origin", "Subnet")), CancellationToken.None);
+    }
+
     private const string VmResourceId =
         "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-web/providers/Microsoft.Compute/virtualMachines/WEB01";
 

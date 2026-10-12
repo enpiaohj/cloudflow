@@ -1,6 +1,7 @@
 <UserControl x:Class="CloudFlow.App.Views.HomePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:CloudFlow.App.Behaviors"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:controls="clr-namespace:CloudFlow.App.Controls"
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
@@ -72,7 +73,7 @@
                  固定 250 宽在宽窗口下右侧参差不齐）；外层 -6 与每张卡 6 的边距抵消，左右与下方卡片对齐。 -->
             <UniformGrid Grid.Row="1" Columns="4" Margin="-6,20,-6,0">
 
-                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                <Button Style="{StaticResource Cf.KpiButton}" Padding="18,16" Margin="6,0" Command="{Binding ViewVmSummaryCommand}" CommandParameter="全部状态" ToolTip="查看当前 Scope 的全部虚拟机" automation:AutomationProperties.Name="查看当前 Scope 的全部虚拟机">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -86,15 +87,15 @@
                                        Visibility="{Binding TotalVmsDeltaText, Converter={StaticResource NonEmptyToVisibility}}" />
                         </StackPanel>
                         <!-- 概念图 1：虚拟机指标卡用主机图标（原先误用了云图标，与「计算」导航重复） -->
-                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="6" VerticalAlignment="Top"
                                 Background="{DynamicResource Cf.Status.Info.Bg}">
                             <ui:SymbolIcon Symbol="Desktop24" FontSize="17" Foreground="{DynamicResource Cf.PrimaryBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </Grid>
-                </Border>
+                </Button>
 
-                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                <Button Style="{StaticResource Cf.KpiButton}" Padding="18,16" Margin="6,0" Command="{Binding ViewVmSummaryCommand}" CommandParameter="运行中" ToolTip="查看运行中的虚拟机" automation:AutomationProperties.Name="查看运行中的虚拟机">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -106,15 +107,15 @@
                             <TextBlock Text="{Binding RunningPercent}" Style="{StaticResource Cf.Muted}" Margin="0,2,0,0"
                                        Visibility="{Binding RunningPercent, Converter={StaticResource NonEmptyToVisibility}}" />
                         </StackPanel>
-                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="6" VerticalAlignment="Top"
                                 Background="{DynamicResource Cf.Status.Success.Bg}">
                             <ui:SymbolIcon Symbol="Play24" FontSize="17" Foreground="{DynamicResource Cf.SuccessTextBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </Grid>
-                </Border>
+                </Button>
 
-                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                <Button Style="{StaticResource Cf.KpiButton}" Padding="18,16" Margin="6,0" Command="{Binding ViewVmSummaryCommand}" CommandParameter="已解除分配" ToolTip="查看已解除分配的虚拟机" automation:AutomationProperties.Name="查看已解除分配的虚拟机">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -126,15 +127,15 @@
                             <TextBlock Text="{Binding DeallocatedPercent}" Style="{StaticResource Cf.Muted}" Margin="0,2,0,0"
                                        Visibility="{Binding DeallocatedPercent, Converter={StaticResource NonEmptyToVisibility}}" />
                         </StackPanel>
-                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="6" VerticalAlignment="Top"
                                 Background="{DynamicResource Cf.Status.Neutral.Bg}">
                             <ui:SymbolIcon Symbol="Power24" FontSize="17" Foreground="{DynamicResource Cf.TextSecondaryBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </Grid>
-                </Border>
+                </Button>
 
-                <Border Style="{StaticResource Cf.Card}" Padding="18,16" Margin="6,0">
+                <Button Style="{StaticResource Cf.KpiButton}" Padding="18,16" Margin="6,0" Command="{Binding ViewVmSummaryCommand}" CommandParameter="警告" ToolTip="查看状态异常的虚拟机" automation:AutomationProperties.Name="查看状态异常的虚拟机">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -157,13 +158,13 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </StackPanel>
-                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="9" VerticalAlignment="Top"
+                        <Border Grid.Column="1" Width="34" Height="34" CornerRadius="6" VerticalAlignment="Top"
                                 Background="{DynamicResource Cf.Status.Warning.Bg}">
                             <ui:SymbolIcon Symbol="Warning24" FontSize="17" Foreground="{DynamicResource Cf.WarningTextBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </Grid>
-                </Border>
+                </Button>
             </UniformGrid>
 
             <!-- ===== 最近操作 + 注意项 =====
@@ -193,8 +194,8 @@
                                                  Symbol="History24" Title="暂无操作记录"
                                                  Description="{Binding RecentOperationsEmptyText}"
                                                  Visibility="{Binding HasRecentOperations, Converter={StaticResource InverseBoolToVisibility}}" />
-                            <DataGrid ItemsSource="{Binding RecentOperations}" Style="{StaticResource Cf.DataGrid}"
-                                      RowHeight="38"
+                            <DataGrid behaviors:JobDetailsBehavior.Enabled="True" ItemsSource="{Binding RecentOperations}" Style="{StaticResource Cf.DataGrid}"
+                                      RowHeight="{DynamicResource Cf.TableRowHeight}"
                                       Visibility="{Binding HasRecentOperations, Converter={StaticResource BoolToVisibility}}">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt, StringFormat=HH:mm}"
@@ -229,7 +230,12 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                </DataGrid.Columns>
+                                <DataGridTemplateColumn Header="" Width="70" MinWidth="70" CanUserResize="False">
+                        <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                            <Button Content="详情" Style="{StaticResource Cf.SecondaryButton}" Padding="10,4" FontSize="12" ToolTip="查看完整操作详情" Click="JobDetails_Click"/>
+                        </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
                     </DockPanel>
@@ -367,6 +373,8 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Border>
+                        <Button Content="查看成本分析 →" Command="{Binding ViewCostInsightsCommand}"
+                                HorizontalAlignment="Left" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
 

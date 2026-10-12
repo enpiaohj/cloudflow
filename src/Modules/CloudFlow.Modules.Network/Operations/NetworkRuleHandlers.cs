@@ -59,6 +59,16 @@ public abstract class NetworkRuleHandlerBase(
     public async Task<ImpactAssessment> AnalyzeImpactAsync(OperationRequest request, CancellationToken ct)
     {
         var impact = await AssessImpactAsync(request, ct).ConfigureAwait(false);
+        // 普通交互变更遵循 PreApproved；共享子网的强制确认结论保持不变。
+        if (!impact.RequiresApproval && request.Payload.GetValueOrDefault("interactiveConfirmation") == "true")
+        {
+            impact = new ImpactAssessment
+            {
+                RequiresApproval = true, AffectedResources = 1,
+                Description = $"{request.Display}。该操作将修改当前虚拟机的网卡 NSG 规则，可能影响网络连接。"
+            };
+        }
+
 
         if (impact.RequiresApproval && !request.PreApproved)
         {
@@ -186,7 +196,7 @@ public sealed class OpenPortHandler(
     private static string PeerDisplayKey(NsgRuleDirection direction) =>
         direction == NsgRuleDirection.Outbound ? "destinationDisplay" : "sourceDisplay";
 
-    public override Task ValidateAsync(OperationRequest request, CancellationToken ct)
+    public override async Task ValidateAsync(OperationRequest request, CancellationToken ct)
     {
         // open_port 的目标是"要往哪个 NSG 里加规则"，没有既有规则可解析，必须由 UI 明确给出。
         if (!request.Payload.TryGetValue("nsgId", out var nsgId) || string.IsNullOrWhiteSpace(nsgId))
@@ -228,7 +238,18 @@ public sealed class OpenPortHandler(
                 $"action 必须是 {nameof(NsgRuleAction.Allow)} 或 {nameof(NsgRuleAction.Deny)}。");
         }
 
-        return Task.CompletedTask;
+        var direction = DirectionOf(request);
+        var rules = direction == NsgRuleDirection.Outbound
+            ? await Network.GetOutboundRulesAsync(request.ResourceId, ct).ConfigureAwait(false)
+            : await Network.GetInboundRulesAsync(request.ResourceId, ct).ConfigureAwait(false);
+        var requestedPriority = int.TryParse(request.Payload.GetValueOrDefault("priority"), out var parsed) ? parsed : 400;
+        var conflict = rules.FirstOrDefault(r => r.Priority == requestedPriority &&
+            string.Equals(NsgRuleIds.Split(r.RuleId)?.NsgId, nsgId.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
+        if (conflict is not null)
+        {
+            throw new OperationValidationException(
+                $"优先级 {requestedPriority} 已被同一网络安全组的同方向规则「{conflict.Name}」使用，请选择其他优先级。");
+        }
     }
 
     protected override async Task<ImpactAssessment> AssessImpactAsync(

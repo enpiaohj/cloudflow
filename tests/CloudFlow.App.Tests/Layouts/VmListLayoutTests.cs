@@ -12,6 +12,15 @@ namespace CloudFlow.App.Tests.Layouts;
 /// </summary>
 public sealed class VmListLayoutTests
 {
+    [Fact]
+    public void 网络规则搜索与新建只保留一个共用入口()
+    {
+        var doc = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VmDetailPage.xaml"));
+        var network = doc.Descendants().Single(e => e.Name.LocalName == "TabItem" && (string?)e.Attribute("Header") == "网络");
+        Assert.Single(network.Descendants(), e => (string?)e.Attribute("Text") == "{Binding RuleSearch, UpdateSourceTrigger=PropertyChanged}");
+        Assert.Single(network.Descendants(), e => (string?)e.Attribute("Command") == "{Binding OpenPortCommand}");
+    }
+
     // MainWindow 的最小宽度 1040，固定侧栏 216，页面左右边距各 28 → 内容最窄 768。
     private const int MinimumContentWidth = 768;
 
@@ -36,11 +45,11 @@ public sealed class VmListLayoutTests
             .Where(element =>
             {
                 var itemsSource = (string?)element.Attribute("ItemsSource");
-                return itemsSource is "{Binding InboundRules}" or "{Binding OutboundRules}";
+                return itemsSource == "{Binding ActiveRules}";
             })
             .ToList();
 
-        Assert.Equal(2, ruleTables.Count);
+        Assert.Single(ruleTables);
         Assert.All(ruleTables, table =>
             Assert.NotEqual("Disabled", (string?)table.Attribute("HorizontalScrollBarVisibility")));
     }
@@ -48,34 +57,19 @@ public sealed class VmListLayoutTests
     [Fact]
     public void 最小窗口内筛选行必须保留刷新入口()
     {
-        // 这里的 36px 是 Cf.IconButton 的刷新入口最小占位。
-        const int refreshButtonWidth = 36;
-
         var document = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VirtualMachinesPage.xaml"));
-        var filter = document.Descendants()
-            .Single(element => element.Name.LocalName == "Grid" &&
-                               element.Attributes().Any(attribute =>
-                                   attribute.Name.LocalName == "Name" && attribute.Value == "FilterRow"));
-        var firstColumnWidth = int.Parse(filter.Elements()
-            .Single(element => element.Name.LocalName == "Grid.ColumnDefinitions")
-            .Elements()
-            .First()
-            .Attribute("Width")!.Value, CultureInfo.InvariantCulture);
-        var comboBoxes = filter.Elements()
-            .Where(element => element.Name.LocalName == "ComboBox")
-            .Select(element => new
-            {
-                Width = int.Parse(element.Attribute("Width")!.Value, CultureInfo.InvariantCulture),
-                LeftMargin = int.Parse(element.Attribute("Margin")!.Value.Split(',')[0], CultureInfo.InvariantCulture)
-            })
-            .ToList();
-
-        var occupiedWidth = firstColumnWidth +
-                            comboBoxes.Sum(comboBox => comboBox.Width + comboBox.LeftMargin) +
-                            refreshButtonWidth;
-
-        Assert.True(occupiedWidth <= MinimumContentWidth,
-            $"筛选行固定控件需要 {occupiedWidth}px，但最小窗口只能提供 {MinimumContentWidth}px；刷新按钮会被挤出可视区。");
+        var filter = document.Descendants().Single(e => e.Attributes().Any(a =>
+            a.Name.LocalName == "Name" && a.Value == "FilterRow"));
+        Assert.Equal("WrapPanel", filter.Name.LocalName);
+        Assert.Single(filter.Descendants(), e => (string?)e.Attribute("Command") == "{Binding RefreshCommand}");
+        // 每个换行单元都能独立容纳在最小视口，刷新不再依赖固定列宽合计。
+        foreach (var field in filter.Elements())
+        {
+            var width = field.Descendants().Select(e => (string?)e.Attribute("Width"))
+                .Where(w => double.TryParse(w, out _)).Select(w => double.Parse(w!, CultureInfo.InvariantCulture))
+                .DefaultIfEmpty(36).Max();
+            Assert.True(width + 8 + 26 <= MinimumContentWidth);
+        }
     }
 
     /// <summary>
@@ -206,7 +200,7 @@ public sealed class VmListLayoutTests
         var document = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VmDetailPage.xaml"));
         var tables = document.Descendants().Where(element => element.Name.LocalName == "DataGrid").ToList();
 
-        Assert.Equal(4, tables.Count);
+        Assert.Equal(3, tables.Count);
         Assert.All(tables, table =>
         {
             Assert.Equal("Disabled", (string?)table.Attribute("VerticalScrollBarVisibility"));
@@ -236,8 +230,7 @@ public sealed class VmListLayoutTests
     /// 没有 MinWidth 时，窄窗口下被 DataGrid 压碎而不出横向滚动条（实测"端口 3000"被切成"300("）。
     /// </summary>
     [Theory]
-    [InlineData("InboundRules")]
-    [InlineData("OutboundRules")]
+    [InlineData("ActiveRules")]
     public void 规则表格固定宽度列必须有不可压缩下限(string itemsSource)
     {
         var document = XDocument.Load(Path.Combine(AppDirectory(), "Views", "VmDetailPage.xaml"));

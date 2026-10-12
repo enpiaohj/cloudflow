@@ -2,9 +2,8 @@
 
   <!--
     CloudFlow.App 是 WPF 桌面应用（net8.0-windows + UseWPF），引用它会把整个测试项目
-    拖进 WPF TFM 与 STA 线程要求里。而本项目当前只做**不依赖 WPF 的 App 层一致性检查**
-    （解析 Themes/*.xaml 的 XML），所以刻意用普通 net8.0、且**不引用任何项目** ——
-    它检查的是仓库里两个文件之间的关系，编译期本来就没有可引用的类型。
+    拖进 WPF TFM 与 STA 线程要求里。本项目使用普通 net8.0 做 XAML 一致性检查，
+    并通过链接无 WPF 依赖的 LatestRead 源码测试读取生命周期，不引用桌面应用。
   -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -20,4 +19,7 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../src/CloudFlow.App/Infrastructure/LatestRead.cs" Link="Infrastructure/LatestRead.cs" />
+  </ItemGroup>
 </Project>

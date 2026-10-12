@@ -92,3 +92,21 @@ dotnet test tests/CloudFlow.Core.Tests tests/CloudFlow.Operation.Tests
 正式发布使用 Semantic Versioning，`releases/vX.Y.Z/` 下归档每个版本的完整源码快照与变更记录；
 编译好的可执行文件通过 GitHub Releases 分发，不提交进仓库。完整变更历史见根目录
 [`CHANGELOG.md`](../CHANGELOG.md)。
+
+## v0.10.0 发布验证与构建方式
+
+正式发布按以下顺序运行（Windows）：
+
+```powershell
+dotnet build CloudFlow.sln -c Release -t:Rebuild -m:1
+dotnet test CloudFlow.sln -c Release --no-build -m:1
+dotnet publish src/CloudFlow.App/CloudFlow.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -p:PublishDocumentationFiles=false -p:IncludeSourceRevisionInInformationalVersion=false -o publish/v0.10.0-win-x64 -m:1
+```
+
+版本由根目录 `Directory.Build.props` 的 `Version` 提供，关于页从程序集读取；没有独立 Build Number。调整版本后必须重新构建和测试。输出 `CloudFlow.App.exe` 在归档时命名为 `CloudFlow-v0.10.0-win-x64.exe`，ZIP 同名。不要覆盖旧版本目录。
+
+快速离线检查可用 `dotnet test CloudFlow.sln -c Release --no-build --filter "Category!=Integration" -m:1`，但不能代替正式发布完整测试。部分 Integration 用例在缺少真实登录配置 / Runtime 时直接返回，测试显示通过也不代表完成真实 Azure 联调；发布记录必须单独说明实际运行范围。
+
+UI 静态测试需配合实际 WPF 运行验证：列表单击 / 双击 / Enter / 右键目标、编辑与审批面板、Scope 切换、退出取消、成本过滤与分组、长日志、浅深色和小窗口布局。测试用演示数据，不对生产资源执行写操作。
+
+`appsettings.json` 禁止入库或源码快照；应用项目设置 `CopyToPublishDirectory=Never` 排除本机配置。正式 `source/` 包含工程、源码、资源、依赖声明、安全配置模板和文档，排除 `.git`、旧 releases、bin / obj、publish、runtime、缓存及本地数据。保留 GPL-3.0 与第三方通知，终端 Web 资产必须在单文件发布中可用。提交前核对快照与已验证源码一致，产物以 SHA-256 校验，GitHub Release 上传后下载复核。

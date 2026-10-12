@@ -10,6 +10,47 @@ namespace CloudFlow.Core.Tests.Stores;
 /// </summary>
 public sealed class AppSettingsStoreTests : IDisposable
 {
+    [Fact]
+    public void 紧凑表格设置可以保存且旧配置默认关闭()
+    {
+        var store = new AppSettingsStore(FilePath);
+        Assert.False(store.Current.CompactTables);
+        store.Save(store.Current with { CompactTables = true, DefaultPageSize = 25 });
+        var restored = new AppSettingsStore(FilePath).Current;
+        Assert.True(restored.CompactTables);
+        Assert.Equal(25, restored.DefaultPageSize);
+    }
+    [Fact]
+    public void 保存设置包含默认300秒Azure请求超时()
+    {
+        var store = new AppSettingsStore(FilePath);
+        store.Save(AppSettings.Default);
+        Assert.Contains("\"AzureRequestTimeoutSeconds\": 300", File.ReadAllText(FilePath));
+    }
+
+    [Theory]
+    [InlineData(60, 60)]
+    [InlineData(600, 600)]
+    [InlineData(-1, 300)]
+    [InlineData(0, 300)]
+    [InlineData(9999, 300)]
+    public void 请求超时持久化并归一化(int input, int expected)
+    {
+        var store = new AppSettingsStore(FilePath);
+        store.Save(AppSettings.Default with { AzureRequestTimeoutSeconds = input });
+        Assert.Equal(expected, new AppSettingsStore(FilePath).Current.AzureRequestTimeoutSeconds);
+    }
+
+    [Fact]
+    public void 旧设置缺少超时字段时采用300秒并保留其他设置()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, "{\"Theme\":\"Dark\",\"DefaultPageSize\":25}");
+        var settings = new AppSettingsStore(FilePath).Current;
+        Assert.Equal(300, settings.AzureRequestTimeoutSeconds);
+        Assert.Equal(AppThemeKind.Dark, settings.Theme);
+        Assert.Equal(25, settings.DefaultPageSize);
+    }
     private readonly string _directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
     private string FilePath => Path.Combine(_directory, "settings.json");
 
@@ -32,12 +73,12 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void 默认值是本设置存在之前的行为()
+    public void 默认值关闭审批并保留其他偏好()
     {
         var defaults = AppSettings.Default.Normalize();
 
         Assert.Equal(AppThemeKind.System, defaults.Theme);
-        Assert.Equal(ApprovalPolicy.HighRiskOnly, defaults.ApprovalPolicy);
+        Assert.Equal(ApprovalPolicy.Off, defaults.ApprovalPolicy);
         Assert.Equal(0, defaults.AutoRefreshSeconds);
         Assert.Equal(10, defaults.DefaultPageSize);
         Assert.True(defaults.AutoDetectPublicIp);
@@ -164,7 +205,7 @@ public sealed class AppSettingsStoreTests : IDisposable
         // Theme / ApprovalPolicy 回退，但同一文件里合法的字段要保住 ——
         // 一处坏值不该把整份设置重置掉
         Assert.Equal(AppThemeKind.System, settings.Theme);
-        Assert.Equal(ApprovalPolicy.HighRiskOnly, settings.ApprovalPolicy);
+        Assert.Equal(ApprovalPolicy.Off, settings.ApprovalPolicy);
         Assert.Equal(50, settings.DefaultPageSize);
     }
 

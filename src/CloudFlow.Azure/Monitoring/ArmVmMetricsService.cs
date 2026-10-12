@@ -17,7 +17,7 @@ namespace CloudFlow.Azure.Monitoring;
 ///
 /// 只用 Host 指标（Percentage CPU / Network In|Out Total / Disk Read|Write Bytes）：
 /// 这些无需在 VM 内启用 Guest 诊断扩展，符合“安装 CloudFlow = 完成全部环境准备”的产品原则。
-/// Guest 级指标（内存、磁盘 IOPS 细分）需要诊断扩展，本版本不取。
+/// 同时查询平台提供的内存及磁盘限额使用率；不支持或未采样的指标保持空值。
 ///
 /// 走 <c>Azure.ResourceManager.Monitor</c> 而不是手写 REST：它与本仓强制的
 /// <see cref="IAzureClientFactory"/> → <see cref="ArmClient"/> 路径同源，用的就是 ARM 的
@@ -142,7 +142,7 @@ public sealed class ArmVmMetricsService : IVmMetricsService
         double? osDiskIops = null, osDiskBandwidth = null;
         double? cachedIops = null, cachedBandwidth = null;
         double? uncachedIops = null, uncachedBandwidth = null;
-        DateTimeOffset? sampledAt = null;
+        DateTimeOffset? sampledAt = null, oldestSampledAt = null;
         TimeSpan? interval = null;
 
         foreach (var metric in metrics)
@@ -154,27 +154,29 @@ public sealed class ArmVmMetricsService : IVmMetricsService
             }
 
             var (timestamp, average, total) = point.Value;
+            oldestSampledAt = oldestSampledAt is null || timestamp < oldestSampledAt ? timestamp : oldestSampledAt;
             sampledAt = sampledAt is null || timestamp > sampledAt ? timestamp : sampledAt;
-            interval ??= InferInterval(metric.Timeseries);
+            var metricInterval = InferInterval(metric.Timeseries) ?? RequestedInterval;
+            interval ??= metricInterval;
 
             switch (metric.Name?.Value)
             {
-                // CPU 是百分比：窗口内多次采样的平均值才是有意义的读数
+                // 最近有效聚合点的平均使用率；不是整段查询范围的平均值。
                 case CpuMetric:
                     cpu = average;
                     break;
                 // 字节类是窗口内的累计量：除以窗口秒数换算成速率，供 UI 以 KB/s、MB/s 展示
                 case NetworkInMetric:
-                    networkIn = PerSecond(total, interval);
+                    networkIn = PerSecond(total, metricInterval);
                     break;
                 case NetworkOutMetric:
-                    networkOut = PerSecond(total, interval);
+                    networkOut = PerSecond(total, metricInterval);
                     break;
                 case DiskReadMetric:
-                    diskRead = PerSecond(total, interval);
+                    diskRead = PerSecond(total, metricInterval);
                     break;
                 case DiskWriteMetric:
-                    diskWrite = PerSecond(total, interval);
+                    diskWrite = PerSecond(total, metricInterval);
                     break;
                 // 百分比类：同样取窗口内平均值
                 case AvailableMemoryPercentMetric:
@@ -217,6 +219,7 @@ public sealed class ArmVmMetricsService : IVmMetricsService
             DiskReadBytesPerSecond = diskRead,
             DiskWriteBytesPerSecond = diskWrite,
             SampledAt = sampledAt,
+            OldestSampledAt = oldestSampledAt,
             Interval = interval ?? RequestedInterval
         };
     }

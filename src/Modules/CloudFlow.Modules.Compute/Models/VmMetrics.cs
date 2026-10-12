@@ -9,7 +9,7 @@ namespace CloudFlow.Modules.Compute.Models;
 /// </summary>
 public sealed class VmMetrics
 {
-    /// <summary>CPU 使用率（%）：取聚合窗口内所有采样点的平均值。</summary>
+    /// <summary>CPU 使用率（%）：最近有效聚合数据点的平均值。</summary>
     public double? CpuPercent { get; init; }
 
     /// <summary>
@@ -51,6 +51,9 @@ public sealed class VmMetrics
     /// </summary>
     public DateTimeOffset? SampledAt { get; init; }
 
+    /// <summary>本次快照中最旧的有效采样时间，用于识别指标采样不同步。</summary>
+    public DateTimeOffset? OldestSampledAt { get; init; }
+
     /// <summary>聚合窗口（与 Azure Monitor 请求的 interval 一致）。</summary>
     public TimeSpan Interval { get; init; } = TimeSpan.FromMinutes(5);
 
@@ -58,6 +61,9 @@ public sealed class VmMetrics
     public bool HasAnyValue =>
         CpuPercent is not null ||
         MemoryPercent is not null ||
+        OsDiskIopsPercent is not null || OsDiskBandwidthPercent is not null ||
+        VmCachedIopsPercent is not null || VmCachedBandwidthPercent is not null ||
+        VmUncachedIopsPercent is not null || VmUncachedBandwidthPercent is not null ||
         NetworkInBytesPerSecond is not null ||
         NetworkOutBytesPerSecond is not null ||
         DiskReadBytesPerSecond is not null ||

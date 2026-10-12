@@ -40,4 +40,8 @@ public interface IAuditLog
 
     /// <summary>查询（按时间倒序，可按资源过滤）。</summary>
     IReadOnlyList<AuditRecord> Query(string? resourceId = null, int max = 200);
+
+    /// <summary>单个任务的完整审计记录；实现可在读取时过滤，避免收集其他任务历史。</summary>
+    IReadOnlyList<AuditRecord> QueryForJob(Guid jobId, string resourceId) =>
+        Query(resourceId, int.MaxValue).Where(record => record.JobId == jobId).ToArray();
 }

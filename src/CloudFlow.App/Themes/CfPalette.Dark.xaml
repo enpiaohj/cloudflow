@@ -14,19 +14,19 @@
     -->
 
     <!-- ===== 主色与表面 ===== -->
-    <SolidColorBrush x:Key="Cf.PrimaryBrush" Color="#FF479EF5" />
-    <SolidColorBrush x:Key="Cf.PrimaryHoverBrush" Color="#FF6BB0F7" />
-    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FF1B1B1B" />
-    <SolidColorBrush x:Key="Cf.TopBarBrush" Color="#FF272727" />
-    <SolidColorBrush x:Key="Cf.CardBrush" Color="#FF2B2B2B" />
-    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FF232323" />
-    <SolidColorBrush x:Key="Cf.DialogBackgroundBrush" Color="#FF2B2B2B" />
-    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FF3D3D3D" />
+    <SolidColorBrush x:Key="Cf.PrimaryBrush" Color="#FF62ADF5" />
+    <SolidColorBrush x:Key="Cf.PrimaryHoverBrush" Color="#FF82BEF7" />
+    <SolidColorBrush x:Key="Cf.PageBackgroundBrush" Color="#FF141A23" />
+    <SolidColorBrush x:Key="Cf.TopBarBrush" Color="#FF19222E" />
+    <SolidColorBrush x:Key="Cf.CardBrush" Color="#FF1C2531" />
+    <SolidColorBrush x:Key="Cf.NavBackgroundBrush" Color="#FF17202B" />
+    <SolidColorBrush x:Key="Cf.DialogBackgroundBrush" Color="#FF1C2531" />
+    <SolidColorBrush x:Key="Cf.BorderBrush" Color="#FF344153" />
 
     <!-- ===== 文本 ===== -->
-    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FFC5C5C5" />
-    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FF9A9A9A" />
+    <SolidColorBrush x:Key="Cf.TextPrimaryBrush" Color="#FFE8EDF5" />
+    <SolidColorBrush x:Key="Cf.TextSecondaryBrush" Color="#FFBCC6D4" />
+    <SolidColorBrush x:Key="Cf.TextMutedBrush" Color="#FFABB8CA" />
 
     <!-- 深色下主色提亮到 #479EF5，白字对比度只有约 2.8:1（主按钮"连接 / 创建虚拟机"发虚）；
          改用近黑色，约 6.8:1，与 Windows 11 深色主题强调色按钮的做法一致。 -->
@@ -40,10 +40,10 @@
     <SolidColorBrush x:Key="Cf.WarningStrongTextBrush" Color="#FFF7C97A" />
 
     <!-- ===== 行状态 ===== -->
-    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FF353535" />
-    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FF313131" />
+    <SolidColorBrush x:Key="Cf.RowSeparatorBrush" Color="#FF2B3645" />
+    <SolidColorBrush x:Key="Cf.RowHoverBrush" Color="#FF253244" />
     <!-- 选中刻意带一点蓝：深色下"比悬停更亮一档"几乎看不出区别，会读不出哪一行被选中 -->
-    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FF33475B" />
+    <SolidColorBrush x:Key="Cf.RowSelectedBrush" Color="#FF213D59" />
 
     <!-- ===== 危险动作按钮 ===== -->
     <SolidColorBrush x:Key="Cf.DangerBrush" Color="#FFC13438" />
@@ -81,4 +81,10 @@
     <SolidColorBrush x:Key="Cf.OsIconStandBrush" Color="#FF7A828E" />
     <SolidColorBrush x:Key="Cf.OsIconMarkBrush" Color="#FFD6ECFF" />
 
+
+    <!-- 输入、表头与遮罩表面 -->
+    <SolidColorBrush x:Key="Cf.InputBackgroundBrush" Color="#FF18212D" />
+    <SolidColorBrush x:Key="Cf.InputBorderBrush" Color="#FF46576D" />
+    <SolidColorBrush x:Key="Cf.TableHeaderBrush" Color="#FF202B39" />
+    <SolidColorBrush x:Key="Cf.OverlayBrush" Color="#99060B12" />
 </ResourceDictionary>

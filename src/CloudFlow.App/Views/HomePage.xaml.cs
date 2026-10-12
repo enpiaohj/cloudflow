@@ -21,4 +21,6 @@ public partial class HomePage : UserControl
             vm.OpenAttentionItemCommand.Execute(item);
         }
     }
+    private void JobDetails_Click(object sender, System.Windows.RoutedEventArgs e) =>
+        Behaviors.JobDetailsBehavior.DetailsClick(sender, e);
 }

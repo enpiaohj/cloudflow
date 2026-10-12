@@ -74,6 +74,24 @@ public sealed class MockVmNetworkService : IVmNetworkService
 
     // ==== 供 Operation Handler 调用的数据面操作 ====
 
+    public bool TryChangePriority(string vmResourceId, string ruleId, int priority)
+    {
+        lock (_lock)
+        {
+            var rule = Find(vmResourceId, ruleId);
+            if (rule is null) return false;
+            var ctx = _contexts[vmResourceId];
+            var conflict = ctx.InboundRules.Concat(ctx.OutboundRules).FirstOrDefault(r =>
+                !string.Equals(r.RuleId, ruleId, StringComparison.OrdinalIgnoreCase) &&
+                r.Direction == rule.Direction && r.Priority == priority &&
+                string.Equals(NsgRuleIds.Split(r.RuleId)?.NsgId, NsgRuleIds.Split(ruleId)?.NsgId, StringComparison.OrdinalIgnoreCase));
+            if (conflict is not null)
+                throw new CloudFlow.Core.Errors.OperationValidationException($"优先级 {priority} 已被规则「{conflict.Name}」使用。");
+            rule.Priority = priority;
+            return true;
+        }
+    }
+
     /// <summary>Change Port（§22）：只改端口，其他字段不动。</summary>
     public bool TryChangePort(string vmResourceId, string ruleId, int newPort)
     {

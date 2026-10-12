@@ -20,6 +20,28 @@ public sealed class CfPaletteParityTests
     private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
 
     private static readonly XName KeyAttribute = XName.Get("Key", XamlNamespace);
+
+    [Theory]
+    [InlineData("CfPalette.Light.xaml")]
+    [InlineData("CfPalette.Dark.xaml")]
+    public void 正文和辅助文字在主要表面上保持足够对比度(string file)
+    {
+        var colors = Elements(file).ToDictionary(e => (string)e.Attribute(KeyAttribute)!, e => (string)e.Attribute("Color")!);
+        static double Luminance(string argb)
+        {
+            static double Channel(int value) { var c = value / 255d; return c <= .04045 ? c / 12.92 : Math.Pow((c + .055) / 1.055, 2.4); }
+            return .2126 * Channel(Convert.ToInt32(argb.Substring(3, 2), 16)) +
+                   .7152 * Channel(Convert.ToInt32(argb.Substring(5, 2), 16)) +
+                   .0722 * Channel(Convert.ToInt32(argb.Substring(7, 2), 16));
+        }
+        foreach (var text in new[] { "Cf.TextPrimaryBrush", "Cf.TextSecondaryBrush", "Cf.TextMutedBrush" })
+        foreach (var surface in new[] { "Cf.PageBackgroundBrush", "Cf.CardBrush", "Cf.RowSelectedBrush" })
+        {
+            var a = Luminance(colors[text]); var b = Luminance(colors[surface]);
+            var contrast = (Math.Max(a, b) + .05) / (Math.Min(a, b) + .05);
+            Assert.True(contrast >= 4.5, $"{file}: {text} / {surface} 对比度 {contrast:F2} 小于 4.5。");
+        }
+    }
     [Fact]
     public void 深浅两套调色板的key集合必须完全一致()
     {

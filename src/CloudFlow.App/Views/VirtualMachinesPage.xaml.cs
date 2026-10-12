@@ -16,54 +16,42 @@ public partial class VirtualMachinesPage : UserControl
 
     private VirtualMachinesViewModel Vm => (VirtualMachinesViewModel)DataContext;
 
-    /// <summary>
-    /// 单击行 → 打开 VM 详情（设计文档 §80 场景入口）。
-    /// 复选框与行内“…”菜单等交互控件自身处理点击，不触发导航。
-    /// </summary>
-    private void VmsGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    /// <summary>双击数据行进入详情；按钮、复选框、表头和空白区域不触发导航。</summary>
+    private void VmsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource is DependencyObject source && IsRowInteractiveControl(source))
-        {
-            return;
-        }
-
-        OpenSelectedVm();
+        if (e.ChangedButton != MouseButton.Left || e.OriginalSource is not DependencyObject source || IsRowInteractiveControl(source)) return;
+        if (ItemsControl.ContainerFromElement(VmsGrid, source) is not DataGridRow { Item: VmSummary vm }) return;
+        if (DataContext is not VirtualMachinesViewModel model) return;
+        e.Handled = true;
+        model.OpenDetailCommand.Execute(vm);
     }
 
-    /// <summary>双击行 → 同样打开 VM 详情（保留既有习惯操作）。</summary>
-    private void VmsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e) => OpenSelectedVm();
+    /// <summary>选中行后按 Enter 进入详情；行内控件继续处理自己的键盘事件。</summary>
+    private void VmsGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None || e.OriginalSource is not DependencyObject source || IsRowInteractiveControl(source)) return;
+        if (VmsGrid.SelectedItem is not VmSummary vm || DataContext is not VirtualMachinesViewModel model) return;
+        e.Handled = true;
+        model.OpenDetailCommand.Execute(vm);
+    }
 
-    /// <summary>每一行各自 FindResource 一次拿一份独立的 ContextMenu 实例——原因见
-    /// AllResourcesPage.xaml.cs 同名方法的详细注释。</summary>
+    /// <summary>每行各自获取独立菜单，避免多行共用 ContextMenu。</summary>
     private void VmsGrid_LoadingRow(object sender, DataGridRowEventArgs e) =>
         e.Row.ContextMenu = (ContextMenu)FindResource("Cf.VmRowMenu");
 
-    private void OpenSelectedVm()
-    {
-        if (VmsGrid.SelectedItem is VmSummary vm)
-        {
-            Vm.OpenDetailCommand.Execute(vm);
-        }
-    }
-
-    /// <summary>点击落在 CheckBox / Button（含行内菜单按钮）内时，不视为“打开详情”。</summary>
     private static bool IsRowInteractiveControl(DependencyObject source)
     {
-        for (var node = source; node is not null; node = VisualTreeHelper.GetParent(node))
+        for (var node = source; node is not null; node = ParentOf(node))
         {
-            if (node is System.Windows.Controls.Primitives.ButtonBase or System.Windows.Controls.CheckBox)
-            {
-                return true;
-            }
-
-            if (node is DataGridRow)
-            {
-                return false;
-            }
+            if (node is System.Windows.Controls.Primitives.ButtonBase or System.Windows.Documents.Hyperlink) return true;
+            if (node is DataGridRow) break;
         }
-
         return false;
     }
+
+    private static DependencyObject? ParentOf(DependencyObject node) => node is Visual or System.Windows.Media.Media3D.Visual3D
+        ? VisualTreeHelper.GetParent(node)
+        : node is FrameworkContentElement content ? content.Parent : LogicalTreeHelper.GetParent(node);
 
     /// <summary>左键点击「⋯」→ 打开行操作菜单（WPF 默认只响应右键，见 <see cref="RowMenu"/>）。</summary>
     private void RowMenu_Click(object sender, RoutedEventArgs e)

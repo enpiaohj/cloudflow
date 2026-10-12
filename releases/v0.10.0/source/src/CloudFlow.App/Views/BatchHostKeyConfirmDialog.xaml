@@ -1,0 +1,68 @@
+<themes:CfDialogWindow x:Class="CloudFlow.App.Views.BatchHostKeyConfirmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+        Title="确认新主机的密钥"
+        Width="520" Height="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource Cf.DialogBackgroundBrush}"
+        TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+
+    <Grid Margin="28,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="确认新主机的密钥" FontFamily="{DynamicResource Cf.FontFamily.Display}"
+                       FontSize="18" FontWeight="SemiBold"
+                       Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+            <TextBlock x:Name="IntroText" Style="{StaticResource Cf.Muted}" Margin="0,6,0,0"
+                       TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Cf.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       Text="信任后这些指纹会记录在本机，后续连接不再询问。若某台机器的指纹日后发生变化，仍会单独弹出强警告。" />
+        </StackPanel>
+
+        <Border Grid.Row="1" CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
+                Background="{DynamicResource Cf.PageBackgroundBrush}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="KeyList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,12">
+                                <TextBlock Text="{Binding Target}" FontFamily="Consolas" FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                                <TextBlock Text="{Binding Algorithm}" Style="{StaticResource Cf.Muted}"
+                                           FontFamily="Consolas" FontSize="11" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Fingerprint}" FontFamily="Consolas" FontSize="11.5"
+                                           TextWrapping="Wrap" Margin="0,2,0,0"
+                                           Foreground="{DynamicResource Cf.TextPrimaryBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <!-- 回车与 Esc 都落在「取消」上，**刻意不给「全部信任并继续」设 IsDefault**：
+                     指纹确认是一次安全决策，误碰回车就信任 N 台新主机是不可接受的默认行为。
+                     要信任必须是一次有意的点击。 -->
+                <Button Content="取消" Style="{StaticResource Cf.SecondaryButton}" Padding="14,6" Margin="0,0,10,0"
+                        IsCancel="True" IsDefault="True" />
+                <Button Content="全部信任并继续" Style="{StaticResource Cf.PrimaryButton}" Padding="14,6"
+                        Click="Trust_Click" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</themes:CfDialogWindow>

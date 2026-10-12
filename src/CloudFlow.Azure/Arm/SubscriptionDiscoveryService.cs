@@ -11,7 +11,7 @@ namespace CloudFlow.Azure.Arm;
 /// </summary>
 public sealed class SubscriptionDiscoveryService : ISubscriptionDiscoveryService
 {
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     public async Task<IReadOnlyList<SubscriptionProfile>> DiscoverAsync(
         AccountSession session, CancellationToken ct = default)

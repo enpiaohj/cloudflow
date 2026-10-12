@@ -83,7 +83,7 @@ public sealed class ResourceGraphVmInventoryService : IVmInventoryService
     private readonly ScopeContext _scopeContext;
     private readonly IVmSizeCatalog _sizeCatalog;
     private readonly ILogger<ResourceGraphVmInventoryService> _logger;
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     public ResourceGraphVmInventoryService(
         ArmAccessTokenProvider tokenProvider,

@@ -250,6 +250,31 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedTheme = "跟随系统";
 
+    [ObservableProperty]
+    private bool _compactTables;
+
+    [ObservableProperty]
+    private string? _appearanceMessage;
+
+    partial void OnCompactTablesChanged(bool value)
+    {
+        if (_loadingSettings) return;
+        try
+        {
+            Save(s => s with { CompactTables = value });
+            CfThemeManager.ApplyTableDensity(value);
+            AppearanceMessage = null;
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            _loadingSettings = true;
+            try { CompactTables = _settings.Current.CompactTables; }
+            finally { _loadingSettings = false; }
+            CfThemeManager.ApplyTableDensity(CompactTables);
+            AppearanceMessage = $"保存表格显示设置失败：{ex.Message}";
+        }
+    }
+
     partial void OnSelectedThemeChanged(string value)
     {
         if (_loadingSettings)
@@ -317,7 +342,7 @@ public partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<string> ApprovalPolicyOptions { get; } = ["关闭", "仅高危", "所有写操作"];
 
     [ObservableProperty]
-    private string _selectedApprovalPolicy = "仅高危";
+    private string _selectedApprovalPolicy = "关闭";
 
     partial void OnSelectedApprovalPolicyChanged(string value)
     {
@@ -364,6 +389,33 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     // ---- 网络 ----
+
+    public IReadOnlyList<string> RequestTimeoutOptions { get; } =
+        [.. AppSettings.SupportedAzureRequestTimeoutSeconds.Select(seconds => $"{seconds} 秒")];
+
+    [ObservableProperty]
+    private string _selectedRequestTimeout = "300 秒";
+
+    partial void OnSelectedRequestTimeoutChanged(string value)
+    {
+        if (_loadingSettings) return;
+        var seconds = int.TryParse(value.Split(' ')[0], out var parsed) ? parsed : 300;
+        try
+        {
+            Save(s => s with { AzureRequestTimeoutSeconds = seconds });
+            NetworkMessage = null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _loadingSettings = true;
+            try { SelectedRequestTimeout = $"{_settings.Current.AzureRequestTimeoutSeconds} 秒"; }
+            finally { _loadingSettings = false; }
+            NetworkMessage = $"保存请求超时设置失败：{ex.Message}";
+        }
+    }
+
+    [ObservableProperty]
+    private string? _networkMessage;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NetworkDisclosure))]
@@ -675,10 +727,12 @@ public partial class SettingsViewModel : ObservableObject
         {
             var current = _settings.Current;
             SelectedTheme = ThemeText(current.Theme);
+            CompactTables = current.CompactTables;
             SelectedApprovalPolicy = ApprovalText(current.ApprovalPolicy);
             SelectedRefreshInterval = RefreshText(current.AutoRefreshSeconds);
             SelectedPageSize = $"{current.DefaultPageSize} 条/页";
             AutoDetectPublicIp = current.AutoDetectPublicIp;
+            SelectedRequestTimeout = $"{current.AzureRequestTimeoutSeconds} 秒";
             LaunchAtStartup = _startup.IsRegistered();
             MinimizeToTrayOnClose = current.MinimizeToTrayOnClose;
         }

@@ -13,6 +13,11 @@ public sealed class HybridCostService(
     CloudFlow.Azure.Cost.ArmCostService real,
     ScopeContext scopeContext) : ICostService
 {
+    public Task<CostReport> GetCostsAsync(ResourceScope scope, DateOnly from, DateOnly to, bool byResource = true, CancellationToken ct = default) =>
+        scopeContext.ActiveAccount is null
+            ? Task.FromResult(new CostReport([], ["请登录 Azure 后查看真实成本数据。"], DateTimeOffset.UtcNow))
+            : real.GetCostsAsync(scope, from, to, byResource, ct);
+
     public Task<(CostSummary? Summary, string? FailureReason)> GetMonthToDateAsync(
         string subscriptionId, CancellationToken ct = default) =>
         scopeContext.ActiveAccount is null

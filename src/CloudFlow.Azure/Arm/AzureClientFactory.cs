@@ -41,6 +41,8 @@ public sealed class CloudArmClientFactory : IAzureClientFactory
         }
 
         var credential = await provider.GetCredentialAsync(context, cancellationToken).ConfigureAwait(false);
-        return new ArmClient(new CallbackTokenCredential(credential));
+        var options = new ArmClientOptions();
+        options.Retry.NetworkTimeout = TimeSpan.FromSeconds(AzureHttpClients.TimeoutSeconds);
+        return new ArmClient(new CallbackTokenCredential(credential), defaultSubscriptionId: null, options: options);
     }
 }

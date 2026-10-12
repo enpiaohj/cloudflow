@@ -28,45 +28,34 @@ public sealed class AuditFileLog : IAuditLog
         await Task.CompletedTask;
     }
 
-    public IReadOnlyList<AuditRecord> Query(string? resourceId = null, int max = 200)
-    {
-        if (!File.Exists(CloudFlowPaths.AuditFile))
-        {
-            return [];
-        }
+    public IReadOnlyList<AuditRecord> Query(string? resourceId = null, int max = 200) =>
+        QueryRecords(resourceId, max, null);
 
-        List<AuditRecord> records = [];
+    public IReadOnlyList<AuditRecord> QueryForJob(Guid jobId, string resourceId) =>
+        QueryRecords(resourceId, int.MaxValue, jobId);
+
+    private IReadOnlyList<AuditRecord> QueryRecords(string? resourceId, int max, Guid? jobId)
+    {
+        string[] lines;
         lock (_lock)
         {
-            foreach (var line in File.ReadLines(CloudFlowPaths.AuditFile))
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-                try
-                {
-                    var record = JsonSerializer.Deserialize<AuditRecord>(line, Options);
-                    if (record is null)
-                    {
-                        continue;
-                    }
-                    if (resourceId is not null &&
-                        !string.Equals(record.ResourceId, resourceId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-                    records.Add(record);
-                }
-                catch (JsonException)
-                {
-                    // 单行损坏不影响整体审计读取
-                }
-            }
+            if (!File.Exists(CloudFlowPaths.AuditFile)) return [];
+            // 锁只覆盖文件快照；解析、过滤与排序不阻塞后续审计写入。
+            lines = File.ReadAllLines(CloudFlowPaths.AuditFile);
         }
-
-        return [.. records
-            .OrderByDescending(r => r.Timestamp)
-            .Take(max)];
+        List<AuditRecord> records = [];
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                var record = JsonSerializer.Deserialize<AuditRecord>(line, Options);
+                if (record is null || (jobId is not null && record.JobId != jobId)) continue;
+                if (resourceId is not null && !string.Equals(record.ResourceId, resourceId, StringComparison.OrdinalIgnoreCase)) continue;
+                records.Add(record);
+            }
+            catch (JsonException) { /* 单行损坏不影响其他审计记录。 */ }
+        }
+        return [.. records.OrderByDescending(r => r.Timestamp).Take(max)];
     }
 }

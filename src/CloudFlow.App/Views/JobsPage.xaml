@@ -1,6 +1,7 @@
 <UserControl x:Class="CloudFlow.App.Views.JobsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:CloudFlow.App.Behaviors"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:controls="clr-namespace:CloudFlow.App.Controls">
 
@@ -13,30 +14,29 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="任务" Style="{StaticResource Cf.PageTitle}" />
-            <TextBlock Text="所有变更操作的执行记录。每项操作都经过校验、影响评估与结果验证，并记入审计日志。"
+            <TextBlock Text="查看执行进度、处理待审批操作，并追踪变更结果。"
                        Style="{StaticResource Cf.Subtitle}" Margin="0,4,0,0" />
         </StackPanel>
 
-        <Grid Grid.Row="1" Margin="0,16,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <ComboBox Grid.Column="0" Width="180" Height="34"
-                      ToolTip="按状态筛选"
-                      ItemsSource="{Binding StatusOptions}"
-                      SelectedItem="{Binding StatusFilter}" />
-            <Button Grid.Column="2" Style="{StaticResource Cf.IconButton}"
+        <Border Grid.Row="1" Style="{StaticResource Cf.FilterBar}" Margin="0,16,0,0">
+<WrapPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}">
+                <TextBlock Text="状态" Style="{StaticResource Cf.FilterLabel}"/>
+                <ComboBox Width="150" Height="34" Margin="0" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" ToolTip="按状态筛选" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterActions}">
+                <Button Style="{StaticResource Cf.IconButton}"
                     Command="{Binding RefreshCommand}"
                     ToolTip="重新读取任务列表">
                 <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="15" />
             </Button>
-        </Grid>
+                </StackPanel>
+                </WrapPanel>
+        </Border>
 
-        <Border Grid.Row="2" Style="{StaticResource Cf.Card}" Padding="6,4,6,6" Margin="0,14,0,0">
+        <Border Grid.Row="2" Style="{StaticResource Cf.Card}" Padding="0" Margin="0,14,0,0">
             <Grid>
-            <DataGrid ItemsSource="{Binding Jobs}" Style="{StaticResource Cf.DataGrid}"
+            <DataGrid behaviors:JobDetailsBehavior.Enabled="True" ItemsSource="{Binding Jobs}" Style="{StaticResource Cf.DataGrid}"
                       Visibility="{Binding HasJobs, Converter={StaticResource BoolToVisibility}}">
                 <DataGrid.Columns>
                     <!-- 固定列必须带 MinWidth：DataGrid 压缩列的下限是 MinWidth（默认 20px），
@@ -107,6 +107,11 @@
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" Width="70" MinWidth="70" CanUserResize="False">
+                        <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                            <Button Content="详情" Style="{StaticResource Cf.SecondaryButton}" Padding="10,4" FontSize="12" ToolTip="查看完整操作详情" Click="JobDetails_Click"/>
+                        </DataTemplate></DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>

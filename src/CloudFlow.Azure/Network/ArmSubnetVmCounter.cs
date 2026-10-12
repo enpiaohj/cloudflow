@@ -24,7 +24,7 @@ public sealed class ArmSubnetVmCounter(
     private const string ArgEndpoint =
         "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01";
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     /// <summary>
     /// NIC 的 properties.virtualMachine.id 直接指向 VM，不必再 join VM 表 ——

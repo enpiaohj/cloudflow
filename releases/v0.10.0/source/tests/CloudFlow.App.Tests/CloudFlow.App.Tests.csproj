@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    CloudFlow.App 是 WPF 桌面应用（net8.0-windows + UseWPF），引用它会把整个测试项目
+    拖进 WPF TFM 与 STA 线程要求里。本项目使用普通 net8.0 做 XAML 一致性检查，
+    并通过链接无 WPF 依赖的 LatestRead 源码测试读取生命周期，不引用桌面应用。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../src/CloudFlow.App/Infrastructure/LatestRead.cs" Link="Infrastructure/LatestRead.cs" />
+  </ItemGroup>
+</Project>

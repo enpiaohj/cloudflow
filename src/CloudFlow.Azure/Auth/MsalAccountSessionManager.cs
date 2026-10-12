@@ -24,7 +24,7 @@ public sealed class MsalAccountSessionManager : IAccountSessionManager
     private const string CacheDirectorySubPath = "CloudFlow";
     private const string CacheFileName = "msal-token-cache.bin";
 
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CloudFlow.Azure.Arm.AzureHttpClients.Create();
 
     private readonly MsalAuthConfig _config;
     private readonly ILogger<MsalAccountSessionManager> _logger;

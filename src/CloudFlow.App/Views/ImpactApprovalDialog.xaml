@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:themes="clr-namespace:CloudFlow.App.Themes"
         Title="影响分析"
-        Width="480" SizeToContent="Height"
+        Width="520" SizeToContent="Height" FontSize="13" UseLayoutRounding="True"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="ToolWindow"
@@ -16,7 +16,7 @@
       TextElement.Foreground 是继承属性，在这一层设一次即可覆盖全部后代。
     -->
 
-    <StackPanel Margin="28,24">
+    <StackPanel Margin="24">
 
         <TextBlock Text="影响分析" FontFamily="{DynamicResource Cf.FontFamily.Display}"
                    FontSize="18" FontWeight="SemiBold"

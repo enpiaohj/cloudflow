@@ -65,6 +65,15 @@ public sealed class MockVmNetworkRuleExecutor(MockVmNetworkService network) : IV
         return Guid.NewGuid().ToString("D");
     }
 
+    public Task<string?> ChangePriorityAsync(
+        OperationRequest request, string nsgId, string ruleName, int newPriority, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (!network.TryChangePriority(request.ResourceId, NsgRuleIds.Compose(nsgId, ruleName), newPriority))
+            throw new CloudFlowException(CloudFlowErrorCode.ResourceNotFound, $"未找到规则：{ruleName}");
+        return Task.FromResult<string?>(Guid.NewGuid().ToString("D"));
+    }
+
     /// <summary>Demo 只有一份演示上下文，无法按子网统计；返回 null 让影响分析降级。</summary>
     public Task<int?> CountVmsInSubnetAsync(
         OperationRequest request, string subnetId, CancellationToken ct = default) =>

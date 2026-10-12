@@ -26,6 +26,22 @@ public sealed class ArmVmNetworkRuleExecutor(
     public async Task<string?> OpenPortAsync(
         OperationRequest request, string nsgId, NsgRuleDraft draft, CancellationToken ct = default)
     {
+        try
+        {
+            return await OpenPortCoreAsync(request, nsgId, draft, ct).ConfigureAwait(false);
+        }
+        catch (RequestFailedException ex)
+        {
+            var message = string.Equals(ex.ErrorCode, "SecurityRuleConflict", StringComparison.OrdinalIgnoreCase)
+                ? $"优先级 {draft.Priority} 已被同一网络安全组的同方向规则使用，请刷新规则列表并选择其他优先级。"
+                : AzureErrorMessages.Summarize(ex);
+            throw new CloudFlowException(CloudFlowErrorCode.AzureError, message, ex);
+        }
+    }
+
+    private async Task<string?> OpenPortCoreAsync(
+        OperationRequest request, string nsgId, NsgRuleDraft draft, CancellationToken ct)
+    {
         var nsg = await GetNsgAsync(request, nsgId, ct).ConfigureAwait(false);
 
         // 同名规则的 CreateOrUpdate 是覆盖语义 —— 那会静默丢掉别人已有的规则，
@@ -39,6 +55,15 @@ public sealed class ArmVmNetworkRuleExecutor(
         // 入站与出站是**同一种资源**，只差 Direction 与两个地址前缀各放哪一侧。
         // 两侧前缀都取自 draft，不在这里按方向推断 —— draft 已经把"谁是谁"写明了。
         var isOutbound = draft.Direction == NsgRuleDirection.Outbound;
+        await foreach (var rule in nsg.GetSecurityRules().GetAllAsync(ct).ConfigureAwait(false))
+        {
+            if (rule.Data.Priority == draft.Priority && rule.Data.Direction ==
+                (isOutbound ? SecurityRuleDirection.Outbound : SecurityRuleDirection.Inbound))
+            {
+                throw new OperationValidationException(
+                    $"优先级 {draft.Priority} 已被同方向规则「{rule.Data.Name}」使用，请刷新规则列表并选择其他优先级。");
+            }
+        }
 
         var data = new SecurityRuleData
         {
@@ -89,6 +114,36 @@ public sealed class ArmVmNetworkRuleExecutor(
         logger.LogInformation("ARM change port of rule {Rule} on NSG {Nsg} to {Port} (requestId {RequestId})",
             ruleName, nsgId, newPort, requestId);
         return requestId;
+    }
+
+    public async Task<string?> ChangePriorityAsync(
+        OperationRequest request, string nsgId, string ruleName, int newPriority, CancellationToken ct = default)
+    {
+        try
+        {
+            var nsg = await GetNsgAsync(request, nsgId, ct).ConfigureAwait(false);
+            var existing = await nsg.GetSecurityRules().GetAsync(ruleName, ct).ConfigureAwait(false);
+            var data = existing.Value.Data;
+            await foreach (var rule in nsg.GetSecurityRules().GetAllAsync(ct).ConfigureAwait(false))
+            {
+                if (!string.Equals(rule.Data.Name, ruleName, StringComparison.OrdinalIgnoreCase) &&
+                    rule.Data.Direction == data.Direction && rule.Data.Priority == newPriority)
+                    throw new OperationValidationException($"优先级 {newPriority} 已被同方向规则「{rule.Data.Name}」使用。");
+            }
+            data.Priority = newPriority;
+            var operation = await nsg.GetSecurityRules().CreateOrUpdateAsync(WaitUntil.Completed, ruleName, data, ct).ConfigureAwait(false);
+            var requestId = RequestIdOf(operation.GetRawResponse());
+            logger.LogInformation("ARM change priority of rule {Rule} on NSG {Nsg} to {Priority} (requestId {RequestId})",
+                ruleName, nsgId, newPriority, requestId);
+            return requestId;
+        }
+        catch (RequestFailedException ex)
+        {
+            var message = string.Equals(ex.ErrorCode, "SecurityRuleConflict", StringComparison.OrdinalIgnoreCase)
+                ? $"优先级 {newPriority} 已被同方向规则使用，请刷新后选择其他优先级。"
+                : AzureErrorMessages.Summarize(ex);
+            throw new CloudFlowException(CloudFlowErrorCode.AzureError, message, ex);
+        }
     }
 
     public async Task<string?> DeleteRuleAsync(
