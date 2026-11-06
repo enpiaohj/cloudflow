@@ -377,6 +377,54 @@
         </Setter>
     </Style>
 
+    <!-- ===== 立体步进按钮（端口 ±1 / 上下微调）：浅色高光 + 细边框 + 微投影；悬停描边变主色，按下下沉 ===== -->
+    <Style x:Key="Cf.StepperButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Cf.FocusVisual}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource Cf.PrimaryBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="7" Margin="1"
+                            Background="{DynamicResource Cf.CardBrush}"
+                            BorderBrush="{DynamicResource Cf.InputBorderBrush}" BorderThickness="1">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="4" ShadowDepth="1.2" Direction="270"
+                                              Opacity="0.22" Color="#000000" />
+                        </Border.Effect>
+                        <Border x:Name="gloss" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#55FFFFFF" Offset="0" />
+                                    <GradientStop Color="#00FFFFFF" Offset="0.5" />
+                                    <GradientStop Color="#16000000" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Cf.PrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Margin" Value="1,2,1,0" />
+                            <Setter TargetName="gloss" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===== 顶栏按钮（无底色，悬停淡底） ===== -->
     <Style x:Key="Cf.TopBarButton" TargetType="Button">
         <Setter Property="FocusVisualStyle" Value="{StaticResource Cf.FocusVisual}" />

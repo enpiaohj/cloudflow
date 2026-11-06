@@ -534,8 +534,26 @@
                                                     </Style>
                                                 </DataGridTextColumn.ElementStyle>
                                             </DataGridTextColumn>
-                                            <DataGridTextColumn Header="端口" Binding="{Binding DestinationPort}" Width="74" MinWidth="74"
-                                                                ElementStyle="{StaticResource Cf.RuleNumber}" />
+                                            <DataGridTemplateColumn Header="端口" Width="150" MinWidth="150" SortMemberPath="DestinationPort">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Button Style="{StaticResource Cf.StepperButton}" Width="26" Height="26"
+                                                                    ToolTip="端口号减 1"
+                                                                    automation:AutomationProperties.Name="端口减一"
+                                                                    Command="{Binding DataContext.DecrementPortCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                    CommandParameter="{Binding}"><ui:SymbolIcon Symbol="Subtract16" FontSize="13" Filled="True" /></Button>
+                                                            <TextBlock Text="{Binding DestinationPort}" Style="{StaticResource Cf.RuleNumber}"
+                                                                       MinWidth="46" TextAlignment="Center" VerticalAlignment="Center" Margin="3,0" />
+                                                            <Button Style="{StaticResource Cf.StepperButton}" Width="26" Height="26"
+                                                                    ToolTip="端口号加 1"
+                                                                    automation:AutomationProperties.Name="端口加一"
+                                                                    Command="{Binding DataContext.IncrementPortCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                    CommandParameter="{Binding}"><ui:SymbolIcon Symbol="Add16" FontSize="13" Filled="True" /></Button>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                             <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="64" MinWidth="64" />
                                             <DataGridTemplateColumn Header="动作" Width="74" MinWidth="74" CanUserResize="False"
                                                                     CellTemplate="{StaticResource Cf.RuleActionCell}" />

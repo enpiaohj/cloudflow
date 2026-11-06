@@ -2,6 +2,7 @@
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:themes="clr-namespace:CloudFlow.App.Themes"
+ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
  Title="编辑网络规则" Width="460" Height="680" SizeToContent="Manual" ResizeMode="NoResize" WindowStyle="None" ShowInTaskbar="False"
  WindowStartupLocation="Manual" Background="{DynamicResource Cf.DialogBackgroundBrush}"
  FontSize="13" UseLayoutRounding="True" TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
@@ -23,7 +24,15 @@
     <ComboBoxItem Content="目标端口"/><ComboBoxItem Content="优先级"/>
    </ComboBox>
    <TextBlock x:Name="CurrentText" Style="{StaticResource Cf.Muted}" Margin="0,0,0,6"/>
-   <TextBox Background="{DynamicResource Cf.PageBackgroundBrush}" Foreground="{DynamicResource Cf.TextPrimaryBrush}" BorderBrush="{DynamicResource Cf.BorderBrush}" x:Name="ValueBox" Padding="8,6"/>
+   <DockPanel>
+    <!-- 上下微调控件：上箭头 +1、下箭头 −1；只改输入框，不提交 -->
+    <Grid DockPanel.Dock="Right" Width="34" Margin="6,0,0,0">
+     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="3"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <Button Grid.Row="0" Style="{StaticResource Cf.StepperButton}" ToolTip="增加 1" Click="Increment_Click"><ui:SymbolIcon Symbol="ChevronUp16" FontSize="12" Filled="True"/></Button>
+     <Button Grid.Row="2" Style="{StaticResource Cf.StepperButton}" ToolTip="减少 1" Click="Decrement_Click"><ui:SymbolIcon Symbol="ChevronDown16" FontSize="12" Filled="True"/></Button>
+    </Grid>
+    <TextBox Background="{DynamicResource Cf.PageBackgroundBrush}" Foreground="{DynamicResource Cf.TextPrimaryBrush}" BorderBrush="{DynamicResource Cf.BorderBrush}" x:Name="ValueBox" Padding="8,6"/>
+   </DockPanel>
    <TextBlock x:Name="HintText" Style="{StaticResource Cf.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
   </StackPanel>
   <TextBlock x:Name="Feedback" TextWrapping="Wrap" Margin="0,18,0,0"/>

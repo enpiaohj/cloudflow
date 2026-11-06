@@ -47,6 +47,23 @@ public partial class RuleEditorDialog : CfSidePanelWindow
         Feedback.Text = "";
     }
 
+    private void Increment_Click(object sender, RoutedEventArgs e) => Nudge(1);
+
+    private void Decrement_Click(object sender, RoutedEventArgs e) => Nudge(-1);
+
+    /// <summary>在输入框里把当前值加减 1（只改输入，仍由用户点「提交变更」）；按字段限制在合法范围内。</summary>
+    private void Nudge(int delta)
+    {
+        if (_busy || _pending is not null) return;
+        var priority = FieldBox.SelectedIndex == 1;
+        var (min, max) = priority ? (100, 4096) : (1, 65535);
+        if (!int.TryParse(ValueBox.Text.Trim(), out var value))
+            value = priority ? _rule.Priority : _rule.DestinationPort;
+        ValueBox.Text = Math.Clamp(value + delta, min, max).ToString();
+        ValueBox.Focus();
+        ValueBox.CaretIndex = ValueBox.Text.Length;
+    }
+
     private async void Submit_Click(object sender, RoutedEventArgs e)
     {
         if (_busy) return;

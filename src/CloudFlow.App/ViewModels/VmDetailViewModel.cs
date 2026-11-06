@@ -1024,6 +1024,67 @@ public partial class VmDetailViewModel : ObservableObject
         await EditRuleAsync(rule, false);
     }
 
+    /// <summary>规则行上的「+1」快捷按钮：端口加 1 并直接提交（仍经 Operation Engine）。</summary>
+    [RelayCommand]
+    private Task IncrementPortAsync(NsgSecurityRule? rule) => NudgePortAsync(rule, 1);
+
+    /// <summary>规则行上的「−1」快捷按钮：端口减 1 并直接提交（仍经 Operation Engine）。</summary>
+    [RelayCommand]
+    private Task DecrementPortAsync(NsgSecurityRule? rule) => NudgePortAsync(rule, -1);
+
+    private bool _nudgingPort;
+
+    private async Task NudgePortAsync(NsgSecurityRule? rule, int delta)
+    {
+        // 上一次快捷提交还没结束（含等待审批）时不叠加，避免连点产生多个相互覆盖的 Job
+        if (rule is null || _nudgingPort || PendingApprovalJob is not null)
+        {
+            return;
+        }
+
+        var newPort = rule.DestinationPort + delta;
+        if (newPort is < 1 or > 65535)
+        {
+            InfoSeverity = nameof(JobStatus.Failed);
+            InfoText = "端口号必须介于 1 到 65535 之间。";
+            return;
+        }
+
+        // 快捷按钮一点就改线上规则，提交前必须让用户确认一次
+        var direction = rule.Direction == NsgRuleDirection.Inbound ? "入站" : "出站";
+        if (!Views.ConfirmDialog.Show(
+                "更改端口号",
+                $"要将{direction}规则“{rule.Name}”的端口号从 {rule.DestinationPort} 更改为 {newPort} 吗？",
+                "更改"))
+        {
+            return;
+        }
+
+        _nudgingPort = true;
+        try
+        {
+            if (rule.Direction == NsgRuleDirection.Inbound) SelectedInboundRule = rule;
+            else SelectedOutboundRule = rule;
+            var job = await _engine.SubmitAsync(_requests.Create(
+                "network.change_port",
+                _vm.SubscriptionId, _vm.ResourceId,
+                $"更改端口 {rule.Name}：{rule.DestinationPort} → {newPort}",
+                risk: RiskLevel.Medium,
+                preApproved: _approvalPolicy.ShouldAutoApprove(RiskLevel.Medium),
+                payload: new Dictionary<string, string>
+                {
+                    ["interactiveConfirmation"] = "true",
+                    ["ruleId"] = rule.RuleId, ["ruleName"] = rule.Name,
+                    ["port"] = newPort.ToString()
+                }));
+            await AfterRuleJobAsync(job);
+        }
+        finally
+        {
+            _nudgingPort = false;
+        }
+    }
+
     [RelayCommand]
     private Task EditNetworkRuleAsync(NsgSecurityRule? rule) => rule is null ? Task.CompletedTask : EditRuleAsync(rule, false);
 
