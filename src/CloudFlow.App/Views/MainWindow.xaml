@@ -82,10 +82,8 @@
                      一个小色块比一个裸图标更像"经过设计的产品身份"，也是大多数专业桌面软件
                      （Slack / Notion / Linear）左上角的通行做法。 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="20,0,10,0" VerticalAlignment="Center">
-                    <Border Width="28" Height="28" CornerRadius="7" Background="{DynamicResource Cf.PrimaryBrush}">
-                        <ui:SymbolIcon Symbol="Cloud24" Filled="True" FontSize="16" Foreground="{DynamicResource Cf.OnPrimaryTextBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <Image x:Name="AppLogo" Source="pack://application:,,,/Assets/app-icon-preview.png" Width="32" Height="32" UseLayoutRounding="True" SnapsToDevicePixels="True"
+                           RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
                     <TextBlock Text="CloudFlow" FontSize="15.5" FontWeight="SemiBold"
                                Foreground="{DynamicResource Cf.TextPrimaryBrush}"
                                Margin="10,0,0,0" VerticalAlignment="Center" />

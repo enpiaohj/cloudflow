@@ -29,11 +29,31 @@ public partial class MainWindow : FluentWindow
     private WinForms.NotifyIcon? _trayIcon;
     private bool _trayBalloonShown;
 
+    private void UpdateLogo(AppThemeKind kind)
+    {
+        var name = kind == AppThemeKind.Dark ? "app-icon-preview.png" : "app-icon-preview-light.png";
+        try
+        {
+            AppLogo.Source = new System.Windows.Media.Imaging.BitmapImage(
+                new Uri($"pack://application:,,,/Assets/{name}", UriKind.Absolute));
+        }
+        catch (System.IO.IOException ex)
+        {
+            // Logo 只是装饰，缺资源不应让整个应用起不来；保留 XAML 里的默认图并留下诊断
+            System.Diagnostics.Trace.TraceError($"加载 Logo 资源失败（{name}）：{ex.Message}");
+        }
+    }
+
     public MainWindow(ShellViewModel shell, AppSettingsStore settings)
     {
         _shell = shell;
         _settings = settings;
         InitializeComponent();
+        // 窗口内 Logo 跟随主题：深色主题用深色系图标，浅色主题用浅色系图标（程序 / 任务栏图标固定为深色系）
+        UpdateLogo(Themes.CfThemeManager.Effective);
+        Action<AppThemeKind> onThemeChanged = kind => Dispatcher.Invoke(() => UpdateLogo(kind));
+        Themes.CfThemeManager.EffectiveChanged += onThemeChanged;
+        Closed += (_, _) => Themes.CfThemeManager.EffectiveChanged -= onThemeChanged;
         // 屏幕可用区域使用 DIP，与 WPF 窗口尺寸一致；保留任务栏和边缘空间。
         var workArea = SystemParameters.WorkArea;
         MinWidth = Math.Min(MinWidth, Math.Max(320, workArea.Width - 32));
