@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.Json;
 using CloudFlow.Core.Identity;
 
@@ -29,6 +31,22 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
     /// 网络瞬断（如代理握手 ConnectionReset）是"重试大概率成功"的失败，不该一次就判账户不可用。
     /// </summary>
     private const int MaxTransientRetries = 3;
+
+    /// <summary>
+    /// 令牌内存缓存：每次 <c>az account get-access-token</c> 都要拉起一个 Python 进程（数秒），
+    /// 而一个页面通常并发发出多个 ARM 请求，没有缓存时会同时拉起多个 az 进程，是"读取慢 / 卡住"的主因。
+    /// 只存内存、不落盘；到期前 <see cref="TokenExpirySkew"/> 即视为过期，避免拿到刚好失效的令牌。
+    /// </summary>
+    private readonly ConcurrentDictionary<string, CachedToken> _tokenCache = new(StringComparer.Ordinal);
+
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _tokenLocks = new(StringComparer.Ordinal);
+
+    private static readonly TimeSpan TokenExpirySkew = TimeSpan.FromMinutes(5);
+
+    /// <summary>响应里读不到有效期时的保守缓存时长（AAD 令牌通常 60–90 分钟）。</summary>
+    private static readonly TimeSpan TokenFallbackLifetime = TimeSpan.FromMinutes(10);
+
+    private sealed record CachedToken(string Value, DateTimeOffset ExpiresAt);
 
     public EmbeddedAzureCliIdentityProvider(
         IAzureCliProcessRunner runner,
@@ -178,27 +196,90 @@ public sealed class EmbeddedAzureCliIdentityProvider : ICloudIdentityProvider, I
                 var resource = (scopes.FirstOrDefault() ?? "https://management.azure.com/.default")
                     .Replace("/.default", string.Empty, StringComparison.OrdinalIgnoreCase);
 
-                var result = await RunWithTransientRetryAsync(
-                    "获取访问令牌",
-                    t => _runner.RunAsync(new AzureCliInvocation
-                    {
-                        ExecutablePath = _resolveAzCmd(),
-                        Arguments = ["account", "get-access-token",
-                            "--resource", resource, "--tenant", context.TenantId, "--output", "json"],
-                        ConfigDirectory = profilePath,
-                        Timeout = AuthTimeout
-                    }, t),
-                    token).ConfigureAwait(false);
+                var cacheKey = $"{profileId}|{context.TenantId}|{resource}";
+                if (TryGetCachedToken(cacheKey, out var cachedValue))
+                {
+                    return cachedValue;
+                }
 
-                using var document = JsonDocument.Parse(result.StandardOutput);
-                return document.RootElement.GetProperty("accessToken").GetString()
-                    ?? throw new AzureCliException("访问令牌响应中 accessToken 为空。");
+                // 同一个键只允许一个 az 进程在取令牌，其余并发请求等它的结果（单飞）
+                var gate = _tokenLocks.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
+                await gate.WaitAsync(token).ConfigureAwait(false);
+                try
+                {
+                    if (TryGetCachedToken(cacheKey, out cachedValue))
+                    {
+                        return cachedValue;
+                    }
+
+                    var result = await RunWithTransientRetryAsync(
+                        "获取访问令牌",
+                        t => _runner.RunAsync(new AzureCliInvocation
+                        {
+                            ExecutablePath = _resolveAzCmd(),
+                            Arguments = ["account", "get-access-token",
+                                "--resource", resource, "--tenant", context.TenantId, "--output", "json"],
+                            ConfigDirectory = profilePath,
+                            Timeout = AuthTimeout
+                        }, t),
+                        token).ConfigureAwait(false);
+
+                    using var document = JsonDocument.Parse(result.StandardOutput);
+                    var accessToken = document.RootElement.GetProperty("accessToken").GetString()
+                        ?? throw new AzureCliException("访问令牌响应中 accessToken 为空。");
+
+                    _tokenCache[cacheKey] = new CachedToken(accessToken, ReadExpiry(document.RootElement));
+                    return accessToken;
+                }
+                finally
+                {
+                    gate.Release();
+                }
             }
         };
     }
 
+    private bool TryGetCachedToken(string key, out string value)
+    {
+        if (_tokenCache.TryGetValue(key, out var cached) &&
+            cached.ExpiresAt - TokenExpirySkew > DateTimeOffset.UtcNow)
+        {
+            value = cached.Value;
+            return true;
+        }
+
+        value = string.Empty;
+        return false;
+    }
+
+    /// <summary>优先读 <c>expires_on</c>（epoch 秒，新版 CLI），其次 <c>expiresOn</c>（本地时间文本）。</summary>
+    private static DateTimeOffset ReadExpiry(JsonElement root)
+    {
+        if (root.TryGetProperty("expires_on", out var epoch) &&
+            (epoch.ValueKind == JsonValueKind.Number && epoch.TryGetInt64(out var seconds) ||
+             epoch.ValueKind == JsonValueKind.String && long.TryParse(epoch.GetString(), out seconds)))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(seconds);
+        }
+
+        if (root.TryGetProperty("expiresOn", out var text) && text.ValueKind == JsonValueKind.String &&
+            DateTime.TryParse(text.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var local))
+        {
+            return new DateTimeOffset(local);
+        }
+
+        return DateTimeOffset.UtcNow + TokenFallbackLifetime;
+    }
+
     public async Task SignOutAsync(CloudAccount account, CancellationToken cancellationToken = default)
     {
+        // 登出后不能再用缓存里的旧令牌
+        var prefix = ResolveProfileId(account) + "|";
+        foreach (var key in _tokenCache.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            _tokenCache.TryRemove(key, out _);
+        }
+
         // 仅登出（清除 CLI Token），不删除 Profile，避免影响后续重新登录（规范 §二十一 单账户登出隔离）
         await _profiles.LogoutAsync(ResolveProfileId(account), cancellationToken).ConfigureAwait(false);
     }

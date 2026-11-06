@@ -136,7 +136,19 @@ public sealed class VmSummary : INotifyPropertyChanged
     /// 内存总量（MB）。Azure 的 VM 对象本身不含内存字段，只能由规格（<see cref="VmSize"/>）
     /// 经规格目录推导；推导不到时为 null，界面显示 "—"（不猜、不填 0）。
     /// </summary>
-    public int? MemoryMb { get; set; }
+    public int? MemoryMb
+    {
+        get => _memoryMb;
+        set
+        {
+            // 规格信息可能在列表显示之后才由后台补齐（见 ResourceGraphVmInventoryService），必须通知界面刷新
+            _memoryMb = value;
+            OnPropertyChanged(nameof(MemoryMb));
+            OnPropertyChanged(nameof(MemoryText));
+        }
+    }
+
+    private int? _memoryMb;
 
     /// <summary>「内存」显示值，如 "4 GiB"；未知时 "—"。</summary>
     public string MemoryText => MemoryMb is not { } mb
@@ -144,7 +156,18 @@ public sealed class VmSummary : INotifyPropertyChanged
         : mb % 1024 == 0 ? $"{mb / 1024} GiB" : $"{mb / 1024.0:0.#} GiB";
 
     /// <summary>vCPU 核数。与内存同源（由规格推导），推导不到时为 null。</summary>
-    public int? VCpuCount { get; set; }
+    public int? VCpuCount
+    {
+        get => _vCpuCount;
+        set
+        {
+            _vCpuCount = value;
+            OnPropertyChanged(nameof(VCpuCount));
+            OnPropertyChanged(nameof(VCpuText));
+        }
+    }
+
+    private int? _vCpuCount;
 
     /// <summary>「vCPU」显示值，如 "2"；未知时 "—"。</summary>
     public string VCpuText => VCpuCount?.ToString() ?? "—";

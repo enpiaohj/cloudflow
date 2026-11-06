@@ -79,6 +79,9 @@ public sealed class ResourceGraphVmInventoryService : IVmInventoryService
                   hibernationEnabled
         """;
 
+    /// <summary>清单返回后最多等多久规格信息；超过则先显示列表。</summary>
+    private static readonly TimeSpan SizeInfoWaitBudget = TimeSpan.FromSeconds(4);
+
     private readonly ArmAccessTokenProvider _tokenProvider;
     private readonly ScopeContext _scopeContext;
     private readonly IVmSizeCatalog _sizeCatalog;
@@ -122,7 +125,25 @@ public sealed class ResourceGraphVmInventoryService : IVmInventoryService
         }
 
         var vms = MapRows(data);
-        await FillSizeInfoAsync(vms, ct).ConfigureAwait(false);
+
+        // 内存 / vCPU 需要再查规格目录（单次响应较大，网络慢时可能很久）。清单本身已经拿到，
+        // 不能让用户为两列次要信息干等：限时等待，超时就先把列表交出去，后台继续补齐
+        // （补齐后通过 VmSummary 的变更通知刷新这两列，规格目录也会缓存供下次使用）。
+        var fill = Task.Run(() => FillSizeInfoAsync(vms, CancellationToken.None), CancellationToken.None);
+        var finished = await Task.WhenAny(fill, Task.Delay(SizeInfoWaitBudget, ct)).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        if (finished != fill)
+        {
+            _logger.LogInformation("规格信息在 {Seconds} 秒内未取回，先显示清单，内存与 vCPU 稍后补齐", SizeInfoWaitBudget.TotalSeconds);
+            _ = fill.ContinueWith(
+                t => _logger.LogWarning(t.Exception, "后台补齐规格信息失败"),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        }
+        else
+        {
+            await fill.ConfigureAwait(false);
+        }
+
         return vms;
     }
 
@@ -138,26 +159,25 @@ public sealed class ResourceGraphVmInventoryService : IVmInventoryService
                          && !string.IsNullOrEmpty(vm.VmSize))
             .GroupBy(vm => (vm.SubscriptionId, vm.Region));
 
-        foreach (var group in groups)
-        {
-            var sizes = await _sizeCatalog
-                .GetBySizeAsync(group.Key.SubscriptionId, group.Key.Region, ct)
-                .ConfigureAwait(false);
-
-            if (sizes.Count == 0)
+        // 不同 订阅+区域 互相独立，并行查询（原先逐个串行，区域越多越慢）；并发数设上限避免打爆 ARM 限流
+        await Parallel.ForEachAsync(
+            groups.ToList(),
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+            async (group, token) =>
             {
-                continue;
-            }
+                var sizes = await _sizeCatalog
+                    .GetBySizeAsync(group.Key.SubscriptionId, group.Key.Region, token)
+                    .ConfigureAwait(false);
 
-            foreach (var vm in group)
-            {
-                if (sizes.TryGetValue(vm.VmSize, out var info))
+                foreach (var vm in group)
                 {
-                    vm.MemoryMb = info.MemoryMb;
-                    vm.VCpuCount = info.VCpus;
+                    if (sizes.TryGetValue(vm.VmSize, out var info))
+                    {
+                        vm.MemoryMb = info.MemoryMb;
+                        vm.VCpuCount = info.VCpus;
+                    }
                 }
-            }
-        }
+            }).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> QueryResourceGraphAsync(

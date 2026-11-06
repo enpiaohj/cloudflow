@@ -347,4 +347,135 @@ public sealed class EmbeddedAzureCliIdentityProviderTests
         Assert.Equal([account.ProviderProfileId!], profiles.LoggedOut);
         Assert.DoesNotContain(profiles.Created, profiles.Deleted.Contains);
     }
+
+    // ---- 令牌缓存与多账户隔离 ----
+
+    private const string Arm = "https://management.azure.com/.default";
+
+    private static CloudCredentialContext Ctx(string profileId, string tenant = "tenant-1") => new()
+    {
+        AccountId = "azurecli:" + profileId,
+        TenantId = tenant,
+        SubscriptionId = "sub-1",
+        ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+        ProviderProfileId = profileId
+    };
+
+    /// <summary>令牌内容 = 调用序号 + profile 目录，便于断言"拿到的是谁的令牌"。</summary>
+    private static FakeRunner CountingRunner(out Func<int> calls)
+    {
+        var count = 0;
+        calls = () => Volatile.Read(ref count);
+        return new FakeRunner
+        {
+            Responder = inv =>
+            {
+                var n = Interlocked.Increment(ref count);
+                var profile = Path.GetFileName(inv.ConfigDirectory ?? "");
+                var tenant = inv.Arguments[Array.IndexOf(inv.Arguments.ToArray(), "--tenant") + 1];
+                return new AzureCliResult(0,
+                    $"{{ \"accessToken\": \"tok-{n}-{profile}-{tenant}\", \"expires_on\": {DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds()} }}", "");
+            }
+        };
+    }
+
+    private const string ProfileA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    private const string ProfileB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    [Fact]
+    public async Task 令牌缓存_同账户同租户重复获取只调用一次CLI()
+    {
+        var runner = CountingRunner(out var calls);
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\rt\az.cmd");
+        var credential = await provider.GetCredentialAsync(Ctx(ProfileA));
+
+        var t1 = await credential.GetAsync([Arm]);
+        var t2 = await (await provider.GetCredentialAsync(Ctx(ProfileA))).GetAsync([Arm]);
+
+        Assert.Equal(t1, t2);
+        Assert.Equal(1, calls());
+    }
+
+    [Fact]
+    public async Task 令牌缓存_不同账户互不串用()
+    {
+        var runner = CountingRunner(out var calls);
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\rt\az.cmd");
+
+        var a = await (await provider.GetCredentialAsync(Ctx(ProfileA))).GetAsync([Arm]);
+        var b = await (await provider.GetCredentialAsync(Ctx(ProfileB))).GetAsync([Arm]);
+        var a2 = await (await provider.GetCredentialAsync(Ctx(ProfileA))).GetAsync([Arm]);
+
+        Assert.Contains(ProfileA, a);
+        Assert.Contains(ProfileB, b);
+        Assert.NotEqual(a, b);
+        Assert.Equal(a, a2);
+        Assert.Equal(2, calls());
+    }
+
+    [Fact]
+    public async Task 令牌缓存_同账户不同租户分别缓存()
+    {
+        var runner = CountingRunner(out var calls);
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\rt\az.cmd");
+
+        var t1 = await (await provider.GetCredentialAsync(Ctx(ProfileA, "tenant-1"))).GetAsync([Arm]);
+        var t2 = await (await provider.GetCredentialAsync(Ctx(ProfileA, "tenant-2"))).GetAsync([Arm]);
+
+        Assert.Contains("tenant-1", t1);
+        Assert.Contains("tenant-2", t2);
+        Assert.Equal(2, calls());
+    }
+
+    [Fact]
+    public async Task 令牌缓存_登出后只清该账户缓存()
+    {
+        var runner = CountingRunner(out var calls);
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\rt\az.cmd");
+        await (await provider.GetCredentialAsync(Ctx(ProfileA))).GetAsync([Arm]);
+        await (await provider.GetCredentialAsync(Ctx(ProfileB))).GetAsync([Arm]);
+
+        await provider.SignOutAsync(new CloudAccount
+        {
+            AccountId = "azurecli:" + ProfileA,
+            Username = "a@outlook.com",
+            ProviderType = AuthenticationProviderType.EmbeddedAzureCli,
+            ProviderProfileId = ProfileA
+        });
+
+        await (await provider.GetCredentialAsync(Ctx(ProfileA))).GetAsync([Arm]); // 重新取
+        await (await provider.GetCredentialAsync(Ctx(ProfileB))).GetAsync([Arm]); // 仍命中缓存
+        Assert.Equal(3, calls());
+    }
+
+    [Fact]
+    public async Task 令牌缓存_已临近过期的令牌不被复用()
+    {
+        var count = 0;
+        var runner = new FakeRunner
+        {
+            Responder = _ => new AzureCliResult(0,
+                $"{{ \"accessToken\": \"t{Interlocked.Increment(ref count)}\", \"expires_on\": {DateTimeOffset.UtcNow.AddMinutes(2).ToUnixTimeSeconds()} }}", "")
+        };
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\rt\az.cmd");
+        var credential = await provider.GetCredentialAsync(Ctx(ProfileA));
+
+        await credential.GetAsync([Arm]);
+        await credential.GetAsync([Arm]);
+
+        Assert.Equal(2, count); // 剩余不足 5 分钟，每次都重新取
+    }
+
+    [Fact]
+    public async Task 令牌缓存_并发获取只拉起一个CLI进程()
+    {
+        var runner = CountingRunner(out var calls);
+        var provider = new EmbeddedAzureCliIdentityProvider(runner, new FakeProfiles(), "C:\rt\az.cmd");
+        var credential = await provider.GetCredentialAsync(Ctx(ProfileA));
+
+        var tokens = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => credential.GetAsync([Arm]))));
+
+        Assert.Single(tokens.Distinct());
+        Assert.Equal(1, calls());
+    }
 }
