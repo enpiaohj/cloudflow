@@ -4,11 +4,11 @@
 
 ![CloudFlow v0.10.0 首页](docs/screenshots/home-v0.10.0.png)
 
-*截图为 v0.10.0 当前 WPF 界面，使用演示资源、任务和示例费用，不含真实账户或账单数据。*
+*截图沿用 v0.10.0 的 WPF 界面（未随 v0.11.0 重拍：端口 ±1 快捷按钮与新图标不在图中），使用演示资源、任务和示例费用，不含真实账户或账单数据。*
 
 ## 当前状态
 
-当前版本：**v0.10.0**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口、系统托盘图标（开机启动 / 关闭到通知区域）、NSG 规则 Allow/Deny 创建与优先级编辑、独立成本分析。
+当前版本：**v0.11.0**。首个交付模块：**Compute / Virtual Machine Operations Center**；另含资源组 / 所有资源的清理入口、系统托盘图标（开机启动 / 关闭到通知区域）、NSG 规则 Allow/Deny 创建、端口与优先级编辑（含列表内端口 ±1 快捷调整）、独立成本分析。
 
 - 变更记录：根目录 `CHANGELOG.md`；每个版本的完整记录见 `releases/vX.Y.Z/CHANGELOG.md`
 - 许可证：[GPL-3.0](LICENSE)；随源码分发的第三方组件见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
@@ -76,9 +76,9 @@
 
 ## 下载与升级
 
-正式 Windows x64 产物见 [CloudFlow v0.10.0](https://github.com/enpiaohj/cloudflow/releases/tag/v0.10.0)：
-`CloudFlow-v0.10.0-win-x64.exe` 或同名 ZIP。应用自包含 .NET 运行时，支持 Windows 10 19041 或更新版本；SSH 终端需要 WebView2 Runtime。
-退出旧版后运行新版，原有本地账户、任务、SSH 凭据与设置保留；已设置的审批策略不会被覆盖。初次使用沿用未登录 Demo 模式。完整安装和验证限制见 [本版变更记录](releases/v0.10.0/CHANGELOG.md)。
+正式 Windows x64 产物见 [CloudFlow v0.11.0](https://github.com/enpiaohj/cloudflow/releases/tag/v0.11.0)：
+`CloudFlow-v0.11.0-win-x64.exe` 或同名 ZIP。应用自包含 .NET 运行时，支持 Windows 10 19041 或更新版本；SSH 终端需要 WebView2 Runtime。
+退出旧版后运行新版，原有本地账户、任务、SSH 凭据与设置保留；已设置的审批策略不会被覆盖。初次使用沿用未登录 Demo 模式。完整安装和验证限制见 [本版变更记录](releases/v0.11.0/CHANGELOG.md)。
 
 ## 快速开始
 

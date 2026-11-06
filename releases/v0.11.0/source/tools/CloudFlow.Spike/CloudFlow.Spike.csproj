@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>CloudFlow.Spike</RootNamespace>
+    <Description>P0 技术验证：MSAL 登录 / Tenant-Subscription 发现 / Resource Graph 查询</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.84.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CloudFlow.Azure\CloudFlow.Azure.csproj" />
+    <ProjectReference Include="..\..\src\CloudFlow.Data\CloudFlow.Data.csproj" />
+    <ProjectReference Include="..\..\src\CloudFlow.Operations\CloudFlow.Operations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.example.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

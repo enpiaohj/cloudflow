@@ -7,7 +7,7 @@
 - **默认分支**：`main`
 - **可见性**：Public（2026-09-17 经 Secret/License/第三方授权/客户数据/Git 历史完整审计后由用户决定转 Public；转 Public 前置条件检查清单见全局规则 github-repository.md）
 - **License**：GPL-3.0（根目录 `LICENSE`）；随源码分发的第三方组件（xterm.js 等）见 `THIRD-PARTY-NOTICES.md`
-- **版本**：Semantic Versioning，当前 `0.10.0`（Tag `v0.10.0`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`、`v0.5.0`、`v0.5.1`、`v0.6.0`、`v0.6.1`、`v0.6.2`、`v0.7.0`、`v0.8.0`、`v0.9.0`、`v0.9.1`、`v0.10.0`——`v0.5.2`~`v0.5.9` 是同一次测试迭代过程中的本地未推送版本，合并进 `v0.6.0` 后未发布，不再单独存在）
+- **版本**：Semantic Versioning，当前 `0.11.0`（Tag `v0.11.0`；已发布 `v0.1.0`、`v0.2.0`、`v0.3.0`、`v0.4.0`、`v0.4.1`、`v0.5.0`、`v0.5.1`、`v0.6.0`、`v0.6.1`、`v0.6.2`、`v0.7.0`、`v0.8.0`、`v0.9.0`、`v0.9.1`、`v0.10.0`、`v0.11.0`——`v0.5.2`~`v0.5.9` 是同一次测试迭代过程中的本地未推送版本，合并进 `v0.6.0` 后未发布，不再单独存在）
 - **Commit**：Conventional Commits（`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `build:` / `ci:` / `chore:` / `release:`）
 - **Artifact 策略**：`releases/vX.Y.Z/` 快照中 `source/` 与 `CHANGELOG.md` 入库，二进制产物不入库（交付走 GitHub Releases）
 

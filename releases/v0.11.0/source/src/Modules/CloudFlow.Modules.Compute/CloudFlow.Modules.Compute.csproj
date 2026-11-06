@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Description>CloudFlow Compute 模块：Virtual Machines Inventory / Operations</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\CloudFlow.Core\CloudFlow.Core.csproj" />
+    <ProjectReference Include="..\..\CloudFlow.Operations\CloudFlow.Operations.csproj" />
+  </ItemGroup>
+
+</Project>

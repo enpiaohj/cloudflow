@@ -121,6 +121,12 @@ tools/CloudFlow.Spike      # 独立于主应用的技术验证控制台（不随
 - `ArmCostService` 使用 Cost Management ActualCost 自定义日期查询，固定订阅认证上下文，校验分页地址，限流时有界重试。订阅完整查询成功才合并，分页失败不计入部分结果；费用用 `decimal`，按币种隔离，保留负数、零值与未关联资源费用。资源组汇总在本地执行，按订阅 / 资源组 / 币种分组，不新增请求。
 - 性能通过 `ArmVmMetricsService` 读取 Azure Monitor；面板区分数据缺失与真实零值，展示采样范围。磁盘百分比衡量规格限额消耗，不能用作空间占用。
 
+## v0.11.0 令牌缓存与清单读取
+
+- `EmbeddedAzureCliIdentityProvider` 为个人账户（嵌入式 Azure CLI）增加**内存令牌缓存**：键为「Profile ID + 租户 + 资源」，到期前 5 分钟视为过期；读不到有效期时只缓存 10 分钟。同一键并发取令牌时只拉起一个 `az account get-access-token` 进程（单飞）。令牌不落盘；登出时清除该账户的缓存项。每个账户登录都会生成新的随机 Profile ID，所以不同账户（或重新登录的同一账户）之间不会复用令牌。企业账户（MSAL）路径不变。
+- `ResourceGraphVmInventoryService` 取得 Resource Graph 清单后，内存 / vCPU 的规格查询改为：不同「订阅 + 区域」最多 4 路并行，并最多等待 4 秒；超时则先交出清单，后台继续补齐（规格目录有 6 小时缓存）。`VmSummary.MemoryMb / VCpuCount` 通过变更通知让两列在补齐后刷新。
+- 规则行端口 ±1 快捷提交复用 `network.change_port`（Operation Engine，Validate → Impact → Permission → Execute → Verify → Audit），UI 仅增加确认框，不绕过引擎。
+
 ## 延伸阅读
 
 - [`user-guide.md`](user-guide.md) —— 面向使用者的操作手册

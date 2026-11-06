@@ -1,0 +1,34 @@
+# 默认按文本处理、由 Git 统一规范化换行（仓库内 LF，检出时按平台配置）
+* text=auto
+
+# C# / XAML / 项目文件强制 LF 入库
+*.cs text
+*.xaml text
+*.csproj text
+*.props text
+*.sln text
+*.json text
+*.md text
+
+# 脚本
+*.ps1 text
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 二进制资产——禁止任何换行处理
+*.png binary
+*.jpg binary
+*.ico binary
+*.exe binary
+*.zip binary
+*.dll binary
+*.pdb binary
+*.dat binary
+*.bin binary
+*.pdf binary
+
+# 虚拟机磁盘与转储永远不会出现在仓库里，防御性排除
+*.vhd binary
+*.vhdx binary
+*.dmp binary

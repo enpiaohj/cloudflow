@@ -1,0 +1,171 @@
+<UserControl x:Class="CloudFlow.App.Views.CostAnalysisPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    UseLayoutRounding="True" FontSize="13"
+    Background="{DynamicResource Cf.PageBackgroundBrush}" TextElement.Foreground="{DynamicResource Cf.TextPrimaryBrush}">
+    <UserControl.Resources>
+        <DataTemplate x:Key="Cost.FilterOption">
+            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tooltip}"/>
+        </DataTemplate>
+        <Style x:Key="Cost.CellText" TargetType="TextBlock">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+        </Style>
+        <Style x:Key="Cost.AmountText" TargetType="TextBlock" BasedOn="{StaticResource Cost.CellText}">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+        </Style>
+    </UserControl.Resources>
+    <ScrollViewer x:Name="CostViewport" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" SizeChanged="Viewport_SizeChanged">
+    <Grid x:Name="ContentLayout" Margin="24,20" Height="740">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="成本分析" Style="{StaticResource Cf.PageTitle}"/>
+                <TextBlock x:Name="ScopeLabel" Style="{StaticResource Cf.Subtitle}" TextTrimming="CharacterEllipsis" Margin="0,4,12,0"/>
+            </StackPanel>
+            <Border Grid.Column="1" Background="{DynamicResource Cf.Status.Neutral.Bg}" CornerRadius="6" Padding="10,5" VerticalAlignment="Top">
+                <TextBlock Text="ActualCost · UTC" Style="{StaticResource Cf.Muted}"/>
+            </Border>
+        </Grid>
+        <Border Grid.Row="1" Style="{StaticResource Cf.FilterBar}" Margin="0,16,0,12">
+            <WrapPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="日期范围" Style="{StaticResource Cf.FilterLabel}"/>
+                    <ComboBox x:Name="_preset" Width="140" Height="34" AutomationProperties.Name="成本日期范围"/>
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="开始日期（UTC）" Style="{StaticResource Cf.FilterLabel}"/>
+                    <DatePicker x:Name="_from" Width="175" Height="34" SelectedDateFormat="Short" AutomationProperties.Name="开始日期 UTC"/>
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="结束日期（UTC）" Style="{StaticResource Cf.FilterLabel}"/>
+                    <DatePicker x:Name="_to" Width="175" Height="34" SelectedDateFormat="Short" AutomationProperties.Name="结束日期 UTC"/>
+                </StackPanel>
+                <StackPanel Style="{StaticResource Cf.FilterActions}">
+                    <Button x:Name="QueryButton" Content="查询费用" Click="Query_Click" Style="{StaticResource Cf.PrimaryButton}" Margin="0,0,8,0"/>
+                    <Button x:Name="CancelButton" Content="取消查询" Click="Cancel_Click" Style="{StaticResource Cf.SecondaryButton}" IsEnabled="False"/>
+                </StackPanel>
+            </WrapPanel>
+        </Border>
+        <Border Grid.Row="2" Style="{StaticResource Cf.Card}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="当前 Scope 合计 · 按币种" Style="{StaticResource Cf.Muted}"/>
+                    <TextBlock x:Name="_total" Text="—" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="PeriodLabel" Style="{StaticResource Cf.Muted}"/>
+                    <TextBlock x:Name="QueryState" Text="准备查询" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                    <TextBlock x:Name="ReadTime" Style="{StaticResource Cf.Muted}" FontSize="11.5" Margin="0,5,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        <Border Grid.Row="3" Style="{StaticResource Cf.Card}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid Margin="16,12,16,8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="BreakdownTitle" Text="资源费用明细" Style="{StaticResource Cf.SectionTitle}"/>
+                    <TextBlock x:Name="ResultCount" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource Cf.Muted}" Text="0 条记录"/>
+                </Grid>
+                <Border Grid.Row="1" Style="{StaticResource Cf.FilterBar}" Margin="12,0,12,10" Padding="10,8">
+                    <WrapPanel>
+                        <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="汇总方式" Style="{StaticResource Cf.FilterLabel}"/>
+                            <ComboBox x:Name="_breakdown" Width="125" Height="34" SelectedIndex="0" AutomationProperties.Name="成本汇总方式"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="资源组" Style="{StaticResource Cf.FilterLabel}"/>
+                            <ComboBox x:Name="_groups" Width="160" Height="34" ItemTemplate="{StaticResource Cost.FilterOption}" SelectedValuePath="Value" ToolTip="{Binding SelectedItem.Tooltip, RelativeSource={RelativeSource Self}}" AutomationProperties.Name="按资源组筛选费用"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="资源" Style="{StaticResource Cf.FilterLabel}"/>
+                            <ComboBox x:Name="_resources" Width="200" Height="34" ItemTemplate="{StaticResource Cost.FilterOption}" SelectedValuePath="Value" ToolTip="{Binding SelectedItem.Tooltip, RelativeSource={RelativeSource Self}}" AutomationProperties.Name="按资源筛选费用"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="订阅" Style="{StaticResource Cf.FilterLabel}"/>
+                            <ComboBox x:Name="_subscriptions" Width="170" Height="34" ItemTemplate="{StaticResource Cost.FilterOption}" SelectedValuePath="Value" ToolTip="{Binding SelectedItem.Tooltip, RelativeSource={RelativeSource Self}}" AutomationProperties.Name="按订阅筛选费用"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Cf.FilterField}"><TextBlock Text="关键词" Style="{StaticResource Cf.FilterLabel}"/>
+                            <Border Style="{StaticResource Cf.SearchField}" Width="190">
+                                <ui:TextBox x:Name="_search" PlaceholderText="名称或资源 ID…" Icon="{ui:SymbolIcon Search24}" BorderThickness="0" Background="Transparent" AutomationProperties.Name="搜索费用明细"/>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Cf.FilterActions}">
+                            <Button Content="重置" Click="Reset_Click" Style="{StaticResource Cf.SecondaryButton}"/>
+                        </StackPanel>
+                    </WrapPanel>
+                </Border>
+                <Grid Grid.Row="2">
+                    <DataGrid x:Name="_table" Style="{StaticResource Cf.DataGrid}" CanUserSortColumns="True" SelectionMode="Single"
+                        HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" EnableRowVirtualization="True"
+                        LoadingRow="Table_LoadingRow" SelectionChanged="Table_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Width="50" MinWidth="50" IsReadOnly="True" CanUserSort="False" CanUserResize="False"
+                                Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=Header}" CellStyle="{StaticResource Cf.GridCellCompact}"/>
+                            <DataGridTemplateColumn Header="资源" Width="2*" MinWidth="240" SortMemberPath="ResourceName">
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                    <StackPanel ToolTip="{Binding ResourceId}" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ResourceName}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding ResourceType}" TextTrimming="CharacterEllipsis" FontSize="11" FontWeight="Normal" Foreground="{DynamicResource Cf.TextMutedBrush}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="资源组" Width="1.2*" MinWidth="140" Binding="{Binding ResourceGroup}" ElementStyle="{StaticResource Cost.CellText}"/>
+                            <DataGridTextColumn Header="费用" Width="140" MinWidth="120" Binding="{Binding Amount, StringFormat={}{0:N2}}" SortMemberPath="Amount" ElementStyle="{StaticResource Cost.AmountText}"/>
+                            <DataGridTextColumn Header="币种" Width="85" MinWidth="75" Binding="{Binding Currency}" ElementStyle="{StaticResource Cost.CellText}"/>
+                            <DataGridTextColumn Header="订阅" Width="1.3*" MinWidth="170" Binding="{Binding SubscriptionId}" ElementStyle="{StaticResource Cost.CellText}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" IsHitTestVisible="False" Margin="20">
+                        <ui:SymbolIcon Symbol="Search24" FontSize="28" Foreground="{DynamicResource Cf.TextMutedBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="EmptyTitle" Text="暂无费用记录" FontSize="15" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                        <TextBlock x:Name="EmptyHint" Text="调整日期范围后重新查询。" Style="{StaticResource Cf.Muted}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="3" Background="{DynamicResource Cf.TableHeaderBrush}" Padding="16,8" BorderBrush="{DynamicResource Cf.BorderBrush}" BorderThickness="0,1,0,1">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="筛选合计" Style="{StaticResource Cf.Muted}" Margin="0,0,12,0"/>
+                        <TextBlock x:Name="FilteredTotal" Grid.Column="1" Text="—" TextWrapping="Wrap" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+                <Expander x:Name="LogExpander" Grid.Row="4" Margin="12,8" HorizontalContentAlignment="Stretch" Header="查询日志与状态 · 可展开查看完整内容" Expanded="Log_SizeChanged" Collapsed="Log_SizeChanged">
+                    <Expander.Template>
+                        <ControlTemplate TargetType="Expander">
+                            <StackPanel>
+                                <ToggleButton Content="{TemplateBinding Header}" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                    HorizontalContentAlignment="Left" HorizontalAlignment="Stretch" FocusVisualStyle="{StaticResource Cf.FocusVisual}">
+                                    <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{DynamicResource Cf.TableHeaderBrush}" CornerRadius="6" Padding="10,8">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="Chevron" Grid.Column="1" Text="＋" Margin="12,0,0,0" Foreground="{DynamicResource Cf.TextMutedBrush}"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="Text" Value="−"/></Trigger></ControlTemplate.Triggers>
+                                    </ControlTemplate></ToggleButton.Template>
+                                </ToggleButton>
+                                <ContentPresenter x:Name="LogContent" ContentSource="Content" Visibility="Collapsed"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="LogContent" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Expander.Template>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <TextBox x:Name="_status" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled" MaxHeight="125" MinHeight="60" Padding="10" FontSize="12" AutomationProperties.Name="完整成本查询日志"/>
+                        <Button Grid.Row="1" Content="复制完整日志" Click="CopyLog_Click" HorizontalAlignment="Right" Margin="0,6,0,0" Style="{StaticResource Cf.SecondaryButton}"/>
+                    </Grid>
+                </Expander>
+            </Grid>
+        </Border>
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="SelectedResource" Text="选择一行，可复制完整资源 ID" Style="{StaticResource Cf.Muted}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <Button x:Name="CopyResourceButton" Grid.Column="1" Content="复制资源 ID" Click="CopyResource_Click" IsEnabled="False" Style="{StaticResource Cf.SecondaryButton}" Margin="0,0,8,0"/>
+            <Button Grid.Column="2" Content="返回首页" Click="Home_Click" Style="{StaticResource Cf.SecondaryButton}"/>
+        </Grid>
+    </Grid>
+    </ScrollViewer>
+</UserControl>
